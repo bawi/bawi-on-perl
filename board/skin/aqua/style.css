@@ -1,0 +1,75 @@
+/* $Id$ */
+
+@import url("/main/skin/default/style.css");
+
+/* Aqua Theme Colors */
+/* color: #5A9295;
+ * background: #8FB9BB;
+ * border: #C6DBDC;
+ * search: #FFF6C3;
+ * article-list head #DEEAEB;
+ * form background: #C6DBDC;
+ */
+
+/* Default Theme Colors */
+/* color: #5A6880;
+ * background: #8B98B1;
+ * border: #C5CDD8;
+ */
+
+a, a:link, a:visited, a:hover, a:active { color: #5A9295; }
+input, textarea { border: 1px solid #8FB9BB; background: #DEEAEB; }
+.body.text a    { color: #366; background: #eee; }
+
+ul.bookmark  li.item      ul      { border-bottom: 1px solid #C6DBDC; }
+ul.bookmark  li.item.head ul li   { background: #8FB9BB; }
+ul.bookmark  li.item.head ul li a { color: white; }
+
+div.article.head                  { border-bottom: 1px solid #C6DBDC; }
+ul.article > li.button            { color: white; background: #8FB9BB; }
+ul.article > li.button a          { color: white; background: #8FB9BB; }
+ul.article > li.visualClear       { border-bottom: 1px solid #C6DBDC; }
+ul.article > li.body              { border-bottom: 1px solid #C6DBDC; }
+
+ul.comment li           { border-bottom: 1px solid #C6DBDC;}
+@media screen and (max-width: 480px) {
+  ul.comment            { border-bottom: 1px solid #C6DBDC; }
+  ul.comment li         { border-bottom: 0; }
+}
+
+ul.article img:hover { outline: 3px solid #C6DBDC; }
+ul.comment img:hover { outline: 3px solid #C6DBDC; }
+
+table.poll tr.option td { border-bottom: 1px solid #C6DBDC; }
+table.poll tr.head   td { color: white; background: #8FB9BB; }
+
+ul.article-list      li { border-top: 1px solid #C6DBDC; }
+ul.article-list.head { background: #DEEAEB; }
+@media screen and (max-width: 480px) {
+  ul.article-list       { border-top: 1px solid #C6DBDC;  }
+  ul.article-list li    { border-top: 0; }
+}
+
+ul.image-list li    { background: #C6DBDC; border: 1px solid #333; }
+
+/* background - 143,185,187 */
+/* border - 198,219,220 197,205,216  */
+
+form.article-write legend   {
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 90%, from(rgba(255,255,255,0.9)), to(rgba(198,219,220,0.9)));
+  background-image: -moz-linear-gradient(rgba(255,255,2555,0.9) 0%, rgba(198,219,220,0.9) 90%);
+  border: 1px solid #ddd;
+  -webkit-box-shadow: rgba(96, 200, 200, 0.5) 1px 1px 2px;
+  -moz-box-shadow:    rgba(96, 200, 200, 0.5) 1px 1px 2px; /* FF 3.5+ */
+}
+
+form.article-write fieldset.gray-round {
+  background-image: -webkit-gradient(linear, 0% 0%, 0% 90%, from(rgba(255,255,255,0.5)), to(rgba(198,219,220,0.2)));
+  background-image: -moz-linear-gradient(rgba(255,255,2555,0.5) 0%, rgba(198,219,220,0.2) 90%);
+  -webkit-box-shadow: rgba(96, 200, 200, 0.5) 1px 1px 4px;
+  -moz-box-shadow:    rgba(96, 200, 200, 0.5) 1px 1px 4px; /* FF 3.5+ */
+}
+
+ul.bottom-menu li   { border-right: 1px solid #C6DBDC; }
+
+

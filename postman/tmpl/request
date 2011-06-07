@@ -1,0 +1,72 @@
+<FORM NAME="request" ACTION="<TMPL_VAR NAME=form_action>" METHOD="post" onsubmit="return check_requestform(this);">
+<INPUT TYPE="hidden" NAME="action" VALUE="request">
+<!-- REQUEST LIST -->
+<TMPL_IF NO_MATCH>
+<div class="msg">
+<div>Message</div>
+정보가 없습니다.
+</div>
+<TMPL_ELSE>
+<INPUT TYPE="hidden" NAME="bawier_name" VALUE="<TMPL_VAR NAME=bawier_name>">
+<div class="form">
+
+<table cellpadding="0" cellspacing="1" border="0" align="center" width="100%">
+<tr>
+    <td class="thead">이름</td>
+    <td class="thead">소속</td>
+    <td class="thead">비고</td>
+    <TMPL_LOOP NAME="RECIPIENT_LOOP">
+<tr>
+    <!--<tmpl_var bawier_uid>-->
+    <td class="itemc"><tmpl_if bawier_ki><tmpl_var bawier_ki>기 </tmpl_if><TMPL_VAR NAME="bawier_name"></td>
+    <td class="iteml"><TMPL_VAR NAME="bawier_org"></td>
+    <td class="itemc">연락<tmpl_if bawier_notes>가능<tmpl_else>불가</tmpl_if></td>
+</tr>
+    </TMPL_LOOP>
+</table>
+</div>
+</TMPL_IF>
+
+<TMPL_IF NO_MATCH>
+<TMPL_ELSE>
+<!-- REQUEST PAGE -->
+<div class="form">
+<div>이메일 보내기</div>
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">받는 사람</td>
+    <td class="itemf">
+        <select name="uid_select" class="text" style="width:400px;height:20px">
+            <tmpl_loop recipient_loop>
+                <tmpl_if bawier_notes><option value="<tmpl_var bawier_uid>"><tmpl_var bawier_ki>기 <tmpl_var bawier_name> (<tmpl_var bawier_org>)</option></tmpl_if>
+            </tmpl_loop>
+        </select>
+    </td>
+</tr>
+<tr>
+    <td class="fhead">보내는 사람</td>
+    <td class="itemf"><input type="text" class="text" name="sender_name" value="" size="12" onFocus="select()" style="width:400px"></td>
+</tr>
+<tr>
+    <td class="fhead">소속</td>
+    <td class="itemf"><input type="text" class="text" name="sender_org" value="" size="12" onFocus="select()" style="width:400px"></td>
+</tr>
+<tr>
+    <td class="fhead">이메일</td>
+    <td class="itemf"><input type="text" class="text" name="sender_email" value="" size="12" onFocus="select()" style="width:400px"></td>
+</tr>
+<tr>
+    <td class="fhead">내용</td>
+    <td class="itemf"><textarea name="sender_message" cols="40" rows="12" style="width:402px" class="body"></textarea></td>
+</tr>
+
+<tr>
+    <td></td>
+    <td class="itemf"><input type="submit" name="send" value="보내기" class="button" style="width:404px"></td>
+</tr>
+
+</table>
+</div>
+
+</TMPL_IF>
+</FORM>

@@ -1,0 +1,16 @@
+<div class="form">
+<div>동창 찾기</div>
+<FORM NAME="namesearch" ACTION="<TMPL_VAR NAME=form_action>" METHOD="get">
+<INPUT TYPE="hidden" NAME="action" VALUE="search">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">찾는 사람</td>
+    <td class="itemf"><input type="text" NAME="bawier_name" class="text" value="<TMPL_VAR bawier_name>" onFocus="select()"></td>
+</tr>
+<tr>
+    <td></td>
+    <td class="itemf"><input type="submit" name="search" value="찾기" class="button"></td>
+</tr>
+</TABLE>
+</FORM>
+</div>

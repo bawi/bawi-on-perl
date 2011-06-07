@@ -1,0 +1,136 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl>
+<script src="http://maps.google.com/maps?file=api&v=1&key=ABQIAAAAMGb8qGsaFYGUhwT3Gn9NqBSdKevvEh2K-BleAD2sjWuNWhTnwxS889qJQX7GtAH6sjtYPAuND8m1KQ" type="text/javascript"></script>
+    
+<a href="javascript:city(20.632784250388028, -51.328125, 15)">전체</a> ||
+<a href="javascript:city(42.261049162113856, -118.30078125, 12)">서부</a> |
+<a href="javascript:city(37.85750715625203, -90.3076171875, 12)">중부</a> |
+<a href="javascript:city(39.095962936305476, -76.376953125, 11)">동부</a> ||
+<a href="javascript:city(48.07807894349862, -121.761474609375, 10)">서북부</a> |
+<a href="javascript:city(35.68407153314097, -119.4873046875, 10)">서남부</a> |
+<a href="javascript:city(41.902277040963696, -88.626708984375, 10)">중북부</a> |
+<a href="javascript:city(31.13760327002129, -96.558837890625, 10)">중남부</a> |
+<a href="javascript:city(40.9218144123785, -73.992919921875, 10)">동북부</a> |
+<a href="javascript:city(34.75966612466248, -81.5185546875, 10)">동남부</a> 
+<br>
+<small>
+도시:
+<a href="javascript:city(42.282389042899574, -83.73504638671875, 5)">Ann Arbor, MI</a> |
+<a href="javascript:city(33.773439833797745, -84.364013671875, 7)">Atlanta, GA</a> |
+<a href="javascript:city(30.318358689813856, -97.71068572998047, 5)">Austin, TX</a> |
+<a href="javascript:city(39.35978526869001, -76.56234741210938, 6)">Baltimore, MD</a> |
+<a href="javascript:city(37.88474434096118, -122.27989196777344, 4)">Berkeley, CA</a> |
+<a href="javascript:city(42.36602750257774, -71.10282897949219, 4)">Boston, MA</a> |
+<a href="javascript:city(40.09895283801339, -88.23995590209961, 4)">Champaign, IL</a> |
+<a href="javascript:city(34.00855807019865, -81.02760314941406, 6)">Columbia, SC</a> |
+<a href="javascript:city(32.78987213149016, -96.80671691894531, 5)">Dallas, TX</a> |
+<a href="javascript:city(35.98800747696276, -78.94500732421875, 5)">Durham, NC</a> |
+<a href="javascript:city(42.45601429313701, -76.47480010986328, 4)">Ithaca, NY</a> |
+<a href="javascript:city(34.09076727084255, -118.29597473144531, 6)">Los Angeles, CA</a> |
+<a href="javascript:city(43.0577257723099, -89.42647933959961, 4)">Madison, WI</a> |
+<a href="javascript:city(41.31237116211815, -72.92346954345703, 4)">New Haven, CT</a> |
+<a href="javascript:city(40.82472159414295, -73.97300720214844, 6)">New York, NY</a> |
+<a href="javascript:city(37.433158865344126, -122.1566390991211, 4)">Palo Alto, CA</a> |
+<a href="javascript:city(39.94975340768179, -75.146484375, 5)">Philadelphia, PA</a> |
+<a href="javascript:city(40.44694705960048, -79.95746612548828, 4)">Pittsburgh, PA</a> |
+<a href="javascript:city(32.84555805552005, -117.03872680664062, 7)">San Diego, CA</a> |
+<a href="javascript:city(37.658819317731265, -122.16384887695312, 7)">San Francisco, CA</a> |
+<a href="javascript:city(47.68249437851819, -122.2943115234375, 5)">Seattle, WA</a> |
+<a href="javascript:city(37.359788198380755, -122.05398559570312, 5)">Sunnyvale, CA</a> |
+<a href="javascript:city(38.95673909323826, -77.04849243164062, 6)">Washington, DC</a> |
+<a href="javascript:city()"></a> |
+</small>
+<br>
+<div id="map" style="width: 100%; height: 600px"></div>
+<img src="skin/default/img/home.png">:home, 
+<img src="skin/default/img/office.png">:office, 
+<img src="skin/default/img/temp.png">:temp
+<div id="latlng" style="font-size: 8pt"></div>
+<script type="text/javascript">
+//<![CDATA[
+
+    var home = "http://labs.google.com/ridefinder/images/mm_20_green.png";
+    var office = "http://labs.google.com/ridefinder/images/mm_20_red.png";
+    var temp = "http://labs.google.com/ridefinder/images/mm_20_yellow.png";
+    var baseIcon = new GIcon();
+    baseIcon.image = "http://labs.google.com/ridefinder/images/mm_20_red.png";
+    baseIcon.shadow = "http://labs.google.com/ridefinder/images/mm_20_shadow.png";
+    baseIcon.iconSize = new GSize(12, 20);
+    baseIcon.shadowSize = new GSize(22, 20);
+    baseIcon.iconAnchor = new GPoint(6, 20);
+    baseIcon.infoWindowAnchor = new GPoint(5, 1);
+
+    var map = new GMap(document.getElementById("map"));
+    map.addControl(new GLargeMapControl());
+    map.addControl(new GMapTypeControl());
+    map.addControl(new GScaleControl());
+    
+    GEvent.addListener(map, "moveend", function() {
+        var center = map.getCenterLatLng();
+        var latLngStr = 'Center = (' + center.y + ', ' + center.x + ')';
+        var bound = map.getBoundsLatLng();
+        var boundStr = 'TopLeft = (' + bound.minY + ', ' + bound.minX + '), BottomRight = (' + bound.maxY + ', ' + bound.maxX + ')';
+        var zoom = map.getZoomLevel();
+        document.getElementById("latlng").innerHTML = latLngStr + '<br>' + boundStr + '<br>' + 'zoom level: ' + zoom;
+        });
+
+    map.centerAndZoom(new GPoint(-51.328125, 20.632784250388028), 15);
+
+    function createMarker(point, html, type) {
+        var icon = new GIcon(baseIcon);
+        icon.image = "skin/default/img/" + type + ".png"; 
+        var marker = new GMarker(point, icon);
+
+        GEvent.addListener(marker, "click", function() {
+            marker.openInfoWindowHtml(html);
+        });
+
+        return marker;
+    }
+    var request = GXmlHttp.create();
+    request.open("GET", "mapxml.cgi", true);
+    request.onreadystatechange = function() {
+        if (request.readyState == 4) {
+            var xmlDoc = request.responseXML;
+            var m = xmlDoc.documentElement.getElementsByTagName("m");
+            for (var i = 0; i < m.length; i++) {
+                var type = m[i].getElementsByTagName("type")[0].firstChild.nodeValue;
+                var ki = m[i].getElementsByTagName("ki")[0].firstChild.nodeValue;
+                var name = m[i].getElementsByTagName("name")[0].firstChild.nodeValue;
+                var id = m[i].getElementsByTagName("id")[0].firstChild.nodeValue;
+                //var type = m[i].getElementsByTagName("type").item(0).firstChild.data;
+                //var ki = m[i].getElementsByTagName("ki").item(0).firstChild.data;
+                //var name = m[i].getElementsByTagName("name").item(0).firstChild.data;
+                //var id = m[i].getElementsByTagName("id").item(0).firstChild.data;
+                var p = m[i].getElementsByTagName("p");
+                var html = "<img src=\"thumb.cgi?id="+id+"\" align=\"left\">" + ki +
+                           "기 <a href=\"profile.cgi?id=" + id + "\">" + 
+                           name + "</a> (<a href=\"javascript:note('" + id + 
+                           "')\">" + id + "</a>)";
+                var point = new GPoint(parseFloat(p[0].getAttribute("lng")),
+                                       parseFloat(p[0].getAttribute("lat")));
+                var marker = new createMarker(point, html, type);
+                //var marker = new createMarker(point, html, type[0].firstChild.nodeValue);
+                map.addOverlay(marker);
+            }
+        }
+    }
+    request.send(null);
+    
+function city(lat, lng, zoom) {
+    map.centerAndZoom(new GPoint(lng, lat), zoom);
+}
+//]]>
+</script>
+
+<h4>이 지도에 나오는 방법</h4>
+
+<ol>
+    <li><a href="http://maps.google.com/" target="_blank">http://maps.google.com/</a>에서 주소를 찾는다. (ex. 15 N Beacon St, Allston, MA 02134)</li>
+    <li><img src="http://maps.google.com/mapfiles/icon.png">의 아랫쪽 뾰족한 부분 바로 아래의 빈 공간을 더블클릭한다. 이 아이콘 자체를 클릭해서는 안되고, 클릭했을 때 지도가 약간 움직여야 한다.</li>
+    <li>[<img src="http://maps.google.com/mapfiles/link_icon.gif"><span style="text-decoration:underline;color:#0000cc;">Link to this page</span>]를 클릭한다.</li>
+    <li>주소 입력창의 주소에 <strong>ll=42.353779,-71.138138</strong>과 같은 부분이 보이면 전체 주소를 복사한다. ll= 부분만 복사하면 안된다. (ex. http://maps.google.com/maps?q=15+N+Beacon+St,+Allston,+MA+02134&amp;<strong>ll=42.353779,-71.138138</strong>&amp;spn=0.005732,0.005820&amp;hl=en)</li>
+    <li>개인정보 수정 화면에서 [집지도], [직장지도]에 4에서 구한 전체 주소를 각각 구해서 입력하고 저장한다.</li>
+</ol>
+
+<tmpl_include _html_footer.tmpl>

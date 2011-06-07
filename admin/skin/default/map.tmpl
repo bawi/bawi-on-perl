@@ -1,0 +1,46 @@
+<tmpl_include _header.tmpl>
+
+<div class="form">
+    <div class="title"><a href="map.cgi" style="color:#fff">지도 추가</a></div>
+<form action="map.cgi" method="post">
+<input type="hidden" name="uid" value="<tmpl_var uid>">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">아이디</td>
+    <td class="itemf"><input type="text" name="id" value="<tmpl_var id>" size="8" maxlength="8" class="text" onClick="select()"> <a href="javascript:view_id('<tmpl_var id>')">[개인정보]</a></td>
+</tr>
+<tmpl_if uid>
+<tr>
+    <td class="fhead">집주소</td>
+    <td class="itemf"><tmpl_var home_address></td>
+</tr>
+<tr>
+    <td class="fhead">집지도</td>
+    <td class="itemf"><input type="text" name="home_map" value="<tmpl_var home_map>" class="text" onClick="select()" style="width:500px"> <a href="<tmpl_if home_map><tmpl_var home_map><tmpl_else>http://maps.google.com/maps?q=<tmpl_var home_address_q></tmpl_if>" target="_blank">[지도]</a></td>
+</tr>
+<tr>
+    <td class="fhead">직장주소</td>
+    <td class="itemf"><tmpl_var office_address></td>
+</tr>
+<tr>
+    <td class="fhead" nowrap>직장지도</td>
+    <td class="itemf"><input type="text" name="office_map" value="<tmpl_var office_map>" class="text" onClick="select()" style="width:500px"> <a href="<tmpl_if office_map><tmpl_var office_map><tmpl_else>http://maps.google.com/maps?q=<tmpl_var office_address_q></tmpl_if>" target="_blank">[지도]</a></td>
+</tr>
+<tr>
+    <td class="fhead">임시주소</td>
+    <td class="itemf"><tmpl_var temp_address></td>
+</tr>
+<tr>
+    <td class="fhead" nowrap>임시지도</td>
+    <td class="itemf"><input type="text" name="temp_map" value="<tmpl_var temp_map>" class="text" onClick="select()" style="width:500px"> <a href="<tmpl_if temp_map><tmpl_var temp_map><tmpl_else>http://maps.google.com/maps?q=<tmpl_var temp_address_q></tmpl_if>" target="_blank">[지도]</a></td>
+</tr>
+</tmpl_if>
+<tr>
+    <td></td>
+    <td><input type="reset" class="button"> <input type="submit" value="submit" class="button"></td>
+</tr>
+</table>
+</form>
+</div>
+
+<tmpl_include _footer.tmpl>

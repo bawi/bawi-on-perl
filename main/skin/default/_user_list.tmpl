@@ -1,0 +1,13 @@
+<tmpl_if user>
+<tmpl_if total><h4>총 <tmpl_var total>명</h4></tmpl_if>
+<div id="ulist">
+    <ul>
+    <tmpl_loop user><li><tmpl_include _user.tmpl></li></tmpl_loop>
+    </ul>
+</div>
+<div style="clear:both"></div>
+</tmpl_if>
+<tmpl_if total>
+<tmpl_include _note.tmpl>
+</tmpl_if>
+<tmpl_include _user_search.tmpl>

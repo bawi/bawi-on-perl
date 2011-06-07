@@ -1,0 +1,159 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h1><a href="read_scrap.cgi"><tmpl_var board_title></a></h1>
+
+<!--ARTICLE SET-->
+<tmpl_if total_thread>
+<h2>관련글 <strong><tmpl_var total_thread></strong>개 ...</h2>
+</tmpl_if>
+<tmpl_loop article_set>
+  <tmpl_loop article>
+<div id="unscrap<tmpl_var article_id>">
+<table id="t0_<tmpl_var article_id>">
+<tr>
+<td>
+<a href="read.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>" target="_blank" title="새 창에 열기"><big><b><tmpl_var article_no>: <tmpl_var title></b></big></a>
+</td><br />
+<table border="0" cellpadding="0" cellspacing="0" width="100%" id="t1_<tmpl_var article_id>">
+<tr>
+  <td><tmpl_include _name_id.tmpl> @ <tmpl_var created></td>
+  <td nowrap>읽음: <tmpl_var count></td>
+  <td nowrap>추천: <tmpl_var recom></td>
+  <td nowrap>스크랩: <tmpl_var scrap></td>
+</tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%" id="t2_<tmpl_var article_id>">
+<tr>
+  <td>
+    <div class="article">
+    <tmpl_if attach><small><tmpl_include _attach.tmpl></small></tmpl_if>
+    <hr size="1" />
+    <tmpl_var body>
+    </div>
+  </td>
+</tr>
+</table>
+<br />
+<table border="0" cellpadding="0" cellspacing="0" width="100%" id="t3_<tmpl_var article_id>">
+<tr>
+  <td class="thead" nowrap><a href="write.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>">답장쓰기</a></td>
+  <td class="thead" nowrap><a href="read.cgi?bid=<tmpl_var board_id>&tno=<tmpl_var thread_no>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>">답장읽기</a></td>
+  <td class="thead" nowrap><a href="#" onClick="if (window.confirm('Unscrap this article?')) { tag_article('unscrap','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;">스크랩취소</a></td>
+  <td class="thead" width="99%">&nbsp;</td>
+  <td class="thead" nowrap><a href="read.cgi?bid=<tmpl_var board_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>">목록보기</a></td>
+</tr>
+</table>
+<!-- COMMENT -->
+<form id="f0_<tmpl_var article_id>" method="post" action="comment.cgi" enctype="application/x-www-form-urlencoded" name="addcomment">
+<input type="hidden" name="action" value="add">
+<input type="hidden" name="aid" value="<tmpl_var article_id>">
+<input type="hidden" name="bid" value="<tmpl_var board_id>">
+<input type="hidden" name="p" value="<tmpl_var page>">
+<input type="hidden" name="img" value="<tmpl_if img>1<tmpl_else>0</tmpl_if>">
+<table border="0" cellpadding="0" cellspacing="0" width="100%" id="t4_<tmpl_var article_id>">
+<tmpl_loop comment>
+<!--<tmpl_var comment_no>-->
+<tr>
+  <td class="iteml" nowrap><tmpl_include _name_id.tmpl></td>
+  <td class="iteml"><div class="comment"><tmpl_var body></div></td>
+  <td class="itemr" nowrap valign="top"><tmpl_var created> <a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>">x</a></td>
+</tr>
+</tmpl_loop>
+<tr><td height="10"></td><td></td></tr>
+<tr>
+  <td class="itemr" nowrap width="120" height="40">답글</td>
+  <td class="iteml" width="390"><input type="text" class="text" name="body" value="" style="width: 420px"></td>
+  <td class="iteml"><input type="submit" class="button" name="submit" value="Save" style="width:50px"></td>
+</tr>
+</table>
+</form>
+</div>
+  </tmpl_loop>
+</tmpl_loop>
+
+<!-- LIST -->
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+  <td class="thead" nowrap><a href="bookmark.cgi">즐겨찾기</a></td> 
+  <tmpl_loop prev_board>
+  <td class="thead" nowrap>
+    <a href="read.cgi?bid=<tmpl_var board_id>" title="<tmpl_var name> (<tmpl_var id>)">이전:<tmpl_var title></a>
+  </td>
+  </tmpl_loop>
+  <tmpl_loop next_board>
+  <td class="thead" nowrap>
+    <a href="read.cgi?bid=<tmpl_var board_id>" title="<tmpl_var name> (<tmpl_var id>)">다음:<tmpl_var title></a>
+  </td>
+  </tmpl_loop>
+  <td class="thead" width="99%">&nbsp;</td>
+<tmpl_loop next_new_board>
+  <td class="thead" nowrap>
+<a href="read.cgi?bid=<tmpl_var board_id>" title="<tmpl_var name> (<tmpl_var id>)"><tmpl_var title></a>:
+<a href="read.cgi?bid=<tmpl_var board_id>&la=<tmpl_var article_no>&lc=<tmpl_var comment_no>" title="<tmpl_var name> (<tmpl_var id>)">새글: <tmpl_if new_articles> <tmpl_var new_articles> </tmpl_if><tmpl_if new_comments> [<tmpl_var new_comments>]</a></tmpl_if>
+  </td>
+</tmpl_loop>
+</tr>
+</table>
+<tmpl_if img>
+</tmpl_if>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr valign="bottom">
+  <td class="tshead">board</td>
+  <td class="tshead">title</td>
+  <td class="tshead" width="125">name</td>
+  <td class="tshead" width="40">date</td>
+  <td class="tshead" width="30">read</td>
+  <td class="tshead">rec</td>
+</tr>
+<tmpl_loop list>
+<tr id="tunscrap<tmpl_var article_id>" vlign="top"> 
+  <td class="iteml" width="1%" nowrap><a href="read.cgi?bid=<tmpl_var board_id>"><tmpl_var board_title></a></td>
+  <td class="iteml" width="99%"><tmpl_if depth><tmpl_var depth><img src="skin/default/images/reply.gif" alt="`->" /></tmpl_if><a href="read_scrap.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>"><tmpl_var title><tmpl_if comments> [<tmpl_var comments>]</tmpl_if></a></td>
+  <td class="iteml" nowrap><tmpl_include _name_id.tmpl></td>
+  <td class="iteml" nowrap><tmpl_var created></td>
+  <td class="itemr" nowrap><tmpl_var count></td>
+  <td class="itemr" nowrap><tmpl_var recom></td>
+  <tmpl_if keyword></tmpl_if><tmpl_if field></tmpl_if>
+</tr>
+</tmpl_loop>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+  <td class="thead" nowrap><a href="bookmark.cgi">즐겨찾기</a></td> 
+  <td class="thead" width="99%">&nbsp;</td>
+</tr>
+</table>
+<p />
+<tmpl_if page></tmpl_if>
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+    <td align="center">
+<tmpl_if last_page>
+<a href="read_scrap.cgi?bid=<tmpl_var board_id>&p=<tmpl_var last_page><tmpl_if img>&img=<tmpl_var img></tmpl_if>">[<tmpl_var last_page>]</a>...
+</tmpl_if>
+<tmpl_if prev_page>
+<a href="read_scrap.cgi?bid=<tmpl_var board_id>&p=<tmpl_var prev_page><tmpl_if img>&img=<tmpl_var img></tmpl_if>">[PREV 10]</a>
+</tmpl_if>
+<tmpl_loop pages>
+  <tmpl_if current>
+<strong><tmpl_var page></strong>
+  <tmpl_else>
+<a href="read_scrap.cgi?bid=<tmpl_var board_id>&p=<tmpl_var page><tmpl_if img>&img=<tmpl_var img></tmpl_if>"><tmpl_var page></a>
+  </tmpl_if>
+  <tmpl_if keyword></tmpl_if><tmpl_if field></tmpl_if>
+</tmpl_loop>
+<tmpl_if next_page>
+<a href="read_scrap.cgi?bid=<tmpl_var board_id>&p=<tmpl_var next_page><tmpl_if img>&img=<tmpl_var img></tmpl_if>">[NEXT 10]</a>
+</tmpl_if>
+<tmpl_if first_page>
+...<a href="read_scrap.cgi?bid=<tmpl_var board_id>&p=<tmpl_var first_page><tmpl_if img>&img=<tmpl_var img></tmpl_if>">[1]</a>
+</tmpl_if>
+    </td>
+</tr>
+</table>
+
+<tmpl_include _footer.tmpl>

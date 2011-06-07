@@ -1,0 +1,42 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+<br/>
+<tmpl_if msg>
+<div style="background:#FFC129; padding: 0px; text-align: center; -webkit-border-radius: 6px; -moz-border-radius: 6px"><tmpl_var msg></div>
+</tmpl_if>
+
+<form name="edsig" method="post" enctype="application/x-www-form-urlencoded">
+<fieldset>
+<legend>Edit Signature</legend>
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+  <td class="fhead"></td>
+  <td class="itemf">
+  <strong>주의</strong>
+  <li>HTML tag를 쓰시는 경우 반드시 tag을 닫아주세요. 예) font, pre, table...
+  <li>Smartphone 이용자를 고려해 대용량의 이미지 링크는 삼가해주시기 바랍니다.
+  </td>
+<tr/>
+
+<tr>
+  <td class="fhead">Signature</td>
+  <td class="itemf" valign="top"><textarea name="sig" cols="80" rows="5" style="width:100%;" class="body"><tmpl_var sig></textarea></td>
+</tr>
+<tr>
+  <td>&nbsp;</td>
+  <td align="left"><input type="submit" class="button" value="Save Signature" style="width:524px"></td>
+</tr>
+<tr>
+  <td class="fhead">Preview</td>
+  <td class="article" style="white-space: pre-wrap; text-align: justify;"><tmpl_var preview></td>
+</tr>
+<tr>
+  <td>&nbsp;</td>
+  <td align="left"><input type="submit" class="button" value="Save Signature" style="width:524px"></td>
+</tr>
+</table>
+</fieldset>
+</form>
+
+</div>
+<tmpl_include _html_footer.tmpl>

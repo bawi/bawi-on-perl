@@ -1,0 +1,15 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<div class="top-head">
+<h1><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if img>;img=1</tmpl_if>"><tmpl_var board_title></a></h1>
+  <tmpl_if a_read><span class="access-type">(손님읽기)</span></tmpl_if>
+  <tmpl_if owner><span class="owner">: <tmpl_loop owner><tmpl_include _name_id.tmpl></tmpl_loop></span></tmpl_if>
+<span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
+</div>
+
+<h2><tmpl_var T_WRITE></h2>
+<tmpl_include _write_form.tmpl>
+
+<tmpl_include _footer.tmpl>

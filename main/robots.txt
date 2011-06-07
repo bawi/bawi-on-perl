@@ -1,0 +1,6 @@
+# /robots.txt file for http://www.bawi.org/
+# contact: webmaster@bawi.org
+
+User-agent: *
+Disallow: /boards/
+

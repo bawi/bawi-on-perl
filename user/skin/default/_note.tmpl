@@ -1,0 +1,32 @@
+<tmpl_if is_member>
+<br>
+<form method="post" enctype="application/x-www-form-urlencoded">
+<tmpl_if cid><input type="hidden" name="cid" value="<tmpl_var cid>"></tmpl_if>
+<tmpl_if ki><input type="hidden" name="ki" value="<tmpl_var ki>"></tmpl_if>
+<tmpl_if grade><input type="hidden" name="grade" value="<tmpl_var grade>"></tmpl_if>
+<tmpl_if class><input type="hidden" name="class" value="<tmpl_var class>"></tmpl_if>
+<table border="0" cellpadding="0" cellspacing="0" align="center" width="480">
+<tr>
+    <td class="fhead" style="text-align:left">단체 쪽지</td>
+</tr>
+<tr>
+    <td>
+        <textarea name="msg" cols="40" rows="2" class="body" style="width:480px"></textarea>
+    </td>
+</tr>
+<tmpl_if note_ki>
+<tr>
+    <td>
+        <nobr><input type="radio" name="ki" value="0" checked>모두</nobr>
+        <tmpl_loop note_ki>
+        <nobr><input type="radio" name="ki" value="<tmpl_var ki>"><tmpl_var ki>기</nobr>
+        </tmpl_loop>
+    </td>
+</tr>
+</tmpl_if>
+<tr>
+    <td><input type="submit" value="Send" class="button" style="width:482px"></td>
+</tr>
+</table>
+</form>
+</tmpl_if>

@@ -1,0 +1,24 @@
+<tmpl_include _html_header.tmpl>
+
+<table width="200" align="center" valign="middle">
+<tr>
+    <td align="center">
+<form>
+<input type="text" name="id" value="<tmpl_var id>" size="16" maxlength="8" onFocus="select()"> <input type="submit" value="check" class="button">
+</form>
+
+<div class="msg">
+<tmpl_if id>
+    사용할 수 
+    <u><tmpl_if exists_id>없는<tmpl_else>있는</tmpl_if></u>
+    아이디입니다.
+<tmpl_else>
+    알파벳 소문자로 시작하고, 알파벳 소문자와 숫자로 구성된 3-8글자의 아이디를 입력해 주세요.
+</tmpl_if>
+</div>
+
+    </td>
+</tr>
+</table>
+
+<tmpl_include _html_footer.tmpl>

@@ -1,0 +1,26 @@
+<div id="comment<tmpl_var article_id>">
+<form method="post" action="comment.cgi" enctype="application/x-www-form-urlencoded" name="addcomment">
+<input type="hidden" name="action" value="add">
+<input type="hidden" name="aid" value="<tmpl_var article_id>">
+<input type="hidden" name="bid" value="<tmpl_var board_id>">
+<input type="hidden" name="p" value="<tmpl_var page>">
+<input type="hidden" name="img" value="<tmpl_if img>1<tmpl_else>0</tmpl_if>">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tmpl_loop comment>
+<tr>
+  <td class="iteml" nowrap><tmpl_include _name_id.tmpl></td>
+  <td class="iteml"><div class="comment"><tmpl_var body></div></td>
+  <td class="itemr" nowrap valign="top"><tmpl_var created> <tmpl_if is_owner><a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>" onClick="return window.confirm('Delete this comment?');">x</a><tmpl_else>x</tmpl_if></td>
+</tr>
+</tmpl_loop>
+<tr><td height="10" width="120"> </td><td></td><td></td></tr>
+<tmpl_if allow_comment>
+<tr>
+  <td class="itemr" nowrap width="120" height="40">답글</td>
+  <td class="iteml" width="390"><input type="text" class="text" name="body" value="" size="52" maxlength="100" style="width: 420px"></td>
+  <td class="iteml"><input type="submit" class="button" name="submit" value="Save" style="width:50px"></td>
+</tr>
+</tmpl_if>
+</table>
+</form>
+</div>

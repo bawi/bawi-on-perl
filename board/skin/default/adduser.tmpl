@@ -1,0 +1,32 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<tmpl_if is_root>
+<div class="form">
+<div class="title">Add New Member</div>
+<form method="POST">
+<input type="hidden" name="add" value="1">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">ID</td>
+    <td class="itemf"><input type="text" class="text" name="id" value="<tmpl_var id>"></td>
+</tr>
+<tr>
+    <td class="fhead">Name</td>
+    <td class="itemf"><input type="text" class="text" name="name" value="<tmpl_var name>"></td>
+</tr>
+<tr>
+    <td class="fhead">Email</td>
+    <td class="itemf"><input type="text" class="text" name="email" value="<tmpl_var email>"></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" class="button" value="Add New Member"></td>
+</tr>
+</table>
+</form>
+</div>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

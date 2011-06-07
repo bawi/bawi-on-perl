@@ -1,0 +1,42 @@
+<tmpl_include _html_header.tmpl>
+
+<h3>신입회원 추천</h3>
+<table width="295"><tr><td>
+
+<tmpl_if recommended>
+<div class="msg">
+<tmpl_var name> (<tmpl_var id>)님을 추천해 주셔서 감사합니다. 
+</div>
+<br><br>
+</tmpl_if>
+
+<div class="msg">
+피추천인의 이름과 아이디, 추천인과 피추천인이 정한 추천암호를 입력해 주세요.
+</div>
+
+<form method="POST">
+<table align="center">
+<tr>
+    <td class="titem">이름</td>
+    <td><input type="text" name="name" value="<tmpl_unless recommended><tmpl_var name></tmpl_unless>" size=8 maxlength=10 class="input" onFocus="select()"></td>
+</tr>
+<tr>
+    <td class="titem">아이디</td>
+    <td><input type="text" name="id" value="<tmpl_unless recommended><tmpl_var id></tmpl_unless>" size=8 maxlength=8 class="input" onFocus="select()"></td>
+</tr>
+<tr>
+    <td class="titem">추천암호</td>
+    <td><input type="text" name="recom" value="<tmpl_unless recommended><tmpl_var recom></tmpl_unless>" size=8 maxlength=8 class="input" onFocus="select()"></td>
+</tr>
+<tr>
+    <td></td>
+    <td><input type="submit" value="추천" class="button" style="width:72px"></td>
+</tr>
+</table>
+</form>
+
+<tmpl_if msg><div class="msg"><tmpl_var msg></div></tmpl_if>
+
+</td></tr></table>
+
+<tmpl_include _html_footer.tmpl>

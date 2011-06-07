@@ -1,0 +1,127 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="105">
+        <img src="photo.cgi?id=<tmpl_var id>" border="1" width="105" height="140" alt="photo">
+    </td>
+    <td class="iteml">
+        <h2><tmpl_if ki><a href="ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a> </tmpl_if><tmpl_include _name_id.tmpl></h2>
+            [
+            <a href="edit.cgi">개인정보 변경</a> | 
+            <a href="passwd.cgi">비밀번호 변경</a> | 
+            <a href="edsig.cgi">시그너쳐 변경</a> | 
+            <a href="upload_photo.cgi">사진 변경</a> 
+            ]
+    </td>
+</tr>
+        <tmpl_if degrees>
+<tr>
+    <td class="lhead" nowrap>입력된 학위</td>
+    <td class="iteml">
+            <tmpl_loop degrees>
+        (<tmpl_var type_brief>) <a href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var school_short></a>, <tmpl_var department><tmpl_if advisors> (지도교수: <a  href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var advisors></a>)</tmpl_if> [<tmpl_var start_date>~<tmpl_var end_date><tmpl_if status>/<tmpl_var status_brief></tmpl_if>] <a href="degree.cgi?action=del&did=<tmpl_var degree_id>">[삭제]</a><tmpl_unless __last__><br></tmpl_unless>
+            </tmpl_loop>
+    </td>
+</tr>
+        </tmpl_if>
+</table>
+<tmpl_loop degree_set>
+<form method="post" action="degree.cgi">
+<tmpl_if degree_id>
+<input type="hidden" name="did" value="<tmpl_var degree_id>">
+</tmpl_if>
+<input type="hidden" name="action" value="save">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="107"></td>
+    <td class="iteml"></td>
+</tr>
+<tr>
+    <td class="lhead">학위</td>
+    <td class="iteml">
+    <select name="type" class="text" style="width: 80px; height:20px">
+        <option value="">학위 ...
+        <option value="Bachelor"<tmpl_if bachelor> selected</tmpl_if>>학사
+        <option value="Master"<tmpl_if master> selected</tmpl_if>>석사
+        <option value="Doctor"<tmpl_if doctor> selected</tmpl_if>>박사
+    </select>
+    </td>
+</tr>
+<tr>
+    <td class="lhead">학교</td>
+    <td class="iteml">
+    <select name="school_id" class="text" style="width:388px; height:20px">
+        <option value="">학교 ...
+    <tmpl_loop school_list>
+        <option value="<tmpl_var school_id>"<tmpl_if current> selected</tmpl_if>><tmpl_var full_name>
+    </tmpl_loop>
+    </select>
+    [<a href="javascript:note('doslove')">학교추가</a>]
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>학과/실험실</td>
+    <td class="iteml">
+    <input type="text" name="department" value="<tmpl_var department>" size="57" maxlength="255" class="text" style="width:446px">
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>지도교수</td>
+    <td class="iteml">
+    <input type="text" name="advisors" value="<tmpl_var advisors>" size="57" maxlength="255" class="text" style="width:446px"><br>
+    검색이 쉽도록 한국인은 한글로, 외국인은 해당 언어로 입력해 주세요.
+    </td>
+</tr>
+<tr>
+    <td class="lhead">연구 내용</td>
+    <td class="iteml">
+    <input type="text" name="content" value="<tmpl_var content>" size="57" maxlength="255" class="text" style="width:446px">
+    </td>
+</tr>
+<tr>
+    <td class="lhead">기간</td>
+    <td class="iteml">
+    <select name="start_year">
+    <tmpl_loop start_year>
+        <option value="<tmpl_var year>"<tmpl_if current> selected</tmpl_if>><tmpl_var year2>
+    </tmpl_loop>
+    </select>
+    <select name="start_month">
+    <tmpl_loop start_month>
+        <option value="<tmpl_var month>"<tmpl_if current> selected</tmpl_if>><tmpl_var month2>
+    </tmpl_loop>
+    </select>
+    ~
+    <select name="end_year">
+    <tmpl_loop end_year>
+        <option value="<tmpl_var year>"<tmpl_if current> selected</tmpl_if>><tmpl_var year2>
+    </tmpl_loop>
+    </select>
+    <select name="end_month">
+    <tmpl_loop end_month>
+        <option value="<tmpl_var month>"<tmpl_if current> selected</tmpl_if>><tmpl_var month2>
+    </tmpl_loop>
+    </select>
+    <select name="status" class="text" style="width: 80px; height:20px">
+        <option value="">Status...
+        <option value="attending"<tmpl_if attending> selected</tmpl_if>>재학
+        <option value="graduated"<tmpl_if graduated> selected</tmpl_if>>졸업
+        <option value="course_completed"<tmpl_if course_completed> selected</tmpl_if>>수료
+        <option value="admitted"<tmpl_if admitted> selected</tmpl_if>>입학예정
+        <option value="other"<tmpl_if other> selected</tmpl_if>>기타
+    </select>
+    </td>
+</tr>
+<tr>
+    <td></td>
+    <td><input type="submit" value="<tmpl_if __first__>추가<tmpl_else>변경</tmpl_if>" class="button" style="width:450px"></td>
+</tr>
+</table>
+</form>
+</tmpl_loop>
+
+</div>
+<tmpl_include _html_footer.tmpl>

@@ -1,0 +1,117 @@
+<tmpl_include _html_header.tmpl>
+
+
+<Script Language="JavaScript">
+function open_idcheck_win() {
+		var options = 'toolbar=0,location=0,status=0,menubar=0,scrollbars=0,resizable=1,width=650,height=140';
+		var url = 'idcheck.cgi';
+		var w = window.open( url, 'idcheck', options );
+        w.focus();
+}
+//-->
+</Script>
+
+<h3>천년바위 가입 신청서</h3>
+
+<tmpl_if registered>
+<div class="msg">
+<b><tmpl_var name></b>님의 가입신청이 완료되었습니다.<br><br>
+추천인(<b><tmpl_var recom_id></b>)이 <b><tmpl_var name></b>님의 아이디(<b><tmpl_var id></b>)와 추천비밀번호(<b><tmpl_var recom></b>)를<br>
+천년바위의 신입회원 추천 페이지에서 입력하면 바위지기의 검토를 거쳐 가입처리가 될 것입니다.<br><br>
+가입처리 결과는 <b><tmpl_var email></b>로 보내드리겠습니다. 
+</div>
+<tmpl_else>
+<form name="user_info" METHOD="POST">
+<input type="hidden" name="submit" value="1">
+<table border="0" cellpadding="0" cellspacing="0" width="450">
+<tr>
+    <td colspan="2">
+    <tmpl_if submit>
+        <tmpl_if msg><div class="msg"><tmpl_var msg></div></tmpl_if>
+    <tmpl_else>
+<div class="msg">
+본인 확인을 위해 기존 천년바위 회원의 추천이 필요합니다.<br><br>
+신청인은 추천인과 미리 연락하여 추천비밀번호를 정하고,<br> 
+<B>추천인의 ID와 추천비밀번호를 가입신청서에 입력</B>해야 합니다.<br>
+</div>
+<br>
+<div class="msg">아래의 모든 항목을 입력해 주세요.<br>
+<b>가입신청은 바위지기의 수작업 확인을 통해 처리되며, 부실기재 혹은 허위기재의
+   경우, 천년바위에 가입할 수 없게 됩니다.</b></div>
+    </tmpl_if>
+    </td>
+</tr>
+<tr>
+    <td class="iteml">&nbsp;</td>
+    <td class="iteml">&nbsp;</td>
+</tr>
+<tr>
+    <td nowrap class="lhead">이름 (한글)</td>
+    <td class="iteml">
+        <input type="text" name="name" value="<tmpl_var name>" class="text" style="width:170px">
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">아이디</td>
+    
+    <td class="iteml"><input type="text" name="id" value="<tmpl_var id>" maxlength="8" class="text" style="width:170px"> <input type="button" VALUE="중복 아이디 확인" class="button" onClick="javascript:open_idcheck_win()" style="width:170px"><br>
+<tmpl_unless id><div class="msg">알파벳 소문자로 시작하고 알파벳 소문자와 숫자로 된 3-8글자.<br>아이디 변경이 불가능하니 신중하게 선택하시기 바랍니다.</div></tmpl_unless></td>
+</tr>
+<tr>
+    <td nowrap class="lhead">비밀번호</td>
+    <td class="iteml">
+        <input type="password" name="passwd1" value="<tmpl_var passwd1>" maxlength="8" class="text" style="width:170px">
+        <input type="password" name="passwd2" value="<tmpl_var passwd2>" maxlength="8" class="text" style="width:170px">
+        <tmpl_unless passwd1><div class="msg">천년바위 접속시 사용할 비밀번호를 두 번 입력해 주세요.<br>(8자리로 제한)</div></tmpl_unless>
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">기수</td>
+    <td class="iteml">
+        <input type="text" name="ki" value="<tmpl_var ki>" maxlength="2" class="text" style="width:30px"> 기
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">소속</td>
+    <td class="iteml">
+        <input type="text" name="affiliation" value="<tmpl_var affiliation>" class="text" style="width:350px">
+        <tmpl_unless affiliation><div class="msg">현재 학교나 직장 등의 소속을 입력해 주세요.</div></tmpl_unless>
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">전자우편</td>
+    <td class="iteml">
+        <input type="text" name="email" value="<tmpl_var email>" class="text" style="width:350px">
+        <tmpl_unless email><div class="msg">비밀번호 분실시 통보되는 주소입니다.<br>주로 사용하는 주소를 하나 입력해 주세요.<br> 이메일 확인이 안될 경우 가입처리가 불가능합니다.</div></tmpl_unless>
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">생일</td>
+    <td class="iteml">
+        <input type="text" name="birth_year" value="<tmpl_var birth_year>" size="6" maxlength="4" class="text" style="width:40px">년
+        <input type="text" name="birth_month" value="<tmpl_var birth_month>" size="4" maxlength="2" class="text" style="width:20px">월
+        <input type="text" name="birth_day" value="<tmpl_var birth_day>" size="4" maxlength="2" class="text" style="width:20px">일
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">추천인 ID</td>
+    <td class="iteml">
+        <input type="text" name="recom_id" value="<tmpl_var recom_id>" size="10" maxlength="8" class="text" style="width:170px">
+    <div class="msg"><tmpl_var recom_ki>기 이상만 추천인이 될 수 있습니다.</div>
+    </td>
+</tr>
+<tr>
+    <td nowrap class="lhead">&nbsp;추천비밀번호&nbsp;</td>
+    <td class="iteml">
+        <input type="text" name="recom" value="<tmpl_var recom>" size="10" maxlength="8" class="text" style="width:170px">
+        <tmpl_unless recom><div class="msg">추천인과 정한 8글자 이하의 추천비밀번호를 입력해 주세요.</div></tmpl_unless>
+    </td>
+</tr>
+<tr>
+    <td colspan="2" align="center"><br><input type="submit" name="user_submit" VALUE=" 가 입 신 청 " class="button"></td>
+</tr>
+</table>
+</form>
+</tmpl_if>
+
+<tmpl_include _html_footer.tmpl>

@@ -1,0 +1,119 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h3><a href="./">Admin</a> &gt; <a href="passwd.cgi">비밀번호 재설정</a></h3>
+
+<form method="POST">
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td>이름 또는 아이디</td>
+    <td><input type="text" name="id" value="<tmpl_var id>" size="10" maxlength="8" onFocus="select()"></td>
+    <td><input type="submit" value="search" class="button" style="width:60px"></td>
+</tr>
+</table>
+</form>
+
+<table><tr><td width="280">
+
+<tmpl_if user>
+<form method="POST">
+<table border="0" cellpadding="0" cellspacing="0">
+    <tmpl_loop user>
+<tr>
+    <td class="iteml" colspan="2">&nbsp;<input type="hidden" name="id" value="<tmpl_var id>"></td>
+</tr>
+<tr>
+    <td class="lhead">이름</td>
+    <td class="iteml" nowrap><tmpl_var ki>기 <tmpl_include _name_id.tmpl></td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>uid</td>
+    <td class="iteml" nowrap><tmpl_var uid></td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>최종접속</td>
+    <td class="iteml" nowrap><tmpl_var accessed></td>
+</tr>
+<tr>
+    <td class="lhead">최종수정</td>
+    <td class="iteml" nowrap><tmpl_var modified></td>
+</tr>
+<tr>
+    <td class="lhead">개인정보변경</td>
+    <td class="iteml" nowrap><tmpl_var info_modified></td>
+</tr>
+<tr>
+    <td class="lhead">접속회수</td>
+    <td class="iteml" nowrap><tmpl_var access></td>
+</tr>
+<tr>
+    <td class="lhead">이메일</td>
+    <td class="iteml" nowrap><tmpl_var email></td>
+</tr>
+<tr>
+    <td class="lhead">암호</td>
+    <td class="iteml" nowrap>DB:<tmpl_var passwd> <BR><tmpl_if raw>(New:<tmpl_var raw>)</tmpl_if></td>
+</tr>
+<tr>
+    <td class="lhead">처리</td>
+    <td class="iteml" nowrap>
+        <select name="action" class="text" style="width:120px; height:18px">
+            <option value="www">웹서비스 재설정
+            <option value="confirm">본인 확인
+            <option value="infodate">개인정보 date reset 
+            <option value="bawimail">메일서비스 설정
+        </select>
+        <input type="submit" value="do" class="button" style="width:30px">
+    </td>
+</tr>
+    </tmpl_loop>
+</table>
+</form>
+</td><td>
+<br>
+    <tmpl_if sent>
+<div class="msg">Mail sent!</div>
+    <tmpl_else>
+        <tmpl_if result>
+<form method="POST">
+<input type="hidden" name="id" value="<tmpl_var id>">
+<input type="hidden" name="action" value="<tmpl_var action>">
+<input type="hidden" name="sendmail" value="1">
+            <tmpl_loop result>
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td><b>To</b>:</td>
+    <td><input type="text" name="to" value="<tmpl_var to>" size="35"></td>
+</tr>
+<tr>
+    <td><b>Subject</b>:</td>
+    <td><input type="text" name="subject" value="<tmpl_var subject>" size="35"></td>
+</tr>
+<tr>
+    <td><b>Body</b>:</td>
+    <td>
+        <textarea name="body" cols="45" rows="10" class="body">
+안녕하세요! 바위지기 <tmpl_var admin>입니다.
+
+<tmpl_var body>
+
+좋은 하루 되세요~ :)
+
+--
+선배와 후배가 하나로, 천/년/바/위
+</textarea>
+<br>
+<!--input type="submit" value="send" class="button"-->
+    </td>
+</tr>
+</table>
+            </tmpl_loop>
+</form>
+        </tmpl_if>
+    </tmpl_if>
+</form>
+</tmpl_if>
+
+</td></tr></table>
+<tmpl_include _footer.tmpl>

@@ -1,0 +1,230 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+<tmpl_if profile>
+    <tmpl_loop profile>
+<br>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td width="105" rowspan="2"> 
+        <tmpl_if has_photo>
+        <img src="photo.cgi?id=<tmpl_var id>" border="1" width="105" height="140" alt="photo">
+        <tmpl_else>
+        <div style="border: 1px dotted #333; padding: 0px; margin: 0px; width:105px">상호주의 원칙에 따라 본인의 사진이 등록되어 있어야 다른 사람의 사진을 볼 수 있습니다. 개인 정보 추가 화면에서 사진을 등록해 주세요.</div>
+        </tmpl_if>
+    </td>
+    <td>
+        <h2><tmpl_include _user.tmpl> [<a href="guestbook.cgi?uid=<tmpl_var uid>">방명록:<tmpl_var guestbook_count></a>][<a href="http://wiki.bawi.org/index.php/%EC%82%AC%EC%9A%A9%EC%9E%90:<tmpl_var name>%28<tmpl_var id>%29" target="_blank">위키</a>]</h2>
+        <tmpl_if is_owner>
+            [
+            <a href="edit.cgi">개인정보 변경</a> | 
+            <a href="passwd.cgi">비밀번호 변경</a> | 
+            <a href="edsig.cgi">시그너쳐 변경</a> | 
+            <a href="upload_photo.cgi">사진 변경</a> 
+            ]
+        </tmpl_if>
+    </td>
+</tr>
+<tr>
+    <td valign="bottom">
+        <tmpl_if death><tmpl_var birth> ~ <tmpl_var death><br><br></tmpl_if>
+        <tmpl_if greeting>
+        <i><tmpl_var greeting></i>
+        </tmpl_if>
+    </td>
+</tr>
+</table>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="105" style="font-size:0">&nbsp;</td>
+    <td class="iteml" style="font-size:0">&nbsp;</td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>영문명</td>
+    <td class="iteml"><tmpl_var ename></td>
+<tr>
+    <td class="lhead" nowrap>소속</td>
+    <td class="iteml"><tmpl_var affiliation></td>
+</tr>
+    <tmpl_if title>
+<tr>
+    <td class="lhead" nowrap>직함</td>
+    <td class="iteml"><tmpl_var title></td>
+</tr>
+    </tmpl_if>
+<tr>
+    <td class="lhead">이메일</td>
+    <td class="iteml"><a href="mailto:<tmpl_var email>"><tmpl_var email></a></td>
+</tr>
+        <tmpl_if homepage>
+<tr>
+    <td class="lhead">홈페이지</td>
+    <td class="iteml"><a href="http://<tmpl_var homepage>" target="_blank">http://<tmpl_var homepage></a></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if im_google>
+<tr>
+    <td class="lhead">Google 메신저</td>
+    <td class="iteml"><tmpl_if has_im_google><tmpl_var im_google><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if im_msn>
+<tr>
+    <td class="lhead">MSN 메신저</td>
+    <td class="iteml"><tmpl_if has_im_msn><tmpl_var im_msn><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if im_nate>
+<tr>
+    <td class="lhead">네이트 메신저</td>
+    <td class="iteml"><tmpl_if has_im_nate><tmpl_var im_nate><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if im_yahoo>
+<tr>
+    <td class="lhead">야후 메신저</td>
+    <td class="iteml"><tmpl_if has_im_yahoo><tmpl_var im_yahoo><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if mobile_tel>
+<tr>
+    <td class="lhead">휴대전화</td>
+    <td class="iteml"><tmpl_if has_phone><tmpl_var mobile_tel><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if home_tel>
+<tr>
+    <td class="lhead">거주지전화</td>
+    <td class="iteml"><tmpl_if has_phone><tmpl_var home_tel><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if office_tel>
+<tr>
+    <td class="lhead">직장전화</td>
+    <td class="iteml"><tmpl_if has_phone><tmpl_var office_tel><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if temp_tel>
+<tr>
+    <td class="lhead">임시전화</td>
+    <td class="iteml"><tmpl_if has_phone><tmpl_var temp_tel><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if home_address>
+<tr>
+    <td class="lhead" nowrap>거주지주소</td>
+    <td class="iteml">
+        <tmpl_if has_address><tmpl_var home_address> <tmpl_if home_map><a href="<tmpl_var home_map>" target="_blank">[지도]</a></tmpl_if><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if office_address>
+<tr>
+    <td class="lhead" nowrap>직장주소</td>
+    <td class="iteml">
+        <tmpl_if has_address><tmpl_var office_address> <tmpl_if office_map><a href="<tmpl_var office_map>" target="_blank">[지도]</a></tmpl_if><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if>
+    </td>
+        </tmpl_if>
+        <tmpl_if temp_address>
+<tr>
+    <td class="lhead" nowrap>임시주소</td>
+    <td class="iteml">
+        <tmpl_if has_address><tmpl_var temp_address> <tmpl_if temp_map><a href="<tmpl_var temp_map>" target="_blank">[지도]</a></tmpl_if><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+<tr>
+    <td class="lhead" nowrap>생일</td>
+    <td class="iteml"><tmpl_var birth></td>
+</tr>
+        <tmpl_if wedding>
+<tr>
+    <td class="lhead" nowrap>결혼</td>
+    <td class="iteml"><tmpl_var wedding></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if major>
+<tr>
+    <td class="lhead" nowrap>전공</td>
+    <td class="iteml">
+            <tmpl_if has_major>
+                <tmpl_loop major>
+        <a href="majors.cgi?mid=<tmpl_var major_id>&pid=<tmpl_var parent_id>"><tmpl_var major></a><tmpl_unless __last__>, </tmpl_unless>
+                </tmpl_loop>
+            <tmpl_else>
+            <tmpl_include _reciprocal.tmpl>
+            </tmpl_if>
+            <tmpl_if is_owner>[<a href="majors.cgi">추가</a>]</tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if degree>
+<tr>
+    <td class="lhead" nowrap>학위</td>
+    <td class="iteml">
+            <tmpl_if has_degree>
+                <tmpl_loop degree>
+        (<tmpl_var type_brief>) <a href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var school_short></a>, <tmpl_var department><tmpl_if advisors> (지도교수: <a  href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var advisors></a>)</tmpl_if> [<tmpl_var start_date>~<tmpl_var end_date><tmpl_if status>/<tmpl_var status_brief></tmpl_if>]<tmpl_unless __last__><br></tmpl_unless>
+                </tmpl_loop>
+            <tmpl_else>
+            <tmpl_include _reciprocal.tmpl>
+            </tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if class>
+<tr>
+    <td class="lhead" nowrap>반</td>
+    <td class="iteml">
+            <tmpl_if has_class>
+        <tmpl_if class1><a href="class.cgi?ki=<tmpl_var ki>&grade=1&class=<tmpl_var class1>">1-<tmpl_var class1></a></tmpl_if><tmpl_if class2><tmpl_if class1>, </tmpl_if></tmpl_if>
+        <tmpl_if class2><a href="class.cgi?ki=<tmpl_var ki>&grade=2&class=<tmpl_var class2>">2-<tmpl_var class2></a></tmpl_if><tmpl_if class3><tmpl_if class2>, </tmpl_if></tmpl_if>
+        <tmpl_if class3><a href="class.cgi?ki=<tmpl_var ki>&grade=3&class=<tmpl_var class3>">3-<tmpl_var class3></a></tmpl_if>
+            <tmpl_else>
+            <tmpl_include _reciprocal.tmpl>
+            </tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if circle>
+<tr>
+    <td class="lhead" nowrap>서클</td>
+    <td class="iteml">
+            <tmpl_if has_circle>
+                <tmpl_loop circle>
+        <a href="circle.cgi?cid=<tmpl_var circle_id>"><tmpl_var name></a><tmpl_unless __last__>, </tmpl_unless>
+                </tmpl_loop>
+            <tmpl_else>
+            <tmpl_include _reciprocal.tmpl>
+            </tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if board>
+<tr>
+    <td class="lhead" nowrap>모임방</td>
+    <td class="iteml">
+            <tmpl_loop board>
+        <a href="/board/read.cgi?bid=<tmpl_var board_id>" target="_blank"><nobr><tmpl_var title></nobr></a><tmpl_unless __last__>, </tmpl_unless>
+            </tmpl_loop>
+    </td>
+</tr>
+        </tmpl_if>
+<tr>
+    <td class="lhead" nowrap>최종수정</td>
+    <td class="iteml"><tmpl_var modified></td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>최종접속</td>
+    <td class="iteml"><tmpl_var accessed></td>
+</tr>
+<tmpl_if is_owner>
+<tr>
+    <td class="lhead" nowrap>조회수</td>
+    <td class="iteml">[내 정보] <tmpl_var count> (오늘: <tmpl_var count_today>) / [전체] <tmpl_var total_count> (오늘: <tmpl_var total_count_today>)</td>
+</tr>
+</tmpl_if>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+</div>
+<tmpl_include _html_footer.tmpl>

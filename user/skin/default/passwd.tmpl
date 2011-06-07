@@ -1,0 +1,38 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+<br/>
+<tmpl_if msg>
+<div style="background:#FFC129; padding: 0px; text-align: center; -webkit-border-radius: 6px; -moz-border-radius: 6px"><tmpl_var msg></div>
+</tmpl_if>
+
+<form name="changepasswd" method="post" enctype="application/x-www-form-urlencoded">
+<fieldset>
+<legend>Change Password</legend>
+<input type="hidden" name="expired" value="<tmpl_var expired>">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+  <td class="fhead">ID</td>
+  <td class="itemf"><tmpl_var id></td>
+</tr>
+<tr>
+  <td class="fhead">Current Password</td>
+  <td class="itemf"><input type="password" class="text" name="oldpasswd" size="23" maxlength="8"></td>
+</tr>
+<tr>
+  <td class="fhead">New Password</td>
+  <td class="itemf"><input type="password" class="text" name="newpasswd1" size="23" maxlength="8"></td>
+</tr>
+<tr>
+  <td class="fhead">Confirm Password</td>
+  <td class="itemf"><input type="password" class="text" name="newpasswd2" size="23" maxlength="8"></td>
+</tr>
+<tr>
+  <td>&nbsp;</td>
+  <td><input type="submit" class="button" value="Change Password"></td>
+</tr>
+</table>
+</fieldset>
+</form>
+
+</div>
+<tmpl_include _html_footer.tmpl>

@@ -1,0 +1,26 @@
+<tmpl_include _header.tmpl>
+
+<h3><a href="modified.cgi">최근 수정</a></h3>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="thead">기</td>
+    <td class="thead">이름 (아이디)</td>
+    <td class="thead">인사말</td>
+    <td class="thead">MSN</td>
+    <td class="thead">Modified</td>
+</tr>
+<tmpl_loop list>
+<tr>
+    <td class="itemc"><a href="/user/ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki></a></td>
+    <td class="iteml" nowrap><tmpl_include _name_id.tmpl></td>
+    <td class="iteml"><tmpl_var greeting></td>
+    <td class="iteml"><tmpl_var im_msn></td>
+    <td class="itemc" nowrap><tmpl_var modified></td>
+</tr>
+</tmpl_loop>
+<tr>
+</tr>
+</table>
+
+<tmpl_include _footer.tmpl>

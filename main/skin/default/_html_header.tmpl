@@ -1,0 +1,78 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+                      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko" dir="ltr"> 
+<head> 
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> 
+<tmpl_unless dev>
+<meta http-equiv="X-UA-Compatible" content="IE=9" />
+</tmpl_unless>
+
+<title>
+<tmpl_if HTMLTitle><tmpl_var HTMLTitle>
+<tmpl_else><tmpl_if board_title><tmpl_var board_title></tmpl_if></tmpl_if>
+</title>
+<tmpl_if mobile_device>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+<meta name="apple-mobile-web-app-capable" content="no" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-touch-fullscreen" content="yes" />
+<meta name="bawi-mobile-device" id="bawi-mobile-device" content="yes" />
+</tmpl_if>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/prototype/1.6/prototype.js"></script>
+<link rel="stylesheet" type="text/css" href="skin/<tmpl_if skin><tmpl_var skin><tmpl_else>default</tmpl_if>/style.css" />
+<!--[if lt IE 8]>
+<link rel="stylesheet" type="text/css" href="<tmpl_var main_url>/skin/default/IE70Fixes.css" /><![endif]-->
+<!--[if lte IE 8]><style type="text/css"> #globalWrapper{font-family:"맑은 고딕",sans-serif;} </style><![endif]-->
+
+<script type="text/javascript" src="<tmpl_var main_url>/skin/default/script.js"></script>
+<script type="text/javascript" src="<tmpl_var board_url>/skin/default/script.js"></script>
+
+<link rel="stylesheet" type="text/css" href="<tmpl_var board_url>/skin/default/litebox/lightbox.css" media="screen" />
+<script type="text/javascript" src="<tmpl_var board_url>/skin/default/litebox/moo.fx.js"></script>
+<script type="text/javascript" src="<tmpl_var board_url>/skin/default/litebox/litebox-1.0.js"></script>
+<script type="text/javascript">//<![CDATA[
+
+function mobile_safari_hide_toolbar () {
+  var top = document.body.scrollTop
+      ? document.body.scrollTop
+      : (window.pageYOffset
+          ? window.pageYOffset
+          : (document.body.parentElement
+              ? document.body.parentElement.scrollTop
+              : 0
+          )
+      );
+
+  if (top == 0) window.scrollTo(0, 1);
+  return top;
+}
+
+function  adjust_scroll_position_after_writing_comment () {
+  var re_comment_form = /#article-\d+-comment-form$/g;
+  var matches = re_comment_form.exec(window.location.href);
+  if (matches)
+  {
+    var form = $(matches.first().substr(1));
+    if (form) form.focus();
+
+    /* XXX DOES NOT WORK!!! */    
+    //window.scrollByLines(-3);
+    var before = mobile_safari_hide_toolbar();
+    //console.log("before="+before);
+    //window.scrollTo(0, top+10);
+    window.scrollTo(0, 100);
+    var after = mobile_safari_hide_toolbar();
+    //console.log("after ="+after );
+  }
+}
+
+document.observe("dom:loaded", function(){
+  mobile_safari_hide_toolbar();
+  //adjust_scroll_position_after_writing_comment();
+  initLightbox();
+});
+
+//]]></script>
+<tmpl_include _google_analytics.tmpl>
+</head>

@@ -1,0 +1,186 @@
+body { background-color:#ffffff; }
+
+.msg    { font-size:9pt; color:#004477; margin: 1.33em; text-align:center; }
+.errmsg { font-size:9pt; color:#004477; margin: 1.33em; text-align:center; }
+
+
+A:link { color:#000099; text-decoration:none }
+A:visited { color:#000099; text-decoration:none }
+A:hover { color:#cc0000; text-decoration:underline }
+
+.aa { color:#000000; background-color:#EEF8FF; font-size:10pt; font-weight:bold; text-align:center }
+.ab { color:#000000; background-color:#ffffff; font-size:10pt; }
+.bb { color:#000000; background-color:#eeeeee; font-size:10pt; text-decoration:none }
+.bb:visited { color:#000000; }
+.bb:hover { color:#ff0000; }
+
+.folder1  { color:#ffffff; font-size:9pt; background-color:#004477; }
+.folder { color:#ffffff; font-size:9pt; background-color:#94AAD6; }
+.folder3 { color:#ffffff; font-size:9pt; background-color:#5F8AC5; }
+.folder2 { color:#ffffff; font-size:9pt; background-color:#0069B3; }
+A.fi     { color:#ffffff; font-size:9pt; text-Decoration:none }
+A.fi:hover  { color:#ffffff; text-Decoration:underline; }
+A.fi:visited  { color:#ffffff }
+
+ .program { color:#000000; background-color:#ffffff; font-size:9pt; text-align:center }
+A.pi  { color:#000000; text-Decoration:none }
+A.pi:hover  { color:#ff0000; text-Decoration:underline; }
+A.pi:visited  { color:#000000 }
+
+.s { font-size:10pt; text-decoration:none }
+.s:visited { font-size:10pt; text-decoration:none }
+.s:hover { color:#ff0000; text-decoration:underline; }
+.sb { color:#000099; font-size:10pt; text-decoration:none; font-weight:bold }
+
+.s1 { font-size:10pt; text-decoration:none }
+.s1:visited { text-decoration:none }
+.s1:hover { color:#ff0000; text-decoration:underline; }
+
+.s2 { font-size:9pt; text-decoration:none }
+.s2:visited { text-decoration:none }
+.s2:hover { color:#ff0000; text-decoration:underline; }
+
+.s3 { font-size:8pt; color:#999999; text-decoration:none; text-align:center }
+.s3:visited { text-decoration:none }
+.s3:hover { color:#ff0000; text-decoration:underline; }
+
+.l1 { font-size:12pt; text-decoration:none }
+.l1:visited { text-decoration:none }
+.l1:hover { color:#ff0000; text-decoration:underline; }
+
+.l2 { font-size:14pt; text-decoration:none;}
+.l2:visited { text-decoration:none }
+.l2:hover { color:#ff0000; text-decoration:underline; }
+
+.l3 { font-size:16pt; text-decoration:none }
+.l3:visited { text-decoration:none }
+.l3:hover { color:#ff0000; text-decoration:underline; }
+
+.info  { font-weight:bold }
+
+.form { font-size:10pt; background-color:#ffffff; color:#000000; border:1x solid #cccccc }
+.submit { font-size:8pt; background-color:#F3F7FF; color:#666666; border:1x solid #cccccc; font-family: 굴림,굴림체, Arial; }
+.submitk { font-size:9pt; background-color:#F3F7FF; color:#666666; border:1x solid #cccccc; font-family: 굴림,굴림체, Arial; }
+
+.table    { }
+.trowhead { font-size:10pt; background-color:#CEDAF3; text-align:center; vertical-align:middle; border-top:1x solid #bcbcbc; border-spacing:5;}
+.tcolhead { font-size:10pt; background-color:#CEDAF3; text-align:center; vertical-align:middle; border-top:1x solid #bcbcbc; border-spacing:0;}
+.titem0    { font-size:10pt; }
+.titem1    { font-size:10pt; border-top:1x solid #cccccc;}
+.titem2    { font-size:9pt; color:#004477;}
+.titem3    { font-size:9pt; color:#000000; background-color:#f0f0f0; text-align:right}
+.titem4    { font-size:9pt; color:#666666; background-color:#CEDAF3; text-align:center; font-weight:bold;}
+
+
+font.c { font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c1 { color:#182963; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c2 { color:#3754B3; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c3 { color:#666666; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c4 { color:#FFFFFF; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c5 { color:#CCCCCC; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+font.c6 { color:#FFFFFF; font-size: 14px;  font-family: 굴림,굴림체, Arial }
+font.c7 { color:#4C6D8F; font-size: 12px;  font-family: 굴림,굴림체, Arial }
+font.c8 { font-size: 11px;  font-family: 굴림,굴림체, Arial}
+font.c9 { color:#C5C5C5; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+
+
+font.r1 { color:#4B6F00; font-size: 9pt;  font-family: 굴림,굴림체, Arial }
+
+a.v:link { text-decoration: none; color: #0C54A4 }
+a.v:visited { text-decoration: none; color: #0C54A4 }
+a.v:active { text-decoration: none; color: #0C54A4 }
+a.v:hover {  text-decoration:none; color:#0C54A4 }
+
+
+a.v1:link { text-decoration: none; color: #F3AB5B }
+a.v1:visited { text-decoration: none; color: #F3AB5B }
+a.v1:active { text-decoration: none; color: #F3AB5B }
+a.v1:hover {text-decoration:none; color:#F3AB5B }
+
+a.v2:link { text-decoration: none; color: #184E59}
+a.v2:visited { text-decoration: none; color: #184E59 }
+a.v2:active { text-decoration: none; color: #4E87FF }
+a.v2:hover {  text-decoration:none; color:#4E87FF }
+
+a.v3:link { text-decoration: none; color: #484848 }
+a.v3:visited { text-decoration: none; color: #484848 }
+a.v3:active { text-decoration: none; color: #4E87FF }
+a.v3:hover {  text-decoration:none; color:#4E87FF }
+
+a.menu1:link { text-decoration: none; color: #172346 }
+a.menu1:visited { text-decoration: none; color: #172346 }
+a.menu1:active { text-decoration: none; color: #4E87FF }
+a.menu1:hover {  text-decoration:none; color:#4E87FF }
+
+a.menu2:link { text-decoration: none; color: #3D4C7C }
+a.menu2:visited { text-decoration: none; color: #3D4C7C }
+a.menu2:active { text-decoration: none; color: #4E87FF }
+a.menu2:hover {  text-decoration:none; color:#4E87FF }
+
+a.menu3:link { text-decoration: none; color: #447B41 }
+a.menu3:visited { text-decoration: none; color: #447B41 }
+a.menu3:active { text-decoration: none; color: #4E87FF }
+a.menu3:hover {  text-decoration:none; color:#4E87FF }
+
+
+a.menu4:link { text-decoration: none; color: #182963 }
+a.menu4:visited { text-decoration: none; color: #FF5D00 }
+a.menu4:active { text-decoration: none; color: #FF5D00 }
+a.menu4:hover {  text-decoration:none; color:#FF5D00 }
+
+
+
+a.white:link { text-decoration: none; color: #FFFFFF }
+a.white:visited { text-decoration: none; color: #FFFFFF }
+a.white:active { text-decoration: none; color: #FFFFFF }
+a.white:hover {  text-decoration:none; color:#FFFFFF }
+
+
+a.z:link { text-decoration: none; color: #FFFFFF }
+a.z:visited { text-decoration: none; color: #85EBFF }
+a.z:active { text-decoration: none; color: #85EBFF }
+a.z:hover {text-decoration:none; color:#85EBFF }
+
+
+  .hl  { color:#ffffff; Background-Color:#000066; font-weight:bold; font-size:10pt; Cursor:hand; }
+
+  .textinput  { font-size:10pt }
+  .highlight  { background-color:#e0e0e0 }
+  .selected  { font-weight:bold; color:#B22222; }
+  .status  { background-color:#d0d0d0; font-size:9pt; }
+  .info  { font-weight:bold }
+  .boldlink  { font-weight:bold }
+  .message  { text-align:center; font-weight:bold; line-height:125%; }
+
+  .menu  { color:#ffffff; background-color:#000066; font-size:9pt; }
+  A.menuitem  { color:#0000aa }
+  A.mi  { color:#ffffff; text-Decoration:none }
+  A.mi:hover  { color:#ffcc00; text-Decoration:underline; }
+  A.mi:visited  { color:#ffffff }
+
+  .quoted1  { color:#003399 }
+  .quoted2  { color:#007755 }
+  .quoted3  { color:#9900aa }
+  .quoted4  { color:#777722 }
+  .quoted5  { color:#aa4422 }
+
+  .cg  { color:#006600 }
+  .LLS  { line-height:125% }
+  HR  { border:1px }
+  .n  { color:#000000; Background-Color:#ffffff; font-weight:bold; font-size:10pt; Cursor:hand; }
+  .LB  { line-height:1.15 }
+
+.wikiactionhead { color:#ffffff; background-color:#666666; font-size:10pt; text-align:center; }
+.wikiaction { color:#ffffff; background-color:#999999; font-size:10pt; text-align:left; }
+input {font-size:9pt; }
+
+.question  { background-color:#E2E7E4; font-size:10pt; line-height:130%;}
+.answer { background-color:#ffffff; font-size:10pt; line-height:120%;}
+
+.note { font-size:10pt; margin-right:1em; height=3px}
+.time { font-size:9pt; text-align:right; margin-right:1em;
+		margin-bottom:1em; height:2px}
+
+.mod_perl_on  { color:#eeeeff; background-color:#6666ff; font-size:8pt; }
+.mod_perl_off { color:#eeeeff; background-color:#ff6666; font-size:8pt; }
+

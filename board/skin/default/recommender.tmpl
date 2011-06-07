@@ -1,0 +1,13 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h3><a href="">추천자<tmpl_if recom_user_list> <tmpl_var total>명</tmpl_if></a></h3>
+
+<ul class="user-list">
+<tmpl_loop recom_user_list>
+  <li><tmpl_include _name_id.tmpl></li>
+</tmpl_loop>
+</ul>
+
+<tmpl_include _footer.tmpl>

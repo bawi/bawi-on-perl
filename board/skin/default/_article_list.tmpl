@@ -1,0 +1,45 @@
+<div class="article-list wrapper">
+<ul class="article-list head">
+  <li class="no">no</li>
+  <li class="title">title</li>
+  <li class="name">name</li>
+  <li class="date">date</li>
+  <li class="read">read</li>
+<tmpl_if allow_recom><li class="rec">rec</li></tmpl_if>
+<tmpl_if allow_scrap><li class="scrp">scrp</li></tmpl_if>
+</ul>
+
+<tmpl_if notice_list><tmpl_loop notice_list>
+<ul class="article-list notice">
+  <li class="no"><a href="read.cgi?bid=<tmpl_var board_id>;tno=<tmpl_var thread_no>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_if article_no>#</tmpl_if></a></li>
+  <li class="title"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if keyword>;k=<tmpl_var keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>"><tmpl_if depth><tmpl_var depth><img src="skin/default/images/reply.gif" alt="`->" class="icon reply" /></tmpl_if><tmpl_var title><tmpl_if comments> [<tmpl_var comments>]</tmpl_if><tmpl_if has_attach> <img src="skin/default/images/attach.gif" alt="attach" class="icon attach" /></tmpl_if><tmpl_if has_poll> <img src="skin/default/images/poll.gif" alt="poll" class="icon poll" /></tmpl_if></a></li>
+  <li class="name"><tmpl_include _name_id.tmpl></li>
+  <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+  <li class="read"><tmpl_var count></li>
+<tmpl_if allow_recom>
+  <li class="rec"><tmpl_if recom><tmpl_if allow_recom_user_list><a class="recommender" href="recommender.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" target="bw_recom"><span id="recom-<tmpl_var article_id>-notice"><tmpl_var recom></span></a><tmpl_else><span id="recom-<tmpl_var article_id>-notice"><tmpl_var recom></span></tmpl_if><tmpl_else><span id="recom-<tmpl_var article_id>-notice">0</span></tmpl_if></li>
+</tmpl_if>
+<tmpl_if allow_scrap>
+  <li class="scrp"><span id="scrap-<tmpl_var article_id>-notice"><tmpl_var scrap></span></li>
+</tmpl_if>
+</ul>
+</tmpl_loop></tmpl_if>
+
+<tmpl_loop list>
+<ul class="article-list <tmpl_if new>new</tmpl_if>">
+  <li class="no"><a href="read.cgi?bid=<tmpl_var board_id>;tno=<tmpl_var thread_no>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if keyword>;k=<tmpl_var keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>"><tmpl_var article_no></a></li>
+  <li class="title"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if keyword>;k=<tmpl_var keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>"><tmpl_if depth><tmpl_var depth><img src="skin/default/images/reply.gif" alt="`->" class="icon reply" /></tmpl_if><tmpl_var title><tmpl_if comments> [<tmpl_var comments>]</tmpl_if><tmpl_if has_attach> <img src="skin/default/images/attach.gif" alt="attach" class="icon attach" /></tmpl_if><tmpl_if has_poll> <img src="skin/default/images/poll.gif" alt="poll" class="icon poll" /></tmpl_if></a></li>
+  <li class="name"><tmpl_include _name_id.tmpl></li>
+  <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+  <li class="read"><tmpl_var count></li>
+<tmpl_if allow_recom>
+  <li class="rec"><tmpl_if recom><tmpl_if allow_recom_user_list><a class="recommender" href="recommender.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" target="bw_recom"><span id="recom-<tmpl_var article_id>-list"><tmpl_var recom></span></a><tmpl_else><span id="recom-<tmpl_var article_id>-list"><tmpl_var recom></span></tmpl_if><tmpl_else><span id="recom-<tmpl_var article_id>-list">0</span></tmpl_if></li>
+</tmpl_if>
+<tmpl_if allow_scrap>
+  <li class="scrp"><span id="scrap-<tmpl_var article_id>-list"><tmpl_var scrap></span></li>
+</tmpl_if>
+</ul>
+</tmpl_loop>
+
+</div><!-- article-list wrapper -->
+

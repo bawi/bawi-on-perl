@@ -1,0 +1,40 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<tmpl_if is_root>
+<div class="form">
+<div class="title">Add New Board</div>
+<form method="post" name="addboardform" enctype="application/x-www-form-urlencoded">
+<input type="hidden" name="gid" value="<tmpl_var gid>">
+<input type="hidden" name="save" value="1">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+  <td class="fhead">Skin</td>
+  <td class="itemf">
+    <select name="skin" style="width: 204px; height: 20px" class="text">
+        <option value="">Select ...</option>
+    <tmpl_loop skinset>
+        <option value="<tmpl_var skin>"<tmpl_if selected> selected</tmpl_if>><tmpl_var skin></option>
+    </tmpl_loop>
+    </select>
+  </td>
+</tr>
+<tr>
+  <td class="fhead">Keyword</td>
+  <td class="itemf"><input type="text" class="text" name="keyword" maxlength="16" value="<tmpl_var keyword>"></td>
+</tr>
+<tr>
+  <td class="fhead">Board Name</td>
+  <td><input type="text" class="text" name="title" value="<tmpl_var title>" maxlength="20"></td>
+</tr>
+<tr>
+  <td></td>
+  <td class="itemf"><input type="submit" class="button" value="Add New Board"></td>
+</tr>
+</table>
+</form>
+</div>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

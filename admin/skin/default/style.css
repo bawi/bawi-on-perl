@@ -1,0 +1,9 @@
+/* $Id$ */
+
+@import url("/main/skin/default/style.css");
+
+table.list    { margin: 10px 0 10px 0; }
+table.list tr:first-child { border-top: 1px solid #C5CDD8; }
+table.list tr { border-bottom: 1px solid #C5CDD8; }
+table.list th,
+table.list td { padding: 0 5px 0 5px; }

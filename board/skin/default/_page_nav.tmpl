@@ -1,0 +1,21 @@
+<ul class="page-nav">
+<tmpl_if last_page>
+<li><a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var last_page><tmpl_if img>;img=<tmpl_var img></tmpl_if><tmpl_if enc_keyword>;k=<tmpl_var enc_keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>">[<tmpl_var last_page>]</a>...</li>
+</tmpl_if>
+<tmpl_if prev_page>
+<li><a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var prev_page><tmpl_if img>;img=<tmpl_var img></tmpl_if><tmpl_if enc_keyword>;k=<tmpl_var enc_keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>">[<tmpl_var T_PREV>]</a></li>
+</tmpl_if>
+<tmpl_loop pages>
+  <tmpl_if current>
+<li class="current"><tmpl_var page></li>
+  <tmpl_else>
+<li><a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page><tmpl_if img>;img=<tmpl_var img></tmpl_if><tmpl_if keyword>;k=<tmpl_var keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>"><tmpl_var page></a></li>
+  </tmpl_if>
+</tmpl_loop>
+<tmpl_if next_page>
+<li><a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var next_page><tmpl_if img>;img=<tmpl_var img></tmpl_if><tmpl_if enc_keyword>;k=<tmpl_var enc_keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>">[<tmpl_var T_NEXT>]</a></li>
+</tmpl_if>
+<tmpl_if first_page>
+<li>...<a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var first_page><tmpl_if img>;img=<tmpl_var img></tmpl_if><tmpl_if enc_keyword>;k=<tmpl_var enc_keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>">[1]</a></li>
+</tmpl_if>
+</ul>

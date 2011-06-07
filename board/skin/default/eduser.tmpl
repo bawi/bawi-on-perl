@@ -1,0 +1,61 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<tmpl_if user>
+<div class="form">
+<div class="title">Edit Member Information</div>
+<form method="post">
+<input type="hidden" name="save" value="1">
+<tmpl_if is_root>
+    <tmpl_if uid>
+<input type="hidden" name="uid" value="<tmpl_var uid>">
+    </tmpl_if>
+</tmpl_if>
+    <tmpl_loop user>
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">ID</td>
+    <td class="itemf"><tmpl_if is_root><input type="text" class="text" name="id" value="<tmpl_var id>" onFocus="select()"><tmpl_else><tmpl_var id></tmpl_if></td>
+</tr>
+<tr>
+    <td class="fhead">Name</td>
+    <td class="itemf"><tmpl_if is_root><input type="text" class="text" name="name" value="<tmpl_var name>" onFocus="select()"><tmpl_else><tmpl_var name></tmpl_if></td>
+</tr>
+<tr>
+    <td class="fhead">Email</td>
+    <td class="itemf"><input type="text" class="text" name="email" value="<tmpl_var email>" onFocus="select()"></td>
+</tr>
+        <tmpl_unless is_root>
+<tr>
+    <td class="fhead">Email code</td>
+    <td class="itemf"><input type="text" class="text" name="code" value="<tmpl_var code>" onFocus="select()"></td>
+</tr>
+        </tmpl_unless>
+<tr>
+    <td class="fhead">uid</td>
+    <td class="itemf"><tmpl_var uid></td>
+</tr>
+<tr>
+    <td class="fhead">Access</td>
+    <td class="itemf"><tmpl_var access></td>
+</tr>
+<tr>
+    <td class="fhead">Accessed</td>
+    <td class="itemf"><tmpl_var accessed></td>
+</tr>
+<tr>
+    <td class="fhead">Modified</td>
+    <td class="itemf"><tmpl_var modified></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" class="button" value="Save"></td>
+</tr>
+</table>
+    </tmpl_loop>
+</form>
+</div>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

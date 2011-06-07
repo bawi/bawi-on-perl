@@ -1,0 +1,13 @@
+<tmpl_if user>
+<b>총 <tmpl_var total>명</b>
+<table border="0">
+    <tmpl_loop user>
+<tr>
+        <tmpl_loop row>
+  <td align="right"><tmpl_var ki>기</td>
+  <td nowrap><tmpl_include _name_id.tmpl></td>
+        </tmpl_loop>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>

@@ -1,0 +1,74 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h3><a href="./">Admin</a> &gt; <a href="register.cgi">가입신청 현황</a></h3>
+
+<table><tr><td width="200">
+
+<tmpl_if stat>
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td class="thead">상태</td>
+    <td class="thead">&nbsp;인원&nbsp;</td>
+</tr>
+    <tmpl_loop stat>
+<tr>
+    <td class="itemc"><a href="register.cgi?s=<tmpl_var status>"><tmpl_var status></a></td>
+    <td class="itemc"><tmpl_var count></td>
+</tr>
+    </tmpl_loop>
+<tr>
+    <td class="itemc"><a href="register.cgi?s=all">all</a></td>
+    <td class="itemc"><tmpl_var total></td>
+</tr>
+</table>
+<br>
+</tmpl_if>
+
+</td><td>
+
+<tmpl_if same_name>
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td class="thead">이름</td>
+    <td class="thead">&nbsp;인원&nbsp;</td>
+</tr>
+    <tmpl_loop same_name>
+<tr>
+    <td class="itemc"><tmpl_var ki>기 <tmpl_var name></td>
+    <td class="itemc"><tmpl_var count></td>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+
+</td></tr></table>
+
+<tmpl_if list>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="thead" width="30">#</td>
+    <td class="thead">no</td>
+    <td class="thead" nowrap>기</td>
+    <td class="thead">이름 (아이디) / 생일</td>
+    <td class="thead">소속 / 이메일</td>
+    <td class="thead">신청일 / 추천</td>
+    <td class="thead">상태</td>
+</tr>
+    <tmpl_loop list>
+<tr class="alt<tmpl_if __odd__>1<tmpl_else>2</tmpl_if>">
+<!-- <tmpl_var uid> -->
+    <td class="lhead"><tmpl_var __counter__></td>
+    <td class="lhead"><tmpl_var no></td>
+    <td class="itemc"><tmpl_var ki></td>
+    <td class="iteml" nowrap><a href="/user/profile.cgi?id=<tmpl_var id>" class="user-profile" target="bw_profile"><tmpl_var name> (<tmpl_var id>)</a><br><tmpl_var birth></td>
+    <td class="itemc"><tmpl_var affiliation><br><tmpl_var email></td>
+    <td class="itemc"><tmpl_var created><br><a href="/user/profile.cgi?id=<tmpl_var recom_id>" class="user-profile" target="bw_profile"><tmpl_var recom_id></a> [<tmpl_var recom_passwd>]</td>
+    <td class="itemc"><tmpl_var status></td>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

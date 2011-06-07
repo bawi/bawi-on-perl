@@ -1,0 +1,17 @@
+To: <TMPL_VAR NAME=bawier_email>
+From: <TMPL_VAR NAME=reply_email>
+Subject: <TMPL_VAR NAME=contact_subject>
+
+안녕하세요, 천년바위 Postman 서비스 입니다.
+
+다음과 같은 연락 요청이 접수되었습니다. 연락을 원하시면 아래에 기록된
+이메일로 직접 연락을 주시기 바랍니다. 본 메일은 발신 전용으로 회신을 받을 수 없습니다.
+
+요청인 : <TMPL_VAR NAME=sender_name> <TMPL_IF sender_org>(<TMPL_VAR NAME=sender_org>)</TMPL_IF>
+요청인의 연락처 : <TMPL_VAR NAME=sender_email>
+연락내용 :
+<TMPL_VAR NAME=sender_message>
+
+----
+천년바위 Postman 서비스 ( http://postman.bawi.org )
+.

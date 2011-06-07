@@ -1,0 +1,23 @@
+</div><!-- content -->
+
+<tmpl_if msg><tmpl_include _msg.tmpl></tmpl_if>
+<tmpl_unless nomenu><tmpl_include _menu.tmpl></tmpl_unless>
+
+<div id="bottom-log" class="debug">
+<a>show debug msg</a>
+<span class="skin">skin:<tmpl_var skin></span>
+<span class="remote_address"><tmpl_var remote_address></span>
+<span class="user_agent"><tmpl_var user_agent></span>
+<tmpl_if mod_perl> <span class="mod_perl on">mod_perl on</span>
+<tmpl_else> <span class="mod_perl off">mod_perl off</span> </tmpl_if>
+<span class="runtime">runtime:<tmpl_if runtime><tmpl_var runtime></tmpl_if></span>
+<span class="loadavg"><tmpl_include /proc/loadavg></span>
+
+</div>
+
+</div><!-- column-content -->
+</div><!-- globalWrapper -->
+
+<div id="w3c-validator"><a href="http://validator.w3.org/check?uri=referer"></a></div>
+
+<tmpl_include _html_footer.tmpl>

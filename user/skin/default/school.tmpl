@@ -1,0 +1,41 @@
+<tmpl_include _html_header.tmpl>
+
+<tmpl_include _menu.tmpl>
+
+<form method="POST">
+    <select name="type" onChange="submit()">
+        <option value="">학위 ...
+        <tmpl_if type><option value="<tmpl_var type>" selected><tmpl_var type></tmpl_if>
+        <option value="Bachelor">Bachelor
+        <option value="Master">Master
+        <option value="Doctor">Doctor
+    </select>
+<tmpl_if degree_stat>
+    <select name="school_id" onChange="submit()">
+        <option value="">학교 ...
+    <tmpl_loop degree_stat>
+        <option value="<tmpl_var id>"<tmpl_if current> selected</tmpl_if>><tmpl_var school> [<tmpl_var count>] 
+    </tmpl_loop>
+    </select>
+</tmpl_if>
+</form> 
+<tmpl_if has_degree>
+
+<tmpl_if user>
+<h4>지도교수</h4>
+  <tmpl_if advisors>
+<ul style="width: 100%; margin: 0;" class="clearfix">
+    <tmpl_loop advisors>
+  <li style="float: left; margin: 0 20px 0 20px;"><a href="#" onclick="highlight(this, <tmpl_var uids>); return false;"><tmpl_var advisors></a></li>
+    </tmpl_loop>
+</ul>
+  </tmpl_if>
+[<a href="/user/degree.cgi">내 지도교수 추가</a>]
+</tmpl_if>
+
+<tmpl_include _user_list.tmpl>
+<tmpl_else>
+상호주의 원칙에 의해 본인의 정보를 입력해야 다른 사람의 정보를 볼 수 있습니다.
+</tmpl_if>
+
+<tmpl_include _html_footer.tmpl>

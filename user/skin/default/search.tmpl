@@ -1,0 +1,17 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl>
+<tmpl_if keyword>
+<tmpl_include _user_search.tmpl>
+<h4>총 <tmpl_var total>명</h4>
+
+<table border="0" cellpadding="0" cellspacing="0">
+    <tmpl_loop user>
+<tr>
+    <td nowrap><tmpl_include _user.tmpl></td>
+    <td><tmpl_var affiliation></td>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+<tmpl_include _user_search.tmpl>
+<tmpl_include _html_footer.tmpl>

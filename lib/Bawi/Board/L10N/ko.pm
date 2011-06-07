@@ -1,0 +1,56 @@
+package Bawi::Board::L10N::ko;   # Korean in EUC-KR 
+use strict;
+use base qw(Bawi::Board::L10N); # Bawi::L10N::en_us);
+use vars qw( %Lexicon );
+
+%Lexicon = (
+    '_AUTO' => 1,
+    'T_BOOKMARK' => '즐겨찾기',
+    'T_BOARD' => '게시판',
+    'T_BOARDS' => '게시판 목록',
+    'T_ONLINE' => '접속자',
+    'T_USERLIST' => '회원목록',
+    'T_ADDUSER' => '회원 추가',
+    'T_PASSWD' => '비밀번호',
+    'T_SIG' => '시그너처',
+    'T_LOGOUT' => '나가기',
+    'T_PREV' => '이전',
+    'T_NEXT' => '다음',
+    'T_WRITE' => '글쓰기',
+    'T_EDIT' => '고치기',
+    'T_DELETE' => '지우기',
+    'T_REPLY' => '답글쓰기',
+    'T_THREAD' => '답글보기',
+    'T_READ' => '읽음',
+    'T_RECOMMEND' => '추천',
+    'T_RECOMMENDED' => '추천',
+    'T_SCRAP' => '스크랩',
+    'T_SCRAPPED' => '스크랩',
+    'T_SCRAPBOOK' => '스크랩북',
+    'T_RESET' => '모두 읽음 표시',
+    'T_NEWARTICLES' => '새 글',
+    'T_TITLE' => '제목',
+    'T_BODY' => '본문',
+    'T_NAME' => '이름',
+    'T_ID' => '아이디',
+    'T_FILE' => '파일',
+    'T_POLL' => '폴',
+    'T_OPTION' => '보기',
+    'T_SAVE' => '저장',
+    'T_IMGLIST' => '그림목록',
+    'T_ARTICLELIST' => '글목록',
+    'T_SEARCH' => '찾기',
+    'T_COMMENT' => '짧은답글',
+    'T_NEWCOMMENTS' => '새 짧은답글',
+    'T_ADDBOOKMARK' => '즐겨찾기추가',
+    'T_DELBOOKMARK' => '즐겨찾기삭제',
+    'T_BOARDCFG' => '게시판설정',
+    'T_ADDNOTICE' => '공지',
+    'T_DELETENOTICE' => '공지지우기',
+    'T_COMMENT' => '짧은답글',
+    'T_SAVEBOOKMARKS' => '즐겨찾기 저장',
+
+    'Bookmark your favorite boards from the board list.' => '게시판 목록에서 자주 가는 게시판을 즐겨찾기에 추가해 주세요.',
+);
+
+1;

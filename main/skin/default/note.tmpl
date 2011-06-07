@@ -1,0 +1,52 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_var body_class>">
+<div id="globalWrapper">
+  <div id="column-content">
+  <h1><img src="image/note.gif" /> <tmpl_var HTMLTitle></h1>
+  <div id="content">
+
+<div id="note-messages-container"><tmpl_include _note_messages.tmpl></div>
+
+<tmpl_if is_inbox>
+<form class="note" method="post">
+<input type="hidden" name="mbox" value="<tmpl_var mbox>"/>
+<input type="hidden" name="wait" value="<tmpl_var wait>"/>
+<input type="hidden" name="page" value="<tmpl_var page>"/>
+
+<label>받는이</label>
+<input type="text" name="to" value="<tmpl_var to_default>" size="50"/>
+
+<label>쪽지</label>
+<textarea name="msg" rows="3" cols="60" class="focus"></textarea>
+<input type="submit" name="action" value="Send" />
+</form>
+</tmpl_if>
+
+</div><!-- content -->
+
+<ul class="bottom-menu">
+<li><a href="?mbox=inbox">새 쪽지</a></li>
+<li><a href="?mbox=sent">보낸 쪽지</a></li>
+<li><a href="?mbox=saved">쪽지함</a></li>
+<li><a href="?wait=1">기다리기</a></li>
+<li><a href="?wait=0">멈추기</a></li>
+</ul>
+
+<div id="bottom-log" class="debug">
+<a>show debug msg</a>
+<span class="skin">skin:<tmpl_var skin></span>
+<span class="remote_address"><tmpl_var remote_address></span>
+<span class="user_agent"><tmpl_var user_agent></span>
+<tmpl_if mod_perl> <span class="mod_perl on">mod_perl on</span>
+<tmpl_else> <span class="mod_perl off">mod_perl off</span> </tmpl_if>
+<span class="runtime"><tmpl_if runtime><tmpl_var runtime></tmpl_if></span>
+<span class="loadavg"><tmpl_include /proc/loadavg></span>
+
+</div>
+
+</div><!-- column-content -->
+</div><!-- globalWrapper -->
+
+<div id="w3c-validator"><a href="http://validator.w3.org/check?uri=referer"></a></div>
+
+<tmpl_include _html_footer.tmpl>

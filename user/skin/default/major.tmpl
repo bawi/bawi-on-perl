@@ -1,0 +1,30 @@
+<tmpl_include _html_header.tmpl>
+
+<h3>전공 추가</h3>
+
+<tmpl_if major>
+<div class="msg"><b>나의 전공:</b>
+    <tmpl_loop major>
+<tmpl_var major> [<a href="major.cgi?del_id=<tmpl_var major_id>">삭제</a>]<tmpl_unless __last__>, </tmpl_unless>
+    </tmpl_loop>
+</div> 
+</tmpl_if>
+
+<tmpl_if category>
+<form method="POST">
+    <select name="category" onChange="submit()">
+        <option value="0">선택...
+    <tmpl_loop category>
+        <option value="<tmpl_var major_id>"<tmpl_if current> selected</tmpl_if>><tmpl_var major>
+    </tmpl_loop>
+    </select>
+</form>
+</tmpl_if>
+
+<tmpl_if major_list>
+    <tmpl_loop major_list>
+    [<tmpl_if current><a href="major.cgi?del_id=<tmpl_var major_id>">삭제</a><tmpl_else><a href="major.cgi?major_id=<tmpl_var major_id>">추가</a></tmpl_if>] <tmpl_var major><br>
+    </tmpl_loop>
+</tmpl_if>
+
+<tmpl_include _html_footer.tmpl>

@@ -1,0 +1,350 @@
+BODY {
+    color: #000;
+    background-color: #fff;
+    font-family: verdana, arial, helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 160%;
+    }
+
+A:link, A:visited, A:active {
+    color: #5A6880;
+    text-decoration: none;
+    }
+
+A:hover {
+    text-decoration: underline;
+    }
+
+#bx {
+    width: 54.84375em;
+    margin: auto;
+    }
+
+div.msg {
+    color: #666;
+    background-color: #fff;
+    text-align: center;
+    font-size: 9pt;
+    width: 100%;
+    padding: 0px 0px 20px 0px;
+    margin: 40px auto; 
+    border: 1px #ECE9D8 solid;
+    }
+
+div.msg div {
+    color: #333;
+    background-color: #ECE9D8;
+    text-align: center;
+    margin-bottom: 20px;
+    }
+
+/* form elements */
+
+textarea.body {
+    color: #000;
+    background-color: #C5CDD8;
+    font-size: 9pt;
+    line-height: 180%;
+    border: #8B98B1 1px solid;
+    }
+
+input.text, select.text {
+    color: #000;
+    font-family: verdana, arial, helvetica, sans-serif;
+    background-color: #C5CDD8;
+    font-size: 9pt;
+    border: #8B98B1 1px solid;
+    margin: 0px;
+    padding: 1px;
+    height: 1.35em;
+    width: 16.875em;
+}
+
+input.button {
+    color: #fff;
+    font-family: verdana, arial, helvetica, sans-serif;
+    background-color: #8B98B1;
+    font-size: 9pt;
+    border: #333 1px solid;
+    margin: 1px 0px 0px 0px; 
+    height: 1.6875em;
+    width: 17.2125em;
+    }
+
+#bx input[type="text"], #bx input[type="password"], #bx select { 
+/*#bx input, #bx select { */
+    color: #000;
+    font-family: verdana, arial, helvetica, sans-serif;
+    background-color: #C5CDD8;
+    font-size: 9pt;
+    border: #8B98B1 1px solid;
+    margin: 0px;
+    padding: 1px;
+    height: 1.35em;
+    width: 16.875em;
+}
+
+#bx input[type="submit"] {
+    color: #fff;
+    font-family: verdana, arial, helvetica, sans-serif;
+    background-color: #8B98B1;
+    font-size: 9pt;
+    border: #333 1px solid;
+    margin: 0px; 
+    height: 1.6875em;
+    width: 17.2125em;
+    }
+
+/* table elements */
+
+td {
+    font-size: 9pt;
+    line-height: 160%;
+    vertical-align: top;
+    padding: 1px 3px 3px 1px;
+    }
+
+td.thead {
+    color: #fff;
+    background-color: #8B98B1;
+    font-size: 9pt;
+    border-top: 0px solid #8B98B1;
+    border-bottom: 0px solid #8B98B1;
+    text-align: center;
+    padding: 0px 5px 0px 5px;
+    margin: 0;
+    }
+
+td.thead A, td.thead A:visited, td.thead A:active {
+    color: #fff;
+    font-size: 9pt;
+    }
+
+td.thead A:hover {
+    color: #5A6880;
+    text-decoration: none;
+}
+
+td.bhead {
+    }
+
+td.lhead {
+    color: #fff;
+    background-color: #8B98B1;
+    font-size: 9pt;
+    text-align: center;
+    vertical-align: middle;
+    border-bottom: #8B98B1 1px solid;
+    padding: 0px 5px 0px 5px;
+    margin: 0px;
+    }
+
+td.fhead {
+    color: #5A6880;
+    font-size: 9pt;
+    font-weight: bold;
+    text-align: right;
+    vertical-align: top;
+    padding: 0px 5px 0px 5px;
+    margin: 0px;
+    }
+
+td.rhead {
+    }
+
+td.iteml {
+    text-align: left;
+    vertical-align: top;
+    border-bottom: #C5CDD8 1px solid;
+    padding: 1px 3px 3px 1px;
+    color: #000;
+    }
+
+td.iteml A, td.iteml A:link, td.iteml A:visited, td.iteml A:active {
+    color: #000;
+    }
+
+td.itemr {
+    text-align: right;
+    vertical-align: top;
+    border-bottom: #C5CDD8 1px solid;
+    padding: 1px 3px 3px 1px;
+    color: #000;
+    }
+
+td.itemr A, td.itemr A:link, td.itemr A:visited, td.itemr A:active {
+    color: #000;
+    }
+
+td.itemc {
+    color: #000;
+    text-align: center;
+    vertical-align: top;
+    border-bottom: #C5CDD8 1px solid;
+    padding: 1px 3px 3px 1px;
+    }
+
+td.itemc A, td.itemc A:link, td.itemc A:visited, td.itemc A:active {
+    color: #000;
+    }
+
+td.itemf {
+    text-align: left;
+    vertical-align: top;
+    padding: 1px 3px 3px 1px;
+    }
+
+td.tshead {
+    font-size: 8pt;
+    line-height: 100%;
+    background-color: #DDE1E7;
+    padding: 0px 3px 0px 3px;
+    margin: 0px;
+    }
+
+tr.alt1 {
+    }
+
+tr.alt2 {
+    background-color: #DDE1E7;
+    }
+
+/* article body */
+
+.article {
+    font-size: 10pt;
+    line-height: 180%;
+    overflow:visible;
+    width: 550px; 
+    margin: 25px 50px;
+    text-align: justify;
+    }
+
+/* comment body */
+
+.comment {
+    width: 34.59375em;
+    text-align: justify;
+    overflow:hidden;
+    }
+
+/* text quotation colors */
+
+.quoted1 { 
+    color:#039;
+    }
+
+.quoted2 { 
+    color:#075;
+    }
+
+.quoted3 {
+    color:#90a;
+    }
+
+.quoted4 { 
+    color:#772;
+    }
+
+.quoted5 { 
+    color:#a42;
+    }
+
+/* search highlight */
+.search {
+    background-color: #FFF6C3;
+    }
+
+/* system information */
+
+.mod_perl_on  {
+    color:#eef; 
+    background-color:#66f;
+    font-size:8pt;
+    }
+
+.mod_perl_off {
+    color:#eef;
+    background-color:#f66;
+    font-size:8pt;
+    }
+
+/* image list */
+
+div.img {
+    float: left;
+    width: 100px;
+    height: 125px;
+    margin: 3px;
+    padding: 10px 10px 0px 10px;
+    background-color: #C5CDD8;
+    border: 1px #333 solid;
+    text-align: center;
+    vertical-align: bottom;
+    font-size: 8pt;
+    }
+
+/* user list */
+
+#ulist ul {
+    list-style: none;
+    margin: 0;
+    border: none;
+    width: 100%;
+    }
+
+#ulist ul li {
+    width: 140px;
+    float: left;
+    }
+
+/* forms */
+
+div.form {
+    color: #5A6880;
+    text-align: center;
+    font-size: 9pt;
+    width: 100%;
+    padding: 0px 0px 20px 0px;
+    margin: 40px auto; 
+    background-color: #fff;
+    border: 1px #8B98B1 solid;
+    }
+
+div.title {
+    color: #fff;
+    background-color: #8B98B1;
+    margin-bottom: 20px;
+    }
+
+/* owner */
+
+.owner:hover {
+    background-color:#FFF9E5;
+}
+/* BX menu */
+
+div#bxmenu {
+    color: #8B98B1;
+    text-align: center;
+    font-size: 9pt;
+    width: 100%;
+    padding: 3px 0px 0px 0px;
+    margin: 40px auto 0px auto; 
+    border-top: 1px #8B98B1 solid;
+}
+
+.clearfix:after {
+    content: "."; 
+    display: block; 
+    height: 0; 
+    clear: both; 
+    visibility: hidden;
+}
+
+.clearfix {display: inline-table;}
+
+/* Hides from IE-mac \*/
+* html .clearfix {height: 1%;}
+.clearfix {display: block;}
+/* End hide from IE-mac */

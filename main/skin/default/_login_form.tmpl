@@ -1,0 +1,39 @@
+<form id="login" name="login" class="login" method="post"
+      action="<tmpl_var login_URL>" enctype="application/x-www-form-urlencoded"
+      style="background-image: url(<tmpl_var background_image_url>)">
+<input type="hidden" name="url" value="<tmpl_var url>" />
+
+<table class="login-form">
+<tr>
+  <td>
+    <table>
+    <tr>
+      <td class="label"><label for="login_id">ID</label></td>
+      <td class="input">
+      <input type="text" id="login_id" name="id" value="<tmpl_var id>" onclick="select();" maxlength="8"/>
+    </td>
+    </tr> 
+    <tr>
+      <td class="label"><label for="login_passwd">Passwd</label></td>
+      <td class="input">
+      <input type="password" id="login_passwd" name="passwd" value="" onclick="select();" maxlength="8"/> 
+      </td>
+    </tr>
+    </table>
+  </td>
+  <td>
+  <input type="submit" id="login_submit" value="Go" />
+  </td>
+</tr>
+<tr>
+  <td colspan="2">
+  <fieldset class="links">
+  <a href="mailto:webmaster@bawi.org">접속문의</a>
+  <a href="http://www.bawi.org/reg/">회원가입</a>
+  <tmpl_if msg><div><tmpl_var msg></div></tmpl_if>
+  </fieldset>
+  </td>
+</tr>
+</table>
+</form>
+

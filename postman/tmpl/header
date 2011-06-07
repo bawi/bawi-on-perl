@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE> 서울과학고 동문 연락 시스템 </TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<link href="./default.css" rel="stylesheet" type="text/css">
+<script type="text/javascript">
+<!--
+function check_requestform(rform) {
+    var filter=/^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i
+
+    if( rform.sender_name.value == "" ) {
+        alert('이름을 입력하셔야합니다.');
+        rform.sender_name.focus();
+        return false;
+    }
+    if( rform.sender_email.value == "" ) {
+        alert('이메일을 입력하셔야합니다.');
+        rform.sender_email.focus();
+        return false;
+    }
+    if( !filter.test(rform.sender_email.value) ) {
+        alert('유효한 이메일주소를 입력하셔야합니다.');
+        rform.sender_email.focus();
+        return false;
+    }
+    if( rform.sender_message.value == "" ) {
+        alert('하고 싶으신 말은 꼭 입력하셔야합니다.');
+        rform.sender_message.focus();
+        return false;
+    }
+
+    return true;
+}
+//-->
+</script>
+</HEAD>
+
+<BODY>

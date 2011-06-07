@@ -1,0 +1,39 @@
+<tmpl_include _html_header.tmpl>
+<body>
+<tmpl_include _header.tmpl>
+
+<div class="form">
+<div class="title">찾기</div>
+<tmpl_include _search.tmpl>
+</div>
+
+
+<tmpl_if board>
+<h4>게시판 찾기 결과</h4>
+<tmpl_if result_board>
+<ol>
+    <tmpl_loop result_board>
+    <li><a href="<tmpl_var board_url>/boards.cgi?gid=<tmpl_var gid>"><tmpl_var group_title></a> &gt; <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"><tmpl_var title></a> - <tmpl_if ki><a href="<tmpl_var user_url>/ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a> </tmpl_if><tmpl_include _name_id.tmpl></li>
+    </tmpl_loop>
+</ol>
+<tmpl_else>
+결과가 없습니다.
+</tmpl_if>
+</tmpl_if>
+
+<tmpl_if people>
+<h4>동창 찾기 결과</h4>
+<tmpl_if result_people>
+<ol>
+    <tmpl_loop result_people>
+    <li><a href="<tmpl_var user_url>/ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a>
+        <tmpl_include _name_id.tmpl>:
+        <tmpl_var affiliation>, <tmpl_var mobile_tel></li>
+    </tmpl_loop>
+</ol>
+<tmpl_else>
+결과가 없습니다.
+</tmpl_if>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

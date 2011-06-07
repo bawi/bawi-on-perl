@@ -1,0 +1,53 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h1><a href="bookmarkgrp.cgi"><tmpl_var T_BOOKMARK></a></h1>
+<tmpl_if bookmark>
+<tmpl_loop bookmark>
+<ul class="bookmark <tmpl_var class>">
+
+  <tmpl_loop column>
+<li class="item head"><ul>
+    <li><tmpl_include _breadcrumb.tmpl></li>
+</ul></li>
+
+    <tmpl_loop boards>
+<li class="item"><ul>
+    <li class="name"><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if is_imgboard>&img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)"><tmpl_var title></a></li>
+    <li class="count">
+
+    <tmpl_if new_articles>
+    <a href="read.cgi?bid=<tmpl_var board_id>;la=<tmpl_var article_no>;lc=<tmpl_var comment_no><tmpl_if is_imgboard>;img=1</tmpl_if>" accesskey="k"><tmpl_var new_articles><tmpl_if new_comments> [<tmpl_var new_comments>]</a></tmpl_if></a>
+    <tmpl_else>
+    <tmpl_if new_comments>
+    <a href="read.cgi?bid=<tmpl_var board_id>;la=<tmpl_var article_no>;lc=<tmpl_var comment_no><tmpl_if is_imgboard>;img=1</tmpl_if>" accesskey="k">[<tmpl_var new_comments>]</a>
+    </tmpl_if>
+    </tmpl_if>
+
+</li>
+</ul></li>
+    </tmpl_loop><!--boards-->
+  </tmpl_loop><!--column-->
+
+<tmpl_if __last__>
+<li class="item head"><ul>
+    <li><tmpl_var T_SCRAPBOOK></li>
+</ul></li>
+<li class="item"><ul>
+    <li class="name"><a href="read_scrap.cgi">[<tmpl_var T_SCRAPBOOK>]</a></li>
+    <li class="count"></li>
+</ul></li>
+</tmpl_if>
+
+</ul>
+</tmpl_loop>
+</tmpl_if>
+
+<ul class="article">
+<li class="button"><a class="button aqua" href="bookmark.cgi?reset=1" onclick="return window.confirm('Reset all bookmarks?');"><tmpl_var T_RESET></a></li> 
+<li class="button right"><a class="button aqua" href="rss.cgi?uid=<tmpl_var uid>;code=<tmpl_var code>" title="RSS 2.0 Feed">RSS 2.0</a></li>
+<li class="button separator"><a>&nbsp;</a></li>
+</ul>
+
+<tmpl_include _footer.tmpl>

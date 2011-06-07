@@ -1,0 +1,131 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl>
+<div style="clear:both;">
+<br>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="105">
+        <a href="profile.cgi?id=<tmpl_var id>"><img src="/user/photo.cgi?id=<tmpl_var id>" border="1" width="105" height="140" alt="<tmpl_var ki>기 <tmpl_var name> (<tmpl_var id>)"></a>
+    </td>
+    <td class="iteml">
+        <h2><tmpl_include _user.tmpl><tmpl_var birth></h2>
+<tmpl_unless is_owner>
+<form action="guestbook.cgi" method="POST">
+<input type="hidden" name="uid" value="<tmpl_var uid>">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="fhead" style="text-align:left">방명록</td>
+</tr>
+<tr>
+    <td class="itemf">
+        <textarea name="body" cols="40" rows="3" class="body" style="width:452px; height:46px"></textarea><br>
+        <input type="submit" value="Save" class="button" style="width:454px">
+    </td>
+</tr>
+</table>
+</form>
+<tmpl_else>
+[
+<a href="guestbook.cgi?uid=<tmpl_var uid>">방명록</a>
+|
+<a href="guestbook.cgi?uid=<tmpl_var uid>&left=1">내가 남긴 방명록</a>
+|
+<a href="guestbook.cgi?uid=<tmpl_var uid>&action=stat">1촌 통계</a>
+]
+</tmpl_unless>
+    </td>
+</tr>
+</table>
+
+<tmpl_if stat>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td width="" align="right"><tmpl_var tot_s></td>
+    <td width="26" valign="bottom"><img src="/image/arrow-<tmpl_var tot_arrow>.gif" width="26" height="9" border="0" vspace="5" alt="arrow"></td>
+    <td width=""><tmpl_var tot_r></td>
+    <td valign="top">총 <tmpl_var stat_tot>명</td>
+</tr>
+    <tmpl_loop stat>
+<tr>
+    <td width="" align="right"><tmpl_var sent></td>
+    <td width="26" valign="bottom"><img src="/image/arrow-<tmpl_var arrow>.gif" width="26" height="9" border="0" vspace="5" alt="arrow"></td>
+    <td width=""><tmpl_var received></td>
+    <td valign="top"><tmpl_include _user.tmpl></td>
+</tr>
+    </tmpl_loop>
+</table>
+<tmpl_else>
+    <tmpl_if guestbook>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tmpl_loop guestbook>
+<tr>
+    <td rowspan="3" width="60"><a href="profile.cgi?id=<tmpl_var id>"><img src="thumb.cgi?id=<tmpl_var id>" border="1" width="60" height="80" alt="<tmpl_var ki>기 <tmpl_var name> (<tmpl_var id>)"></a></td>
+</tr>
+<tr>
+    <td class="iteml" height="20">
+        <tmpl_if left>To:</tmpl_if>
+        <tmpl_include _user.tmpl> @ <tmpl_var created>
+            <tmpl_if is_guest>
+                <tmpl_unless reply>
+        [<a href="guestbook.cgi?uid=<tmpl_var uid>&gbook_id=<tmpl_var gbook_id>&action=del" onClick="return window.confirm('정말 지우시겠습니까?');">지우기</a>]
+                </tmpl_unless>
+            </tmpl_if>
+    </td>
+</tr>
+<tr>
+    <td class="">
+        <tmpl_var body>
+            <tmpl_if reply>
+        <blockquote style="background-color:#eee; padding:4px">
+            답장: <tmpl_var reply>
+                <tmpl_if is_owner>
+            [<a href="guestbook.cgi?uid=<tmpl_var uid>&gbook_id=<tmpl_var gbook_id>&action=delrep" onClick="return window.confirm('정말 지우시겠습니까?');">지우기</a>]
+                </tmpl_if>
+        </blockquote>
+            <tmpl_else>
+                <tmpl_if is_owner>
+        <form action="guestbook.cgi" method="POST">
+        <input type="hidden" name="gbook_id" value="<tmpl_var gbook_id>">
+        <input type="hidden" name="uid" value="<tmpl_var uid>">
+        <input type="hidden" name="page" value="<tmpl_var page>">
+        <textarea name="reply" cols="40" rows="3" class="body" style="width:452px"></textarea><br>
+        <input type="submit" value="Save" class="button" style="width:454px">
+        </form>
+                <tmpl_else>
+            <br>
+                </tmpl_if>
+            </tmpl_if>
+    </td>
+</tr>
+        </tmpl_loop>
+</table>
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+    <td align="center">
+        <tmpl_if first_page>
+<a href="guestbook.cgi?uid=<tmpl_var uid>&page=<tmpl_var first_page>&left=<tmpl_var left>">[1]</a>...
+        </tmpl_if>
+        <tmpl_if prev_page>
+<a href="guestbook.cgi?uid=<tmpl_var uid>&page=<tmpl_var prev_page>&left=<tmpl_var left>">[PREV]</a>
+        </tmpl_if>
+        <tmpl_loop pages>
+            <tmpl_if current>
+<strong><tmpl_var page></strong>
+            <tmpl_else>
+<a href="guestbook.cgi?uid=<tmpl_var uid>&page=<tmpl_var page>&left=<tmpl_var left>"><tmpl_var page></a>
+            </tmpl_if>
+        </tmpl_loop>
+        <tmpl_if next_page>
+<a href="guestbook.cgi?uid=<tmpl_var uid>&page=<tmpl_var next_page>&left=<tmpl_var left>">[NEXT]</a>
+        </tmpl_if>
+        <tmpl_if last_page>
+...<a href="guestbook.cgi?uid=<tmpl_var uid>&page=<tmpl_var last_page>&left=<tmpl_var left>">[<tmpl_var last_page>]</a>
+        </tmpl_if>
+    </td>
+</tr>
+</table>
+    </tmpl_if>
+</tmpl_if>
+</div>
+<tmpl_include _html_footer.tmpl>

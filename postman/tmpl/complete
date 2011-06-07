@@ -1,0 +1,6 @@
+<div class="msg">
+<div>Message</div>
+성공적으로 메일을 발송하였습니다.<br/>
+
+귀하의 메일, <TMPL_VAR NAME="sender_email">로 발송확인 메일을 보내드렸습니다.
+</div>

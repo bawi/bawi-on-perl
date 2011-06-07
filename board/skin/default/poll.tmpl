@@ -1,0 +1,9 @@
+<tmpl_unless ajax>
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+</tmpl_unless>
+
+<tmpl_include _pollset.tmpl>
+
+<tmpl_unless ajax><tmpl_include _footer.tmpl></tmpl_unless>

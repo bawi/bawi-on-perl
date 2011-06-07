@@ -1,0 +1,85 @@
+2006. 10. 28. UTF8 version으로 변환.
+
+###############################
+# POSTMAN BAWI
+###############################
+
+Objective/History
+--------------------
+
+동창들의 연락처(이메일) 명부를 갖고 있는 바위 시스템에서, 특정 동창과의 연락
+을 취하려고 하는 사람에게 이메일을 직접 전달하지 않고 연락요청을 중계하는 프
+로그램. 동창과 연락하고자 하는 외부인과 동창과의 연락 중계를 맡은 동창회장의
+과중한 업무부담, 개인정보 보호 문제 등의 논란끝에 권태준 동창 제안 (바위 
+동창 회사무실 게시판 596번 게시물 참조), 탄생함.
+
+The BAWI system keeps a well-managed personal info of SSHS alumni/alumnae, in-
+cluding e-mail addresses. Because of the unnecessary overhead the head of 
+alumni association had to suffer to handle contact request to a certain SSHS
+alumnus (i.e. bawier), providing the information to SSHS officer has been re-
+peatedly proposed. However, the mounting worries of its misuse (especially 
+worries that the entire list may be exposed to spammers) lead to an alternative
+solution (this program), proposed, supervised by linusben.
+
+Reference : http://www.bawi.org/x/read.cgi?bid=2&aid=835630&p=3
+
+
+Overview
+---------------------
+
+* exim4를 직접 호출하여 (www 계정명으로 발송됨) 요청자 및 연락받아야하는 동창
+에게 각각 알맞는 메일을 발송함. 
+* Perl 스크립트이며, CGI 및 DBI, MIME::Base64, HTML::Template 모듈을 사용함. 
+* index.pl의 한 개의 script 파일로 이뤄져있음.
+* 편지와 관련된 구문은 하위디렉토리 tmpl의 mail_contact (동창에게 보내는 메일),
+  mail_response (요청자에게 다시 보내는 메일)을 확인, 및 수정하면 된다.
+
+* exim4 command is called (user : www) to send proper messages to the bawier
+  and the contact requester.
+* written in Perl script. CGI, DBI, MIME::Base64, HTML::Template modules were
+  used.
+* consist of a single script file, index.pl. (postman.pl is for backup reasons)
+* mail templates are in tmpl sub-directory. see mail_contact (template mail for
+  bawier), mail_response (template mail for the contact requester)
+
+
+Programming Details
+----------------------
+
+위키 페이지를 참고하시오.
+http://wiki.dev.bawi.org/wiki/BawiPostman
+
+See first of all, wiki page for postman.
+http://wiki.dev.bawi.org/wiki/BawiPostman
+
+
+Contacts
+---------------------
+
+* 제안 및 목적 관련 : 권태준
+* 코딩 관련 : 이창희 / 권태준
+* 이쁘게 보이는 모든 것 : 이경준
+
+* proposal / objectives : linusben
+* perl script coding : WWolf / linusben
+* template, CSS, etc. : seouri
+
+
+Special Thanks to...
+---------------------
+
+* 권태준 선배님께서 전반적인 코드를 모두 감수해주셨습니다.
+* 이쁘게 보이는 모든 껍데기는 이경준 선배님께서 작성해주셨습니다.
+* MIME encoding과 관련된 부분은 김승범(musiphil)선배님께서 제안해주셨습니다.
+
+* The code was extensively reviewed and commented by linusben. The actual 
+  coder learned a lot by his sincere review pages.
+* The clear appearance (sort of "decoration") of the pages are entirely 
+  attributed to seouri, he made all the HTML template pages.
+* MIME coding routines were suggested my musiphil. If it had not been his
+  kind comments, most mails sent my postman.bawi.org would have been cate-
+  gorized as spam due to incorrect MIME encoding.
+
+
+-----
+This README file was written in 2005. 01. 25. by WWolf.

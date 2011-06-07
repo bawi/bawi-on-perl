@@ -1,0 +1,13 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h2><a href="online.cgi">접속자 <tmpl_var total>명</a></h2>
+
+<ul class="user-list">
+<tmpl_loop online>
+  <li><tmpl_if ki><a href="/user/ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a> </tmpl_if><tmpl_if death>故 </tmpl_if><tmpl_include _name_id.tmpl></li>
+</tmpl_loop>
+</ul>
+
+<tmpl_include _footer.tmpl>

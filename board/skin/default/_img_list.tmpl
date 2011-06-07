@@ -1,0 +1,13 @@
+<ul class="image-list">
+<tmpl_loop list>
+<li class="img<tmpl_if new> new</tmpl_if>">
+<tmpl_var article_no>. <tmpl_var title>
+<!--<tmpl_var count> / <tmpl_var recom> <tmpl_if comments>[<tmpl_var comments>]</tmpl_if>-->
+ 
+<a href="read.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&p=<tmpl_var page>&img=1#attach-<tmpl_var attach_id>">
+<img class="internal" src="thumb.cgi?atid=<tmpl_var attach_id>"
+     alt="<tmpl_var title> by <tmpl_var name> (<tmpl_var id>)" /></a>
+
+</li> 
+</tmpl_loop>
+</ul>

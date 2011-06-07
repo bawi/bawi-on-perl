@@ -1,0 +1,15 @@
+<form class="search" action="read.cgi" method="get" enctype="application/x-www-form-urlencoded">
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+<a href="http://sshs-alumni.org" target="_blank"><img style="position: absolute; right: 0; border: 0; " class="banner" src="http://sshs-alumni.org/sshs_ban.gif" alt="서울과학고 동창회" /></a>
+<input type="text" name="k" value="<tmpl_var keyword>" class="text" size="32" maxlength="32" onfocus="select()" />
+<input type="submit" class="button" name="submit" value="Search" />
+<fieldset>
+<tmpl_if search_fields><tmpl_loop search_fields>
+<label for="search-<tmpl_var field>">
+  <input type="radio" name="f" value="<tmpl_var field>"
+         id="search-<tmpl_var field>" <tmpl_if checked> checked="checked"</tmpl_if>/>
+  <tmpl_var field></label>
+</tmpl_loop></tmpl_if>
+</fieldset>
+</form>
+

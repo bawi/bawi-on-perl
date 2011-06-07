@@ -1,0 +1,31 @@
+<tmpl_loop alerts>
+<div class="msg"><tmpl_var html></div>
+</tmpl_loop>
+
+<tmpl_if notes>
+<div class="msg">[<strong><tmpl_var mbox></strong>]에 <strong id="note-mbox-count"><tmpl_var msg_count></strong>개의 쪽지가 있습니다.</div>
+
+<tmpl_loop notes>
+<form class="note" method="post">
+<input type="hidden" name="mbox" value="<tmpl_var mbox>"/>
+<input type="hidden" name="wait" value="<tmpl_var wait>"/>
+<input type="hidden" name="page" value="<tmpl_var page>"/>
+
+<input type="hidden" name="r_msg_id" value="<tmpl_var msg_id>"/>
+<div class="note">"<tmpl_var msg>"</div>
+<div class="sender"><tmpl_if is_sent>To:<tmpl_else>From:</tmpl_if> <tmpl_include _name_id.tmpl> @ <tmpl_var sent_time></div>
+
+<tmpl_if is_inbox>
+<label>답장</label>
+<input type="hidden" name="to" value="<tmpl_var id>"/>
+<textarea name="msg" rows="3" cols="60" class="focus"></textarea>
+<input type="submit" name="action" value="Delete+Reply" />
+<input type="submit" name="action" value="Save+Reply" />
+<tmpl_else>
+<input type="submit" name="action" value="Delete" />
+</tmpl_if>
+</form>
+</tmpl_loop>
+<tmpl_include _note_page_nav.tmpl>
+
+</tmpl_if><!--notes-->

@@ -1,0 +1,99 @@
+/* $Id$ */
+
+#column-content, #content { width: expression(this.clientWidth >= 670 ? '670px' : 'auto'); }
+
+/* Fixes position of login form which would locate as if no padding in form#login . */
+form#login { position: relative; }
+table.login-form { position: absolute; right: 50px; }
+
+#top-menu ul.contents-menu    { background: #003344; display: block; }
+#top-menu ul.contents-menu li { display: inline; zoom: 1; }
+
+#top-menu ul.contents-menu li.separator { display: none; }
+#top-menu ul.contents-menu li.user { position: absolute; right: 4px; text-align: right; }
+
+body.news #column-content,
+body.news #content  { width: 850px; }
+
+#hd,#ft { display: block; }
+#s1,#s2,#s3 { display: inline; zoom: 1; vertical-align: top; } /* Internet Explorer */
+#bd,#doc {border-right:1px dotted #555;}
+
+body.news #wp      {xxborder-top: 0; }
+body.news #wp #hd,
+body.news #wp #bd,
+body.news #wp #s1,
+body.news #wp #s2,
+body.news #wp #s3,
+body.news #wp #ft  {position:relative;}
+body.news #wp #hd  {top: -2px; padding-top: 5px; }
+body.news #wp #bd  {width: 618px; /*background: #fcc;*/}
+body.news #wp #doc {width: 210px;/*!*/ xxbackground: #aa8;} /* #s1 is on #doc */
+body.news #wp #s1  {width: 194px;      xxbackground: #8bb; }
+body.news #wp #s2  {width: 391px;/*!*/ margin-right:-410px; right:  -1px; xxbackground: #b8b; xxtop: 50px;  }
+body.news #wp #s3  {width: 213px;/*!*/ margin-right:-400px; right:-409px; xxbackground: #8bb; xxdisplay: none; }
+body.news #wp #ft  {top: 0px; padding-top: 5px; xxbackground: #8bb; }
+
+div.top-head    { position: relative;      }
+div.top-head h1 { display: inline; zoom: 1; }
+div.top-head span.breadcrumb { position: absolute; right: 0; top: 0.35em; }
+
+h1.article, h2.article, h3.article { display: inline; zoom: 1; }
+
+ul.bookmark li.item ul     { display: block; width: 100%; }
+ul.bookmark li.item ul li  { display: inline; zoom: 1; width: 100%; }
+ul.bookmark li.item ul li.name  { width: 74%; padding: 0 2px; overflow: hidden; }
+ul.bookmark li.item ul li.count { width: 24%; text-align: center; font-weight: bold; overflow: visible; }
+ul.bookmark li.item.head ul li.count { overflow: hidden; white-space: nowrap; }
+
+ul.article li.subject { font-weight: bold; padding-left: 0; }
+ul.article li.author  { clear: left; float: left; padding-left: 0; }
+ul.article li.created { float: left; padding-left: 8px; white-space: nowrap; }
+ul.article li.count   { float: left; padding-left: 8px; white-space: nowrap; }
+ul.article li.visualClear { clear: left; width: 100%; height: 0; border-bottom: 1px solid #C5CDD8; }
+ul.article li.visualClear { font-size: 0px; }
+ul.article li.body        { float: none; clear: both; overflow: visible; width: 100%; padding: 6px 0 5px 0; border-bottom: 1px solid #C5CDD8; }
+ul.article li.body.text   { line-height: 170%; white-space: pre-wrap; text-align: justify; padding: 20px 0 10px 0;  }
+ul.article li.body.text   { border-bottom: 0; }
+ul.article li.body.text   { width: expression(this.clientWidth > 600 ? '600px' : 'auto'); margin: 0 auto 0 auto; }
+ul.article li.body.text table.safety.wrapper { width: 100%; }
+
+ul.article li.button   { float: left; text-overflow: ellipsis; padding: 4px 8px 4px 8px; line-height: 170%; }
+ul.article li.button   { color: white; background: #8B98B1; white-space: nowrap; max-width: 10em; padding: 0; }
+ul.article li.button   { border: 1px solid #8B98B1; }
+ul.article li.button a { color: white; background: #8B98B1; display: block; padding: 0px 8px 0px 8px;  }
+ul.article li.button.separator { float: none; width: auto; max-width: 100%; }
+ul.article li.button.separator a { visibility: hidden; }
+ul.article li.button.right { float: right; }
+ul.article li.body.text table.safety.wrapper { width: 100%; }
+
+
+ul.comment            { display: block; border-bottom: 1px solid #C5CDD8; }
+ul.comment li         { display: inline; zoom: 1; border-bottom: 0; }
+
+ul.comment-form       { display: block; }
+ul.comment-form li    { display: inline; zoom: 1; }
+
+ul.article.head li.button { font-size: 100%; }
+
+ul.article-list          { border-top: 1px solid #C5CDD8; }
+ul.article-list li       { display: inline; zoom: 1; border: 0; vertical-align: top; }
+ul.article-list li.no    { width:  50px; }
+ul.article-list li.title { width: 305px; }
+ul.article-list li.name  { width: 115px; }
+ul.article-list li.date  { width:  60px; }
+ul.article-list li.read  { width:  30px; }
+ul.article-list li.rec   { width:  30px; }
+ul.article-list li.scrp  { width:  30px; }
+
+ul.page-nav li { display: inline; padding: 1px 3px 1px 3px; }
+/* 
+ul.article-subject { border: 1px dotted blue; }
+ul.comment-form      { border: 1px dotted red;  }
+ul.comment-form > li { border: 1px dotted green; }
+/* */
+
+ul.user-list li { display: inline; zoom: 1; }
+
+ul.bottom-menu li   { display: inline; zoom: 1; }
+

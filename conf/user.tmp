@@ -1,0 +1,51 @@
+# ##############################################################################
+# BawiX Configuration for www.bawi.org
+# v0.04 Taejoon Kwon
+DBName              db_name
+DBUser              db_user
+DBPasswd            db_passwd
+
+# Cookie
+SessionName         bw_cafe24_session
+SessionDomain       .bawi.org
+LoginSuccess        ../main/index.cgi
+LoginURL            ../main/login.cgi
+PasswdURL           ../user/passwd.cgi
+LogoutURL           ../main/login.cgi
+PasswdExpire        90
+KeepLogin           0
+
+# Registration
+SelfRegistration    0
+
+# Skin
+DefaultSkin         default
+
+# Attachment upload directory (DO NOT include '/' at the end.)
+AttachDir           /home/bawi/xboard_attach
+
+# Character set
+CharSet             utf-8
+
+# Authorization
+AllowAddBoard       1
+AllowUserList       0
+AllowRecomUserList  1
+AllowRecomComment   0 
+AllowAccessControl  0
+AllowAnonAccess     1
+AllowAnonBoard      0
+AllowAttach         1
+
+# HTML Title
+HTMLTitle           천년바위
+
+GoogleAnalytics     1
+BackgroundImageURL  ../main/image/index.gif
+NoteCheckURL        ../main/note_check.cgi
+MenuURL             ../main/menu.cgi
+NewsURL             ../main/news.cgi
+LoginURL            ../main/login.cgi
+NoteURL             ../main/note.cgi
+UserURL             ../user
+BoardURL            ../board

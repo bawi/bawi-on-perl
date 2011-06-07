@@ -1,0 +1,167 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<div class="top-head">
+<h1><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if img>;img=1</tmpl_if>"><tmpl_var board_title></a></h1>
+  <tmpl_if a_read><span class="access-type">(손님읽기)</span></tmpl_if>
+  <tmpl_if owner><span class="owner">: <tmpl_loop owner><tmpl_include _name_id.tmpl></tmpl_loop></span></tmpl_if>
+<span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
+</div>
+
+<tmpl_loop board_cfg>
+<form class="config" name="boardcfg" method="post" enctype="application/x-www-form-urlencoded">
+<fieldset>
+<legend> Board Configuration: 
+    <a href="read.cgi?bid=<tmpl_var board_id><tmpl_if img>&img=1</tmpl_if>"><tmpl_var title></a>
+</legend>
+
+<input type="hidden" name="board_id" value="<tmpl_var board_id>">
+
+<p>
+<label for"title">Title</label>
+<input type="text" name="title" value="<tmpl_var title>" class="text" size="32" maxlength="32" />
+</p>
+
+<tmpl_loop owner>
+<p>
+<label for="id">Owner ID</label>
+<input type="text" name="id" value="<tmpl_var id>" class="text" size="32" maxlength="32" />
+</p>
+</tmpl_loop>
+
+<p>
+<label for="keyword">Keyword</label>
+<input type="text" name="keyword" value="<tmpl_var keyword>" class="text" size="16" maxlength="16" />
+</p>
+
+<p>
+<label for="skin">Skin</label>
+<select name="skin" class="text">
+  <option value="">Select ...</option>
+  <tmpl_loop skinset>
+  <option value="<tmpl_var skin>"<tmpl_if selected> selected="selected"</tmpl_if>><tmpl_var skin></option>
+  </tmpl_loop>
+</select>
+</p>
+
+<tmpl_if is_root>
+<p>
+<label for="seq">seq</label>
+<input type="text" name="seq" value="<tmpl_var seq>" class="text" size="5" maxlength="5" />
+</p>
+
+<p>
+<label for="gid">gid</label>
+<input type="text" name="gid" value="<tmpl_var gid>" class="text" size="5" maxlength="5" />
+</p>
+
+<p>
+<label for="article_per_page">Articles per page</label>
+<input type="text" name="article_per_page" value="<tmpl_var article_per_page>" class="text" size="3" maxlength="3" />
+</p>
+
+<p>
+<label for="page_per_page">Pages per page</label>
+<input type="text" name="page_per_page" value="<tmpl_var page_per_page>" class="text" size="3" maxlength="3" />
+</p>
+
+<p>
+<label for="image_width">Image width (pixels)</label>
+<input type="text" name="image_width" value="<tmpl_var image_width>" class="text" size="5" maxlength="5" />
+</p>
+
+<p>
+<label for="thumb_width">Thumbnail width (pixels)</label>
+<input type="text" name="thumb_width" value="<tmpl_var thumb_width>" class="text" size="5" maxlength="5" />
+</p>
+  <tmpl_if AllowAttach>
+<p>
+<label for="attach_limit">Attach limit (bytes)</label>
+<input type="text" name="attach_limit" value="<tmpl_var attach_limit>" class="text" size="10" maxlength="10" />
+</p>
+  </tmpl_if>
+</tmpl_if>
+
+<fieldset class="checkbox"><legend>Properties</legend>
+
+<p>
+<input type="hidden" name="is_imgboard" value="0" />
+<label for="is_imgboard"> <input type="checkbox" id="is_imgboard" name="is_imgboard"
+ value="1" <tmpl_if is_imgboard>checked="checked"</tmpl_if>> is an image board </label> 
+<tmpl_if AllowAnonBoard>
+<input type="hidden" name="is_anonboard" value="0" />
+<label for="is_anonboard"> <input type="checkbox" id="is_anonboard" name="is_anonboard"
+ value="1" <tmpl_if is_anonboard>checked="checked"</tmpl_if>> is an anonymous board </label>
+</tmpl_if>
+</p>
+
+<p>
+<tmpl_if AllowAttach>
+<input type="hidden" name="allow_attach" value="0" />
+<label for="allow_attach"> <input type="checkbox" id="allow_attach" name="allow_attach"
+ value="1" <tmpl_if allow_attach>checked="checked"</tmpl_if>> allow attach </label>
+</tmpl_if>
+<input type="hidden" name="allow_recom" value="0" />
+<label for="allow_recom"> <input type="checkbox" id="allow_recom" name="allow_recom"
+ value="1" <tmpl_if allow_recom>checked="checked"</tmpl_if>> allow recommend </label>
+<input type="hidden" name="allow_scrap" value="0" />
+<label for="allow_scrap"> <input type="checkbox" id="allow_scrap" name="allow_scrap"
+ value="1" <tmpl_if allow_scrap>checked="checked"</tmpl_if>> allow scrap </label>
+</p>
+
+<p>
+<tmpl_if AllowAccessControl>
+<input type="hidden" name="g_read" value="0" />
+<label for="g_read"> <input type="checkbox" id="g_read" name="g_read"
+ value="1" <tmpl_if g_read>checked="checked"</tmpl_if>> group read </label>
+<input type="hidden" name="m_read" value="0" />
+<label for="m_read"> <input type="checkbox" id="m_read" name="m_read" 
+ value="1" <tmpl_if m_read>checked="checked"</tmpl_if>> member read </label>
+  <tmpl_if AllowAnonAccess>
+<input type="hidden" name="a_read" value="0" />
+<label for="a_read"> <input type="checkbox" id="a_read" name="a_read"
+ value="1" <tmpl_if a_read>checked="checked"</tmpl_if>> anonymous read </label>
+  </tmpl_if>
+</p>
+
+<p>
+<input type="hidden" name="g_write" value="0" />
+<label for="g_write"> <input type="checkbox" id="g_write" name="g_write" 
+ value="1" <tmpl_if g_write>checked="checked"</tmpl_if>> group write </label>
+<input type="hidden" name="m_write" value="0" />
+<label for="m_write"> <input type="checkbox" id="m_write" name="m_write"
+ value="1" <tmpl_if m_write>checked="checked"</tmpl_if>> member write </label>
+  <tmpl_if AllowAnonAccess>
+<input type="hidden" name="a_write" value="0" />
+<label for="a_write"> <input type="checkbox" id="a_write" name="a_write" 
+ value="1" <tmpl_if a_write>checked="checked"</tmpl_if>> anonymous write </label>
+  </tmpl_if>
+</p>
+
+<p>
+<input type="hidden" name="g_comment" value="0" />
+<label for="g_comment"> <input type="checkbox" id="g_comment" name="g_comment" 
+ value="1" <tmpl_if g_comment>checked="checked"</tmpl_if>> group comment </label> 
+<input type="hidden" name="m_comment" value="0" />
+<label for="m_comment"> <input type="checkbox" id="m_comment" name="m_comment"
+ value="1" <tmpl_if m_comment>checked="checked"</tmpl_if>> member comment </label> 
+  <tmpl_if AllowAnonAccess>
+<input type="hidden" name="a_comment" value="0" />
+<label for="a_comment"> <input type="checkbox" id="a_comment" name="a_comment" 
+ value="1" <tmpl_if a_comment>checked="checked"</tmpl_if>> anonymous comment </label>
+  </tmpl_if>
+</p>
+</tmpl_if>
+</fieldset>
+
+<p>
+<label></label><input type="submit" name="submit" class="button" value="Save Changes" />
+</p>
+</fieldset>
+
+</form>
+</div>
+</tmpl_loop>
+
+<tmpl_include _footer.tmpl>

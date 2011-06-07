@@ -1,0 +1,34 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<div class="form">
+<div class="title">Delete</div>
+<form method="post" name="writeform" action="delete.cgi" enctype="application/x-www-form-urlencoded">
+<input type="hidden" name="bid" value="<tmpl_var bid>">
+<input type="hidden" name="p" value="<tmpl_var p>">
+<input type="hidden" name="aid" value="<tmpl_var aid>">
+<input type="hidden" name="del" value="ok">
+
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+  <td class="fhead">Board</td>
+  <td class="itemf"><a href="read.cgi?bid=<tmpl_var bid>&aid=<tmpl_var aid>&p=<tmpl_var p>"><tmpl_var board_title></a></td>
+</tr>
+<tr>
+  <td class="fhead">Title</td>
+  <td class="itemf"><tmpl_var ano>: <tmpl_var title></td>
+</tr>
+<tr>
+  <td class="fhead">Author</td>
+  <td class="itemf"><tmpl_include _name_id.tmpl></td>
+</tr>
+<tr>
+  <td class="fhead">&nbsp;</td>
+  <td class="itemf"><input type="submit" value="Delete"></td>
+</tr>
+</table>
+</form>
+</div>
+
+<tmpl_include _footer.tmpl>

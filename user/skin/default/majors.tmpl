@@ -1,0 +1,30 @@
+<tmpl_include _html_header.tmpl>
+
+<tmpl_include _menu.tmpl>
+
+<tmpl_if category>
+<form method="POST">
+    <select name="pid" onChange="submit()">
+        <option value="">분류...
+        <tmpl_loop category>
+        <option value="<tmpl_var major_id>"<tmpl_if current> selected</tmpl_if>><tmpl_var major> [<tmpl_var count>]
+        </tmpl_loop>
+    </select>
+    <select name="mid" onChange="submit()">
+        <option value="">전공...
+        <tmpl_loop majors>
+        <option value="<tmpl_var major_id>"<tmpl_if current> selected</tmpl_if>><tmpl_var major> [<tmpl_var count>]
+        </tmpl_loop>
+    </select>
+<tmpl_if major_id><tmpl_if is_member><a href="majors.cgi?mid=<tmpl_var major_id>&pid=<tmpl_var parent_id>&c=del">[이 목록에서 나를 삭제]</a><tmpl_else><a href="majors.cgi?mid=<tmpl_var major_id>&pid=<tmpl_var parent_id>&c=add">[이 목록에 나를 추가]</a></tmpl_if></tmpl_if>
+</form>
+</tmpl_if>
+<tmpl_if has_major>
+<tmpl_include _user_list.tmpl>
+<tmpl_else>
+상호주의 원칙에 의해 본인의 정보를 입력해야 다른 사람의 정보를 볼 수 있습니다.
+<br>
+본인의 전공 분야로 이동한 후 [이 목록에 나를 추가]를 선택하면 됩니다.
+</tmpl_if>
+
+<tmpl_include _html_footer.tmpl>

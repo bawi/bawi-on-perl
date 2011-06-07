@@ -1,0 +1,50 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h3><a href="./">Admin</a> &gt; <a href="photo.cgi">사진 변경</a></h3>
+
+<form action="photo.cgi" method="post" enctype="multipart/form-data">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td><input type="file" name="photo" size="23" class="text" style="height:20px; width:200px"></td>
+    <td><input type="submit" value="upload" class="button" style="width:60px"></td>
+</tr>
+</table>
+</form>
+<tmpl_if list>
+<table border="0" cellpadding="0" cellspacing="5">
+<tr>
+    <td class="thead">DB</td>
+    <td class="thead">Uploaded</td>
+    <td class="thead">User Info</td>
+</tr>
+    <tmpl_loop list>
+<tr>
+    <td class="itemc" valign="top"><img src="view_photo.cgi?id=<tmpl_var id>" border="1" width="105" height="140" alt="<tmpl_var ki>기 <tmpl_var name> (<tmpl_var id>)"></td>
+    <td class="itemc" valign="top"><img src="uphoto.cgi?uid=<tmpl_var uid>" border="1" width="105" alt="<tmpl_var ki>기 <tmpl_var name> (<tmpl_var id>)"></td>
+    <td valign="top" class="iteml">
+        <tmpl_include _user.tmpl> uid:<tmpl_var uid>, updated: <tmpl_var days>일 전<br><br>
+        <form action="photo.cgi" method="post">
+        <input type="hidden" name="uid" value="<tmpl_var uid>">
+        <input type="hidden" name="update" value="1">
+        <input type="submit" value="update DB" class="button">
+        </form>
+        <br>
+        <form action="photo.cgi" method="post">
+        <input type="hidden" name="uid" value="<tmpl_var uid>">
+        <select name="msg" class="text" style="height:20px">
+            <tmpl_loop msg>
+            <option value="<tmpl_var __counter__>"><tmpl_var title></option>
+            </tmpl_loop>
+        </select>
+        <input type="submit" value="send note" class="button">
+        </form>
+    </td>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+<h5><a href="photo/updated/?M=D">updated</a></h5>
+
+<tmpl_include _footer.tmpl>

@@ -1,0 +1,139 @@
+<tmpl_include _html_header.tmpl>
+<body class="board read <tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+<div class="top-head">
+<h1><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if img>;img=1</tmpl_if>"><tmpl_var board_title></a></h1>
+  <tmpl_if a_read><span class="access-type">(손님읽기)</span></tmpl_if>
+  <tmpl_if owner><span class="owner">: <tmpl_loop owner><tmpl_include _name_id.tmpl></tmpl_loop></span></tmpl_if>
+<span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
+</div>
+
+<tmpl_if allow_read>
+  <tmpl_if total_newcomments>
+<h2><tmpl_var T_NEWCOMMENTS>: <strong><tmpl_var total_newcomments></strong> ...</h2>
+  <tmpl_include _new_comment.tmpl>
+  </tmpl_if><!-- total_newcomments -->
+
+<!--ARTICLE SET-->
+  <tmpl_if total_thread>
+<h2><tmpl_var T_NEWARTICLES>: <strong><tmpl_var total_thread></strong> ...</h2>
+  </tmpl_if>
+
+  <tmpl_loop article_set>
+<h3 class="article"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var article_no>: <tmpl_var title></a></h3>
+<ul class="article">
+<!--li class="subject"><h3><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var article_no>: <tmpl_var title></a></h3></li-->
+<li class="button right"><a href="#article-<tmpl_var article_id>-comment-form">▼</a></li>
+<li class="author"><tmpl_include _name_id.tmpl></li>
+<li class="created">@ <tmpl_var created></li>
+<li class="count read"><tmpl_var T_READ>: <tmpl_var count></li>
+<tmpl_if allow_recom>
+<li class="count recomment"><tmpl_var T_RECOMMENDED>: <tmpl_if recom><tmpl_if allow_recom_user_list><a class="recommender" href="recommender.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" target="bw_recom"><span id="recom-<tmpl_var article_id>"><tmpl_var recom></span></a><tmpl_else><span id="recom-<tmpl_var article_id>"><tmpl_var recom></span></tmpl_if><tmpl_else><span id="recom-<tmpl_var article_id>">0</span></tmpl_if></li>
+</tmpl_if>
+<li class="count scrap"><tmpl_var T_SCRAPPED>: <span id="scrap-<tmpl_var article_id>"><tmpl_var scrap></span></li>
+
+<li class="visualClear"></li>
+
+<tmpl_if attach>
+<li class="body attach"><tmpl_include _attach.tmpl></li>
+</tmpl_if>
+
+<li class="body text"><table class="safety wrapper"><tr><td><tmpl_var body></td></tr></table></li>
+
+<tmpl_if pollset>
+<li class="body poll" id="article-<tmpl_var article_id>-poll"><tmpl_include _pollset.tmpl></li>
+</tmpl_if>
+
+<tmpl_if allow_write>
+<li class="button"><a href="write.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_REPLY></a></li>
+</tmpl_if>
+
+<li class="button"><a href="read.cgi?bid=<tmpl_var board_id>;tno=<tmpl_var thread_no>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_THREAD></a></li>
+
+<tmpl_unless is_owner><tmpl_if allow_recom><tmpl_if session_key>
+<!--td class="thead" nowrap><a href="recom.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if session_key>;s=<tmpl_var session_key></tmpl_if>" onClick="return window.confirm('Recommend this article?');">추천</a></td-->
+<li class="button"><a class="button recom" href="recom.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onclick="if (window.confirm('Recommend this article?')) { tag_article('recom','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_RECOMMEND></a></li>
+</tmpl_if></tmpl_if></tmpl_unless>
+
+<tmpl_if allow_scrap><tmpl_if session_key>
+<!--td class="thead" nowrap><a href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if session_key>;s=<tmpl_var session_key></tmpl_if>" onClick="return window.confirm('Scrap this article?');">스크랩</a></td-->
+<li class="button"><a class="button scrap" href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onClick="if (window.confirm('Scrap this article?')) { tag_article('scrap','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_SCRAP></a></li>
+</tmpl_if></tmpl_if>
+
+<tmpl_if is_owner>
+<li class="button"><a href="edit.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_EDIT></a></li>
+<li class="button"><a href="delete.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_DELETE></a></li>
+</tmpl_if>
+
+<tmpl_if is_board_owner>
+<li class="button"><a href="#" onclick="if (window.confirm('<tmpl_if is_notice>Delete<tmpl_else>Add</tmpl_if> this article <tmpl_if is_notice>from<tmpl_else>to</tmpl_if> notice list?')) { tag_article('notice','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_if is_notice><tmpl_var T_DELETENOTICE><tmpl_else><tmpl_var T_ADDNOTICE></tmpl_if></a></li>
+<!--td class="thead" nowrap><a href="notice.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page>;action=<tmpl_if is_notice>del<tmpl_else>add</tmpl_if>">공지<tmpl_if is_notice>지우기</tmpl_if></a></td-->
+</tmpl_if>
+
+<tmpl_if allow_write>
+<li class="button right opt"><a href="write.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_WRITE></a></li>
+</tmpl_if>
+
+<li class="button right opt"><a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_if img><tmpl_var T_IMGLIST><tmpl_else><tmpl_var T_ARTICLELIST></tmpl_if></a></li>
+
+<li class="button separator" id="article_id-<tmpl_var article_id>-last"><a>&nbsp;</a></li>
+
+</ul>
+
+<tmpl_include _comment.tmpl>
+</tmpl_loop>
+
+<!-- LIST -->
+<tmpl_if new_counts>
+<h2>
+<a href="read.cgi?abc=1234;bid=<tmpl_var board_id>;la=<tmpl_var last_article_no>;lc=<tmpl_var last_comment_no><tmpl_if img>;img=1</tmpl_if>"><tmpl_if new_articles_count><tmpl_var T_NEWARTICLES>: <strong> <tmpl_var new_articles_count></strong> </tmpl_if><tmpl_if new_comments_count><tmpl_var T_NEWCOMMENTS>: [<strong><tmpl_var new_comments_count></strong>]</tmpl_if></a>
+[<a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page>;a=rb<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_RESET></a>]
+</h2>
+</tmpl_if>
+
+<div class="visualClear" style="height: 20px;"></div>
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi" accesskey="b"><tmpl_var T_BOOKMARK></a></li> 
+<tmpl_loop prev_board>
+<li class="button opt"><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="p"><tmpl_var T_PREV>:<tmpl_var title></a></li>
+</tmpl_loop>
+<tmpl_loop next_board>
+<li class="button opt"><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="n"><tmpl_var T_NEXT>:<tmpl_var title></a></li>
+</tmpl_loop>
+<tmpl_loop next_new_board>
+<li class="button right"><a href="read.cgi?bid=<tmpl_var board_id>;la=<tmpl_var article_no>;lc=<tmpl_var comment_no><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="k"><span class="title"><tmpl_var title></span><span>:<tmpl_if new_articles> <tmpl_var new_articles> </tmpl_if><tmpl_if new_comments> [<tmpl_var new_comments>]</tmpl_if></span></a></li>
+</tmpl_loop>
+<li class="button separator" id="article-<tmpl_var article_id>"><a>&nbsp;</a></li>
+</ul>
+
+<tmpl_if img>
+  <tmpl_include _img_list.tmpl>
+<tmpl_else>
+  <tmpl_include _article_list.tmpl>
+</tmpl_if>
+
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi"><tmpl_var T_BOOKMARK></a></li>
+<li class="button"><tmpl_if prev_board><a href="read.cgi?bid=<tmpl_var board_id>;a=db<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_DELBOOKMARK></a><tmpl_else><a href="read.cgi?bid=<tmpl_var board_id>;a=ab<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_ADDBOOKMARK></a></tmpl_if></li>
+
+<tmpl_if allow_write>
+<li class="button right"><a href="write.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_WRITE></a></li>
+</tmpl_if>
+
+<li class="button right"><tmpl_if img><a href="read.cgi?bid=<tmpl_var board_id>"><tmpl_var T_ARTICLELIST></a><tmpl_else><a href="read.cgi?bid=<tmpl_var board_id>;img=1"><tmpl_var T_IMGLIST></a></tmpl_if></li>
+
+<tmpl_if is_board_owner>
+<li class="button right"><a href="boardcfg.cgi?board_id=<tmpl_var board_id>"><tmpl_var T_BOARDCFG></a></li>
+</tmpl_if>
+
+<li class="button separator"><a>&nbsp;</a></li>
+</ul>
+
+<tmpl_include _page_nav.tmpl>
+
+<tmpl_include _search_form.tmpl>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

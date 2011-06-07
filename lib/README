@@ -1,0 +1,5 @@
+Required PERL modules
+- CGI
+- DBI
+- Image::Magick
+- Locale::Maketext

@@ -1,0 +1,10 @@
+use lib qw(/home/developer/bawi-perl/lib);
+
+use ModPerl::Util ();
+use ModPerl::Registry ();
+use Apache::DBI
+
+$ENV{BAWI_PERL_HOME} = "/home/developer/bawi-perl/";
+$ENV{BAWI_DATA_HOME} = "/home/developer/bawi-data/";
+
+1;

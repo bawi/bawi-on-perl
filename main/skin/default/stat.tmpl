@@ -1,0 +1,82 @@
+<tmpl_include _html_header.tmpl>
+<body>
+<tmpl_include _header.tmpl>
+
+<div class="top-head">
+<h1><a href="stat.cgi">최근 7일간 게시판 통계</a></h1>
+</div>
+
+<table border="0" cellpadding="0" cellspacing="0" width="650">
+<tr>
+  <td class="thead">순위</td>
+  <td class="thead">이용자 상위 <tmpl_var top></td>
+  <td class="thead">글</td>
+  <td class="thead">읽음</td>
+  <td class="thead">답글</td>
+  <td class="thead">추천</td>
+  <td class="thead">읽음/글</td>
+  <td class="thead">답글/글</td>
+  <td class="thead">추천/글</td>
+  <td class="thead">점수</td>
+</tr>
+<tmpl_loop user_stat>
+<tr>
+  <td class="itemc"><tmpl_var __counter__></td>
+  <td class="iteml"><tmpl_include _user.tmpl></td>
+  <td class="itemc"><tmpl_var articles></td>
+  <td class="itemc"><tmpl_var counts></td>
+  <td class="itemc"><tmpl_var comments></td>
+  <td class="itemc"><tmpl_var recoms></td>
+  <td class="itemc"><tmpl_var ave_counts></td>
+  <td class="itemc"><tmpl_var ave_comments></td>
+  <td class="itemc"><tmpl_var ave_recoms></td>
+  <td class="itemc"><tmpl_var score></td>
+</tr>
+</tmpl_loop>
+<tr>
+  <td class="thead"><a name="board"></a>순위</td>
+  <td class="thead">게시판 상위 <tmpl_var top></td>
+  <td class="thead">글</td>
+  <td class="thead">읽음</td>
+  <td class="thead">답글</td>
+  <td class="thead">추천</td>
+  <td class="thead">읽음/글</td>
+  <td class="thead">답글/글</td>
+  <td class="thead">추천/글</td>
+  <td class="thead">점수</td>
+</tr>
+<tmpl_loop board_stat>
+<tr>
+  <td class="itemc"><tmpl_var __counter__></td>
+  <td class="iteml"><a href="/x/read.cgi?bid=<tmpl_var board_id>"><tmpl_var title></a></td>
+  <td class="itemc"><tmpl_var articles></td>
+  <td class="itemc"><tmpl_var counts></td>
+  <td class="itemc"><tmpl_var comments></td>
+  <td class="itemc"><tmpl_var recoms></td>
+  <td class="itemc"><tmpl_var ave_counts></td>
+  <td class="itemc"><tmpl_var ave_comments></td>
+  <td class="itemc"><tmpl_var ave_recoms></td>
+  <td class="itemc"><tmpl_var score></td>
+</tr>
+</tmpl_loop>
+</table>
+
+<h3><a name="guestbook"></a>24시간 방명록 통계</h3>
+<table border="0" cellpadding="0" cellspacing="0" width="650">
+<tr>
+  <td class="thead">순위</td>
+  <td class="thead">방명록 상위 <tmpl_var top></td>
+  <td class="thead">글</td>
+  <td class="thead">방문객</td>
+</tr>
+<tmpl_loop gbook_stat>
+<tr>
+  <td class="itemc"><tmpl_var __counter__></td>
+  <td class="iteml"><tmpl_include _user.tmpl></td>
+  <td class="itemc"><tmpl_var articles></td>
+  <td class="itemc"><tmpl_var count></td>
+</tr>
+</tmpl_loop>
+</table>
+
+<tmpl_include _footer.tmpl>

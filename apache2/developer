@@ -1,0 +1,67 @@
+##############################################################################
+# BOARD.BAWI.ORG
+<VirtualHost *>
+  ServerAdmin developer@bawi.org
+  Documentroot /home/developer/bawi-perl/main/
+  ServerName developer.bawi.org
+  Alias /main/  /home/developer/bawi-perl/main/
+  Alias /board/ /home/developer/bawi-perl/board/
+  Alias /user/  /home/developer/bawi-perl/user/
+  
+  ErrorLog /var/log/apache2/developer.bawi.org-error_log
+  CustomLog /var/log/apache2/developer.bawi.org-access_log combined
+
+  SetEnv PERL5LIB "/home/developer/bawi-perl/lib"
+  SetEnv BAWI_PERL_HOME "/home/developer/bawi-perl/"
+  SetEnv BAWI_DATA_HOME "/home/developer/bawi-data/"
+
+  <Directory /home/developer/bawi-perl/board/>
+    Options Indexes Includes FollowSymLinks MultiViews
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      AddHandler cgi-script .cgi
+      Options +ExecCGI
+    </Files>
+  </Directory>
+
+  # Administration Pages
+  <Location /admin/>
+    AuthUserFile /home/developer/etc/passwd
+    AuthName "For Administrator"
+    AuthType Basic
+    require user root
+  </Location>
+
+  <Location /admin/server-status>
+    SetHandler server-status
+    Order allow,deny
+    Allow from all
+  </Location>
+
+  <Directory /home/developer/bawi-perl/user/>
+    Options Indexes Includes FollowSymLinks MultiViews
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      AddHandler cgi-script .cgi
+      Options +ExecCGI
+    </Files>
+  </Directory>
+  
+  <Directory /home/developer/bawi-perl/main/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      AddHandler cgi-script .cgi
+      Options +ExecCGI
+    </Files>
+  </Directory>
+</VirtualHost>

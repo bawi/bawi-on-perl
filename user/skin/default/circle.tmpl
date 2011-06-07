@@ -1,0 +1,24 @@
+<tmpl_include _html_header.tmpl>
+
+<tmpl_include _menu.tmpl>
+
+<tmpl_if circle_list>
+<form method="POST">
+    <select name="cid" onChange="submit()">
+        <option value="">서클 ...
+    <tmpl_loop circle_list>
+        <option value="<tmpl_var circle_id>"<tmpl_if current> selected</tmpl_if>><tmpl_var name><tmpl_if count> [<tmpl_var count>]</tmpl_if>
+    </tmpl_loop>
+    </select>
+<tmpl_if circle_id><tmpl_if is_member><a href="circle.cgi?cid=<tmpl_var circle_id>&c=del">[이 목록에서 나를 삭제]</a><tmpl_else><a href="circle.cgi?cid=<tmpl_var circle_id>&c=add">[이 목록에 나를 추가]</a></tmpl_if></tmpl_if>
+</form>
+</tmpl_if>
+<tmpl_if has_circle>
+<tmpl_include _user_list.tmpl>
+<tmpl_else>
+상호주의 원칙에 의해 본인의 정보를 입력해야 다른 사람의 정보를 볼 수 있습니다.
+<br>
+본인의 서클로 이동한 후 [이 목록에 나를 추가]를 선택하면 됩니다.
+</tmpl_if>
+
+<tmpl_include _html_footer.tmpl>

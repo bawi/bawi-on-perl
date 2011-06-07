@@ -1,0 +1,26 @@
+<tmpl_include _html_header.tmpl>
+<body class="login" onLoad="update()">
+<script type="text/javascript">//<![CDATA[
+function update() {
+    var url = "<tmpl_var user_URL>/edit.cgi";
+    var options = 'toolbar=0,location=0,status=0,menubar=0,scrollbars=1,resizable=1,width=600,height=500';
+    var w = window.open(url,'view',options);
+}
+//]]></script>
+<div id="globalWrapper">
+  <div id="column-content">
+  <div id="content">
+
+  <div class="notice">
+  <h2>안 내</h2>
+<p><a href="<tmpl_var user_url>/edit.cgi" class="user-popup" target="bw_profile">[개인정보]</a>를 변경한 지 6개월 이상이 경과되었습니다.
+   변동사항을 수정한 뒤 저장해 주세요.</p>
+<p>변동사항이 없더라도 저장을 해야 최종수정 날짜가 오늘로 바뀝니다.
+   <a href="/">[천년바위 들어가기]</a></p>
+  </div>
+</div><!-- content -->
+</div><!-- column-content -->
+</div>
+<div id="w3c-validator"><a href="http://validator.w3.org/check?uri=referer"></a></div>
+</body>
+</html>

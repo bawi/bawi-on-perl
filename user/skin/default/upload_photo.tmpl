@@ -1,0 +1,24 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+<br/>
+<tmpl_if upload_success>
+<CENTER>
+<div id="msg">접수되었습니다. 사진은 바위지기가 규격에 맞게 편집하여 등록해드립니다. 사진이 등록되면 쪽지로 알려드리겠습니다.</div>
+<IMG SRC="uphoto.cgi?uid=<tmpl_var uid>">
+</CENTER>
+</tmpl_if>
+<tmpl_if upload_form>
+<TABLE WIDTH="100%"><!--TR><TD HEIGHT=300 ALIGN=center>
+<IMG SRC="/image/photosample.jpg"><P>
+</TD></TR--><TR><TD HEIGHT=50 ALIGN=center>
+<FORM ACTION="upload_photo.cgi" METHOD="post" ENCTYPE="multipart/form-data">
+<INPUT TYPE="file" NAME="image" SIZE=30 MAXLENGTH=80>
+<INPUT TYPE="submit" VALUE="Send photo" WIDTH=30 CLASS="button" STYLE="width:100px">
+</FORM>
+<BR>
+<div id="msg">얼굴 부분 세로 길이가 105 pixel 이상이고, 양쪽 눈이 모두 보이는 사진만 등록됩니다. 측면 사진, 얼굴을 알아볼 수 없는 사진, 선글래스를 쓴 사진, 흑백 사진, 얼굴의 일부가 가려진 사진, 지나치게 기울어진 사진, 본인 확인이 안될 정도로 찡그린 사진, 아기 때 사진 등은 등록되지 않습니다. 크기가 작은 사진은 절대로 등록되지 않으며, 모든 사진은 바위지기가 편집한 뒤에 등록되니 절대로 얼굴을 작게 편집하지 마세요.</div>
+</TD></TR></TABLE>
+</tmpl_if>
+
+</div>
+<tmpl_include _html_footer.tmpl>

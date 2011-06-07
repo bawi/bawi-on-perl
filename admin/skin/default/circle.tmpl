@@ -1,0 +1,45 @@
+<tmpl_include _header.tmpl>
+
+<div class="form">
+    <div class="title">서클 추가</div>
+
+<form action="circle.cgi" method="post">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">아이디</td>
+    <td class="itemf"><input type="text" name="id" value="<tmpl_var id>" size="8" maxlength="8" class="text" onClick="select()"></td>
+</tr>
+<tr>
+    <td class="fhead">서클</td>
+    <td class="itemf">
+        <select name="circle_id" class="text" style="height:20px">
+            <option value="">선택 ...</option>
+<tmpl_loop circle_list>
+            <option value="<tmpl_var circle_id>"><tmpl_var title></option>
+</tmpl_loop>
+        </select>
+    </td>
+</tr>
+<tr>
+    <td></td>
+    <td><input type="submit" value="Add" class="button"></td>
+</tr>
+</table>
+</form>
+</div>
+
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="thead" width="100">기</td>
+    <td class="thead" width="100">인원</td>
+    <td class="thead" width="100">서클</td>
+</tr>
+<tmpl_loop circle_stat>
+<tr>
+    <td class="itemc"><tmpl_var ki></td>
+    <td class="itemc"><tmpl_var count></td>
+    <td class="itemc"><tmpl_var circle></td>
+</tr>
+</tmpl_loop>
+</table>
+<tmpl_include _footer.tmpl>

@@ -1,0 +1,16 @@
+<form action="/search.cgi" method="get" enctype="application/x-www-form-urlencoded">
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+  <td class="itemf"><input type="text" name="keyword" value="<tmpl_var keyword>" class="text" size="32" maxlength="32" onFocus="select()"></td>
+  <td class="itemf"><input type="submit" class="button" value="Search" style="width:60px"></td>
+</tr>
+<tr>
+  <td class="itemf">
+<!--    <label for="sarticle"><input type="radio" name="type" value="article"<tmpl_if article> checked</tmpl_if> id="sarticle">글</label> &nbsp;&nbsp;&nbsp; -->
+    <label for="speople"><input type="radio" name="type" value="people"<tmpl_if people> checked</tmpl_if> id="speople">동창</label> &nbsp;&nbsp;&nbsp;
+    <label for="sboard"><input type="radio" name="type" value="board"<tmpl_if board> checked</tmpl_if> id="sboard">게시판</label>
+  </td>
+  <td></td>
+</tr>
+</table>
+</form>

@@ -1,0 +1,47 @@
+<!--
+<tr>
+  <td class="label"><label for="poll1">Poll1</label></td>
+  <td>
+    <input type="text" class="poll" name="poll1" />
+  <div id="poll1-option-button">
+    <a href="javascript:add_poll_option();" class="button" id="add-poll-option">Add a poll option</a>
+  </div>
+  <div class="poll-option">
+    <label for="poll1-option1">Option1</label>
+    <input type="text" class="poll option" name="poll1-option1" />
+  </div>
+  <div class="poll-option">
+    <label for="poll1-option2">Option2</label>
+    <input type="text" class="poll option" name="poll1-option2" />
+  </div>
+  </td>
+</tr>
+-->
+<tr id="poll-option" style="display: none;">
+  <td class="label"></td>
+  <td>
+  <input type="hidden" name="poll" value="0" id="poll-count"/>
+  <label class="inline"> Close this poll in 
+    <input type="text" name="duration" value="7" maxlength="3" class="inline" onfocus="select()"> days.
+  </label>
+  </td>
+</tr>
+<!--
+<tr>
+  <td class="fhead" width="45">&nbsp;</td>
+  <td class="itemf" width="520" id="addPollCell">
+    <a class="button" id="addPoll" onClick="AddPoll('0');return false;">Add  a poll question</a>
+    <div id="pollOption" style="display:none; padding-left:20px">
+    <br>
+    - 이 기능은 베타 테스트중인 기능입니다. 폴 자료가 모두 삭제될 수 있습니다.
+-->
+    <!--
+    - Show voters:
+    <input type="radio" name="show_voter" value="1"> Yes
+    <input type="radio" name="show_voter" value="0" checked> No-->
+
+<script type="text/javascript"></script>
+<tr>
+  <td class="label"></td>
+  <td><a class="button" id="poll-more">Add a poll question</a></td>
+</tr>

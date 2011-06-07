@@ -1,0 +1,34 @@
+<tmpl_include _html_header.tmpl>
+
+<tmpl_include _menu.tmpl>
+
+<form method="post" action="class.cgi">
+    <select name="ki">
+        <option value="">기 ...</option>
+    <tmpl_loop ki_list>
+        <option value="<tmpl_var ki>"<tmpl_if current> selected</tmpl_if>><tmpl_var ki>기 [<tmpl_var count>]
+    </tmpl_loop>
+    </select>
+    <select name="grade">
+        <option value="">학년 ...</option>
+        <option value="1"<tmpl_if g1> selected</tmpl_if>>1학년</option>
+        <option value="2"<tmpl_if g2> selected</tmpl_if>>2학년</option>
+        <option value="3"<tmpl_if g3> selected</tmpl_if>>3학년</option>
+    </select>
+    <select name="class" onChange="submit()">
+        <option value="">반 ...</option>
+        <option value="1"<tmpl_if c1> selected</tmpl_if>>1반</option>
+        <option value="2"<tmpl_if c2> selected</tmpl_if>>2반</option>
+        <option value="3"<tmpl_if c3> selected</tmpl_if>>3반</option>
+        <option value="4"<tmpl_if c4> selected</tmpl_if>>4반</option>
+        <option value="5"<tmpl_if c5> selected</tmpl_if>>5반</option>
+        <option value="6"<tmpl_if c6> selected</tmpl_if>>6반</option>
+        <option value="7"<tmpl_if c7> selected</tmpl_if>>7반</option>
+    </select>
+</form>
+<tmpl_if has_class>
+<tmpl_include _user_list.tmpl>
+<tmpl_else>
+<tmpl_include _reciprocal.tmpl>
+</tmpl_if>
+<tmpl_include _html_footer.tmpl>

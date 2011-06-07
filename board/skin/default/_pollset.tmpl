@@ -1,0 +1,48 @@
+<tmpl_if pollset>
+<tmpl_loop pollset>
+<form id="poll-<tmpl_var poll_id>" class="poll" action="poll.cgi" method="post">
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+<input type="hidden" name="aid" value="<tmpl_var article_id>" />
+<input type="hidden" name="pid" value="<tmpl_var poll_id>" />
+
+<table class="poll">
+<tr class="head">
+  <td class="head num">Poll <tmpl_var __counter__>.</td>
+  <td class="head" colspan="4"><tmpl_var poll></td>
+</tr>
+  <tmpl_loop optset>
+<tr class="option">
+  <td class="num"    ><tmpl_var __counter__>.</td>
+  <td class="option" ><tmpl_var opt></td>
+<tmpl_if allow_vote>
+  <td class="button radio"><input type="radio" name="oid" value="<tmpl_var opt_id>" /></td>
+<tmpl_else>
+  <td class="graph"><div class="bar" style="width: <tmpl_var pct>%;"></div></td>
+  <td class="count"  ><tmpl_var count></td>
+  <td class="percent">(<tmpl_var pct>%)</td>
+</tmpl_if>
+</tr>
+  </tmpl_loop>
+<tr class="bottom">
+  <td colspan="2">
+    <tmpl_var created> - <tmpl_var closed>
+    <tmpl_if is_owner><a class="button delete-poll">Delete</a></tmpl_if>
+  </td>
+    <tmpl_if allow_vote>
+  <td class="button"><input type="submit" value="Vote" /></td>
+    <tmpl_else>
+  <td class="total">total</td>
+  <td class="count"><tmpl_var tot></td>
+  <td class="percent">(100.0%)</td>
+    </tmpl_if>
+</tr>
+</table>
+
+</form>
+  <tmpl_unless __last__>
+<br />
+  </tmpl_unless>
+  </tmpl_loop>
+<tmpl_else>
+No more poll.
+</tmpl_if>

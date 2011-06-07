@@ -1,0 +1,45 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<tmpl_if is_root>
+<div class="form">
+<div class="title">Delete Member</div>
+<form method="post">
+<input type="hidden" name="del" value="1">
+<tmpl_if uid><input type="hidden" name="uid" value="<tmpl_var uid>"></tmpl_if>
+<table border="0" cellpadding="0" cellspacing="0" align="center">
+<tr>
+    <td class="fhead">ID</td>
+    <td class="itemf"><tmpl_var id></td>
+</tr>
+<tr>
+    <td class="fhead">Name</td>
+    <td class="itemf"><tmpl_var name></td>
+</tr>
+<tr>
+    <td class="fhead">Email</td>
+    <td class="itemf"><tmpl_var email></td>
+</tr>
+<tr>
+    <td class="fhead">Access</td>
+    <td class="itemf"><tmpl_var access></td>
+</tr>
+<tr>
+    <td class="fhead">Accessed</td>
+    <td class="itemf"><tmpl_var accessed></td>
+</tr>
+<tr>
+    <td class="fhead">Modified</td>
+    <td class="itemf"><tmpl_var modified></td>
+</tr>
+<tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" class="button" value="Delete Member"></td>
+</tr>
+</table>
+</form>
+</div>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

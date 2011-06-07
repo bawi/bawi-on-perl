@@ -1,0 +1,53 @@
+  <tmpl_loop new_comments>
+    <tmpl_if article_no>
+    <tmpl_unless __first__>
+<tmpl_if allow_comment>
+<ul class="comment-form">
+<li class="head"><tmpl_var T_COMMENT></li>
+<li class="body">
+  <input type="text" class="text" name="body" value=""
+         id="article-<tmpl_var article_id>-comment-form" />
+</li>
+<li class="submit"><input type="submit" class="submit" name="submit" value="<tmpl_var T_SAVE>" /></li>
+</ul>
+</tmpl_if>
+</form>
+    </tmpl_unless><!-- __first__ -->
+
+<div class="article head">
+<h3 class="article"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>"><tmpl_var article_no>: <tmpl_var title></a></h3>
+<span class="article author">by <tmpl_include _artcl_name_id.tmpl> @ <tmpl_var artcl_created></span>
+</div>
+
+<form method="post" action="comment.cgi" enctype="application/x-www-form-urlencoded" name="addcomment">
+<input type="hidden" name="action" value="add" />
+<input type="hidden" name="aid" value="<tmpl_var article_id>" />
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+    </tmpl_if><!-- article_no -->
+
+<ul class="comment" id="c<tmpl_var comment_no>">
+<li class="no"><a alt="Quote this no #<tmpl_var comment_no>"
+     href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>#c<tmpl_var comment_no>" 
+     title="Quote this no #<tmpl_var comment_no>"><tmpl_var comment_no></a></li>
+<li class="author"><tmpl_include _name_id.tmpl></li>
+<li class="body text"><tmpl_var body></li>
+<li class="created"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+<li class="delete"><tmpl_if is_owner>
+<a href="comment.cgi?action=delete;bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;cid=<tmpl_var comment_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>" onclick="return window.confirm('Delete this comment?');">x</a>
+<tmpl_else>x</tmpl_if></li>
+</ul>
+
+  <tmpl_if  __last__>
+<tmpl_if allow_comment>
+<ul class="comment-form">
+<li class="head"><tmpl_var T_COMMENT></li>
+<li class="body">
+  <input type="text" class="text" name="body" value=""
+         id="article-<tmpl_var article_id>-comment-form" />
+</li>
+<li class="submit"><input type="submit" class="submit" name="submit" value="<tmpl_var T_SAVE>" /></li>
+</ul>
+</tmpl_if><!-- allow_comment -->
+</form>
+  </tmpl_if><!-- __last__ -->
+  </tmpl_loop><!-- new_comments -->

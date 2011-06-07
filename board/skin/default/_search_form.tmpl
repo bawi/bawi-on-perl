@@ -1,0 +1,13 @@
+<form class="search" action="read.cgi" method="get" enctype="application/x-www-form-urlencoded">
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+<input type="text" name="k" value="<tmpl_var keyword>" class="text" maxlength="32" onfocus="select()" />
+<input type="submit" class="button" name="submit" value="Search" />
+<fieldset>
+<tmpl_if search_fields><tmpl_loop search_fields>
+<label for="search-<tmpl_var field>">
+  <input type="radio" name="f" value="<tmpl_var field>"
+         id="search-<tmpl_var field>" <tmpl_if checked> checked="checked"</tmpl_if>/>
+  <tmpl_var field></label>
+</tmpl_loop></tmpl_if>
+</fieldset>
+</form>

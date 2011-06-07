@@ -1,0 +1,183 @@
+<tmpl_include _html_header.tmpl>
+<body class="news">
+<tmpl_include _header.tmpl>
+
+<ol id="wp">
+<li id="hd">
+회원 <tmpl_var users>명&nbsp;&nbsp;
+게시물 <tmpl_var articles>&nbsp;&nbsp;
+답글 <tmpl_var comments><!--&nbsp;&nbsp;
+후원금 <tmpl_var support>원-->
+</li>
+<li id="bd"><ol id="doc">
+<li id="s1" class="panel">
+<tmpl_loop panel>
+  <h3>
+    <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"><tmpl_var section></a>
+    <a class="button" href="<tmpl_var board_url>/write.cgi?bid=<tmpl_var board_id>"
+       title="<tmpl_var days>일간 공지됩니다">[add]</a>
+  </h3>
+  <ul class="panel">
+  <tmpl_loop titles>
+  <li>
+   <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>">
+      <tmpl_var title></a>
+  </li>
+  </tmpl_loop>
+  </ul><hr/>
+</tmpl_loop><!--panel-->
+
+  <h3><a href="<tmpl_var board_url>/read.cgi?bid=1696">의학</a
+    >/<a href="<tmpl_var board_url>/read.cgi?bid=1986">법률</a
+    >/<!-- a href="<tmpl_var board_url>/read.cgi?bid=10">연애</a
+    >/<a href="<tmpl_var board_url>/read.cgi?bid=1550">고민</a
+    >/--><a href="<tmpl_var board_url>/read.cgi?bid=908">육아</a> 상담</h3>
+  <h3><a href="<tmpl_var board_url>/read.cgi?bid=1563">동창 논문 모음</a></h3>
+  <h3><a href="<tmpl_var board_url>/read.cgi?bid=328">기능제안/문의/버그리포트</a></h3>
+
+</li>
+<li id="s2">
+
+<tmpl_loop box>
+<tmpl_if __odd__><form><fieldset class="spotlight orange">
+<tmpl_else><form><fieldset class="spotlight cyan"></tmpl_if>
+<legend>
+    <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"><tmpl_var section></a>
+    <a class="button" href="<tmpl_var board_url>/write.cgi?bid=<tmpl_var board_id>"
+       title="<tmpl_var days>일간 공지됩니다">[add]</a>
+</legend>
+<ul>
+  <tmpl_loop titles>
+<li><a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>"><tmpl_var title></a></li>
+  </tmpl_loop>
+</ul>
+</fieldset></form>
+</tmpl_loop>
+
+<ul class="hot-articles">
+<tmpl_loop hot_stat>
+<li>
+  <a href="<tmpl_var user_url>/profile.cgi?id=<tmpl_var id>" class="user-profile" target="bw_profile">
+  <img class="photo-id" src="<tmpl_var user_url>/thumb.cgi?id=<tmpl_var id>" alt="<tmpl_var name> (<tmpl_var id>)" />
+  </a>
+  <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" title="<tmpl_var score>">
+<tmpl_if __first__><h2><tmpl_else><h3></tmpl_if><tmpl_var title>
+<tmpl_if __first__></h2><tmpl_else></h3></tmpl_if>
+<tmpl_var body></a>
+<span class="source">
+[<a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"><tmpl_var board_title></a>]
+<tmpl_include _name_id.tmpl>
+[<a href="<tmpl_var user_url>/guestbook.cgi?uid=<tmpl_var uid>" class="user-popup" target="bw_profile">방명록</a>]
+<tmpl_var created></span>
+<hr class="visualClear" />
+</li>
+</tmpl_loop>
+<li>
+<span class="source">
+<a href="hot.cgi">[화제의 글:more]</a>
+<a href="<tmpl_var board_url>/write.cgi?bid=326&p=1">[동창 소식 추가]</a>
+</span>
+</li>
+</ul>
+
+<tmpl_if recent>
+<div class="recent-articles more-less-container">
+<h3>최근 등록된 글 <a class="button more-less">[more]</a></h3>
+<table class="recent-articles">
+  <tmpl_loop recent>
+<tr class="<tmpl_var class>"><td class="title">
+  <li><a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>&aid=<tmpl_var article_id>" title="<tmpl_var board_title>"><tmpl_var title></a></li>
+ </td><td class="author"><tmpl_include _name_id.tmpl></td></tr>
+  </tmpl_loop>
+</table>
+</div>
+<div style="margin-top:1em; text-align:center"><a href="http://www.bawi.org/board/read.cgi?bid=3017;aid=1436044"><img src="image/chrome_plus_bawi.png" alt="바위 Google 크롬 확장프로그램"></a></div>
+</tmpl_if>
+
+
+</li>
+<li id="s3">
+
+
+<tmpl_if anniversary>
+<h3><tmpl_var date> 결혼기념일 축하합니다!</h3>
+<ul class="panel">
+<tmpl_loop anniversary>
+<li><tmpl_var ki>기 <tmpl_include _name_id.tmpl>: <tmpl_var year>주년</li>
+</tmpl_loop>
+</ul><hr />
+</tmpl_if>
+
+<tmpl_if birthday>
+<div class="more-less-container">
+<h3><tmpl_var date> 생일축하합니다! <a class="button more-less">[more]</a></h3>
+<ul class="panel">
+<tmpl_loop birthday>
+<li class="<tmpl_var class>"><tmpl_var birth>: <tmpl_var ki>기 <tmpl_include _name_id.tmpl></li>
+</tmpl_loop>
+</ul><hr />
+</div>
+</tmpl_if>
+
+
+<h3>인기 방명록 <a class="button" href="stat.cgi#guestbook">[more]</a></h3>
+<ol class="panel">
+<tmpl_loop gbook_stat>
+<li>
+<tmpl_include _name_id.tmpl>
+[<a href="<tmpl_var user_url>/guestbook.cgi?uid=<tmpl_var uid>" class="user-popup" target="bw_profile">방명록</a>]
+</li>
+</tmpl_loop>
+</ol><hr />
+
+<h3>인기 바위인 <a class="button" href="stat.cgi">[more]</a></h3>
+<ol class="panel">
+<tmpl_loop user_stat>
+<li><tmpl_var __counter__>. <tmpl_include _name_id.tmpl></li>
+</tmpl_loop>
+</ol><hr />
+
+<h3>인기 모임방 <a class="button" href="stat.cgi#board">[more]</a></h3>
+<ol class="panel">
+<tmpl_loop board_stat>
+<li><tmpl_var __counter__>. <a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"><tmpl_var title></a></li>
+</tmpl_loop>
+</ol><hr />
+
+<tmpl_if modified>
+  <h3>개인정보수정
+    <a class="button" href="<tmpl_var user_url>/modified.cgi">[more]</a>
+  </h3>
+  <ul class="panel">
+  <tmpl_loop modified>
+  <li><tmpl_var ki>기 <tmpl_include _name_id.tmpl></li>
+  </tmpl_loop>
+  </ul><hr/>
+</tmpl_if>
+
+<tmpl_if new_board>
+  <h3>새모임방</h3>
+  <ul class="panel">
+  <tmpl_loop new_board>
+  <li><a href="<tmpl_var board_url>/read.cgi?bid=<tmpl_var board_id>"
+         title="by <tmpl_var name> (<tmpl_var id>)"><tmpl_var created> <tmpl_var title></a>
+  </li>
+  </tmpl_loop>
+  </ul><hr/>
+</tmpl_if>
+
+
+
+</li>
+</ol></li>
+
+<li id="ft">
+
+<a href="<tmpl_var board_url>/read.cgi?bid=328">기능제안/문의/버그리포트</a>
+<!--a href="<tmpl_var board_url>/read.cgi?bid=990&aid=1004390">서버점검: 매일 4-6 am</a-->
+<!-- 바위후원: 조흥은행 369-04-405541 김정은(천년바위) -->
+
+</li>
+</ol>
+
+<tmpl_include _footer.tmpl>

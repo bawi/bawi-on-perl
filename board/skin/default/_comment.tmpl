@@ -1,0 +1,42 @@
+<img src="skin/default/images/progress-ring.gif" width="0" height="0" alt="preloaded" />
+
+<form class="comment" method="post" action="comment.cgi" enctype="application/x-www-form-urlencoded" name="addcomment">
+<input type="hidden" name="action" value="add" />
+<input type="hidden" name="aid" value="<tmpl_var article_id>" />
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+<input type="hidden" name="p" value="<tmpl_var page>" />
+<input type="hidden" name="img" value="<tmpl_if img>1<tmpl_else>0</tmpl_if>" />
+<tmpl_loop comment>
+
+<ul class="comment" id="c<tmpl_var comment_no>">
+<li class="no"><a alt="Quote this no #<tmpl_var comment_no>"
+     href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>#c<tmpl_var comment_no>" 
+     title="Quote this no #<tmpl_var comment_no>"><tmpl_var comment_no></a></li>
+<li class="author"><tmpl_include _name_id.tmpl></li>
+<li class="body text"><tmpl_var body></li>
+<li class="created"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+<li class="delete"><tmpl_if is_owner>
+<a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>" onclick="return window.confirm('Delete this comment?');">x</a>
+<tmpl_else>x</tmpl_if></li>
+</ul>
+
+  <tmpl_if allow_comment>
+  <tmpl_if __last__>
+<input type="hidden" name="lastcno" value="<tmpl_var comment_no>" />
+  </tmpl_if>
+  </tmpl_if>
+</tmpl_loop>
+
+<tmpl_if allow_comment>
+<ul class="comment-form">
+<li class="head"><tmpl_var T_COMMENT></li>
+<li class="body">
+  <input type="text" class="text" name="body" value=""
+         id="article-<tmpl_var article_id>-comment-form" />
+</li>
+<li class="submit"><input type="submit" class="submit" name="submit" value="<tmpl_var T_SAVE>" /></li>
+</ul>
+</tmpl_if>
+
+</form>
+

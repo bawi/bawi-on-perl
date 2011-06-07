@@ -1,0 +1,121 @@
+#NameVirtualHost *
+
+##############################################################################
+# BOARD.BAWI.ORG
+<VirtualHost *:80>
+  ServerAdmin webmaster@bawi.org
+  Documentroot /home/bawi/bawi-spring/main
+  ServerName www.bawi.org
+  ServerAlias bawi.org
+  
+  Alias /main/    /home/bawi/bawi-spring/main/
+  Alias /board/   /home/bawi/bawi-spring/board/
+  Alias /user/    /home/bawi/bawi-spring/user/
+  Alias /reg/     /home/bawi/bawi-spring/reg/
+  Alias /x/       /home/bawi/bawi-spring/board/
+  Alias /xboard/  /home/bawi/bawi-spring/board/
+  Alias /admin/   /home/bawi/bawi-spring/admin/
+  
+  ErrorLog /var/log/apache2/bawi.org-error.log
+  CustomLog /var/log/apache2/bawi.org-access.log combined
+
+  #SetEnv PERL5LIB /home/bawi/bawi-spring/lib
+
+  PerlPostConfigRequire /home/bawi/bawi-spring/apache2/startup.pl
+
+  <Directory />
+    Options FollowSymLinks
+    AllowOverride None
+  </Directory>
+
+  <Directory /home/bawi/bawi-spring/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+
+    AddHandler cgi-script .cgi
+  </Directory>
+
+  <Directory /home/bawi/bawi-spring/board/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      SetHandler perl-script
+      PerlResponseHandler ModPerl::Registry
+      Options +ExecCGI
+    </Files>
+  </Directory>
+
+  <Location /server-status>
+    SetHandler server-status
+    Order allow,deny
+    Allow from all
+  </Location>
+
+  <Directory /home/bawi/bawi-spring/reg/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      SetHandler perl-script
+      PerlResponseHandler ModPerl::Registry
+      Options +ExecCGI
+    </Files>
+  </Directory>
+
+  <Directory /home/bawi/bawi-spring/user/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      SetHandler perl-script
+      PerlResponseHandler ModPerl::Registry
+      Options +ExecCGI
+    </Files>
+  </Directory>
+
+  <Directory /home/bawi/bawi-spring/admin/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+
+    <Files *.cgi>
+      SetHandler perl-script
+      PerlResponseHandler ModPerl::Registry
+      Options +ExecCGI
+    </Files>
+  </Directory>
+
+  <Directory /home/bawi/bawi-spring/main/>
+    Options Indexes Includes FollowSymLinks MultiViews ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+    
+    AddHandler cgi-script .pl
+
+    <Files login.cgi>
+      Options +ExecCGI
+    </Files>
+    
+    <Files logout.cgi>
+      Options +ExecCGI
+    </Files>
+
+    <Files *.cgi>
+      SetHandler perl-script
+      PerlResponseHandler ModPerl::Registry
+      Options +ExecCGI
+    </Files>
+  </Directory>
+</VirtualHost>
+
+

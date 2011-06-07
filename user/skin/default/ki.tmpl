@@ -1,0 +1,18 @@
+<tmpl_include _html_header.tmpl>
+
+<tmpl_include _menu.tmpl>
+
+<tmpl_if ki_list>
+<form method="POST">
+    <select name="ki" onChange="submit()">
+        <option value="">기 ...
+    <tmpl_loop ki_list>
+        <option value="<tmpl_var ki>"<tmpl_if current> selected</tmpl_if>><tmpl_var ki>기 [<tmpl_var count>]
+    </tmpl_loop>
+    </select><tmpl_if is_ki><tmpl_if has_msn>[<a href="msn.cgi?type=ki">MSN 주소록</a>]<tmpl_else>[<a href="edit.cgi">개인정보</a>]에 MSN 메신저 아이디를 입력하면 아이디 목록을 받을 수 있습니다.</tmpl_if></tmpl_if>
+</form>
+</tmpl_if>
+
+<tmpl_include _user_list.tmpl>
+
+<tmpl_include _html_footer.tmpl>

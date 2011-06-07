@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<rss version="2.0">
+    <channel>
+        <title><tmpl_if HTMLTitle><tmpl_var HTMLTitle><tmpl_else>BawiX</tmpl_if></title>
+        <link><tmpl_var link></link>
+        <description><tmpl_if HTMLTitle><tmpl_var HTMLTitle><tmpl_else>BawiX</tmpl_if></description>
+        <language>ko</language>
+        <pubDate><tmpl_var pubDate></pubDate>
+        <lastBuildDate><tmpl_var pubDate></lastBuildDate>
+        <ttl>1</ttl>
+        <generator>BawiX</generator>
+        <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+<tmpl_loop item>
+        <item>
+            <title><tmpl_var title></title>
+            <link><tmpl_var link></link>
+            <description><tmpl_var description></description>
+            <author><tmpl_var author></author>
+            <pubDate><tmpl_var pubDate></pubDate>
+            <guid><tmpl_var link></guid>
+        </item>
+</tmpl_loop>
+    </channel>
+</rss>
+
+<tmpl_if skin></tmpl_if><tmpl_if mod_perl></tmpl_if>

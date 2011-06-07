@@ -1,0 +1,73 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<tmpl_if AllowUserList>
+<h3><a href="userlist.cgi">회원</a></h3>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+  <td class="thead"><a href="userlist.cgi?sort=uid&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">UID</a></td>
+  <td class="thead"><a href="userlist.cgi?sort=name&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">NAME</a> (<a href="userlist.cgi?sort=id&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">ID</a>)</td>
+  <td class="thead"><a href="userlist.cgi?sort=email&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">EMAIL</a></td>
+  <td class="thead"><a href="userlist.cgi?sort=modified&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">MODIFIED</a></td>
+  <td class="thead"><a href="userlist.cgi?sort=accessed&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">ACCESSED</a></td>
+  <td class="thead"><a href="userlist.cgi?sort=access&order=<tmpl_if order>0<tmpl_else>1</tmpl_if>">ACCESS</a></td>
+    <tmpl_if is_root>
+  <td class="thead">&nbsp;</td>
+    </tmpl_if>
+</tr>
+    <tmpl_loop userlist>
+<tr class="alt<tmpl_if __odd__>1<tmpl_else>2</tmpl_if>">
+  <td class="itemc"><tmpl_var uid></td>
+  <td class="iteml" nowrap><tmpl_include _name_id.tmpl></td>
+  <td class="itemc" nowrap><tmpl_if email><a href="mailto:<tmpl_var email>">email</a></tmpl_if></td>
+  <td class="itemc" nowrap><tmpl_var modified></td>
+  <td class="itemc" nowrap><tmpl_var accessed></td>
+  <td class="itemc"><tmpl_var access></td>
+    <tmpl_if is_root>
+  <td class="itemc"><a href="eduser.cgi?uid=<tmpl_var uid>">Edit</a> | <a href="deluser.cgi?uid=<tmpl_var uid>">Delete</a></td>
+    </tmpl_if>
+</tr>
+    </tmpl_loop>
+<tr>
+    <td class="bhead">&nbsp;</td>
+    <td class="bhead">&nbsp;</td>
+    <td class="bhead">&nbsp;</td>
+    <td class="bhead">&nbsp;</td>
+    <td class="bhead">&nbsp;</td>
+    <td class="bhead">&nbsp;</td>
+    <tmpl_if is_root>
+    <td class="bhead">&nbsp;</td>
+    </tmpl_if>
+</tr>
+</table>
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<tr>
+    <td align="center">
+    <tmpl_if first_page>
+<a href="userlist.cgi?p=<tmpl_var first_page>&sort=<tmpl_var sort><tmpl_if order>&order=1</tmpl_if>">[1]</a>...
+    </tmpl_if>
+    <tmpl_if prev_page>
+<a href="userlist.cgi?p=<tmpl_var prev_page>&sort=<tmpl_var sort><tmpl_if order>&order=1</tmpl_if>">[PREV]</a>
+    </tmpl_if>
+    <tmpl_loop pages>
+        <tmpl_if current>
+<strong><tmpl_var page></strong>
+        <tmpl_else>
+<a href="userlist.cgi?p=<tmpl_var page>&sort=<tmpl_var sort><tmpl_if order>&order=1</tmpl_if>"><tmpl_var page></a>
+        </tmpl_if>
+    </tmpl_loop>
+    <tmpl_if next_page>
+<a href="userlist.cgi?p=<tmpl_var next_page>&sort=<tmpl_var sort><tmpl_if order>&order=1</tmpl_if>">[NEXT]</a>
+    </tmpl_if>
+    <tmpl_if last_page>
+...<a href="userlist.cgi?p=<tmpl_var last_page>&sort=<tmpl_var sort><tmpl_if order>&order=1</tmpl_if>">[<tmpl_var last_page>]</a>
+    </tmpl_if>
+    </td>
+</tr>
+</table>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>

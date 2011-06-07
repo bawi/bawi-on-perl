@@ -1,0 +1,63 @@
+<div id="globalWrapper">
+<div id="top-menu">
+<a href="<tmpl_var news_url>" accesskey="1"><img class="top-logo" src="/image/logo_top.gif" alt="Home" /></a>
+<img class="main-menu" src="/image/mainmenu.gif" alt="메인 메뉴" usemap="#map-main-menu" />
+<p class="hint">
+<tmpl_if dev>
+<tmpl_var dev> 베타테스트<br/>
+<a href="/process/">서버상태</a>
+<tmpl_else>
+www.bawi.org<br/>
+<a href="/process/">서버상태</a>
+</tmpl_if>
+</p>
+
+<ul class="contents-menu toggle-container">
+<li><a href="<tmpl_var board_url>/bookmark.cgi" accesskey="2">즐겨</a><a href="<tmpl_var board_url>/bookmarkgrp.cgi?ex_gid=18" accesskey="3">찾기</a></li>
+<tmpl_unless mobile_device>
+<li><a href="http://old.bawi.org/" accesskey="4">구버전</a></li>
+</tmpl_unless>
+<li><a href="<tmpl_var board_url>/boards.cgi?gid=1" accesskey="5">바위</a></li>
+<li class="toggle switch"><a>더보기</a></li>
+<li class="toggle hidden switch"><a>감추기</a></li>
+<li class="toggle hidden switch">|</li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=22">정보</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=2">대학</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=69">학술</a></li>
+
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=3">서클</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=4">친목</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=42">개인</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=21">반</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/boards.cgi?gid=19">재학생</a></li>
+<li class="toggle hidden">|</li>
+<li class="toggle hidden"><a href="http://wiki.bawi.org/">위키</a></li>
+<li class="toggle hidden"><a href="/reg/recom.cgi">신입회원추천</a></li>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/bookmarkgrp.cgi?gid=18">바위</a><a href="<tmpl_var board_url>/boards.cgi?gid=18">지기</a><a href="http://jigi.bawi.org/">위키</a></li>
+<tmpl_if is_admin>
+<li class="toggle hidden">|</li>
+<li class="toggle hidden"><a href="/admin/">Admin</a><li>
+</tmpl_if>
+<li class="toggle hidden"><a href="<tmpl_var board_url>/read.cgi?bid=328" class="help-accesskey" accesskey="0" title="toggle accesskey hint">[?]</a></li>
+<li class="separator"><a></a></li>
+<li class="user"><a class="user-profile" target="bw_profile" href="<tmpl_var user_url>/profile.cgi?id=<tmpl_var id>"><tmpl_var id></a></li>
+</ul>
+
+<map id="map-main-menu" name="map-main-menu"> 
+<area shape="rect" coords="26,0,42,16"   href="<tmpl_var news_url>"                    alt="대문" title="대문" />
+<area shape="rect" coords="52,0,68,16"   href="<tmpl_var board_url>/boards.cgi?gid=43" alt="앨범" title="앨범" />
+<area shape="rect" coords="78,0,94,16"   href="<tmpl_var note_url>"                    alt="쪽지" title="쪽지" target="bw_message" class="user-popup" />
+<area shape="rect" coords="104,0,120,16" href="<tmpl_var board_url>/online.cgi"         alt="접속자" title="접속자" />
+<area shape="rect" coords="130,0,146,16" href="<tmpl_var user_url>/edit.cgi"           alt="내 정보" title="내 정보" target="bw_profile" class="user-popup" />
+<area shape="rect" coords="156,0,172,16" href="/main/search.cgi"                       alt="찾기" title="찾기" />
+<area shape="rect" coords="182,0,198,16" href="http://wiki.bawi.org/index.php/천년바위도움말" alt="도움말" title="도움말" />
+<area shape="rect" coords="208,0,224,16" href="http://wiki.bawi.org/index.php/천년바위후원" alt="I love Bawi" title="I love Bawi" />
+<area shape="rect" coords="234,0,250,16" href="/main/logout.cgi"                       alt="나가기" title="나가기" />
+</map>
+
+</div><!-- top-menu -->
+
+  <div id="column-content">
+  <div id="note-container"></div>
+  <div id="content">
+
