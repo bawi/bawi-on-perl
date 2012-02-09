@@ -1,7 +1,7 @@
 # ##############################################################################
 # BawiX Configuration for www.bawi.org
 # v0.04 Taejoon Kwon
-DBName              db_info
+DBName              bawi_on_perl
 DBUser              db_user
 DBPasswd            db_passwd
 

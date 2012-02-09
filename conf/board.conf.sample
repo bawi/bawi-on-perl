@@ -3,7 +3,7 @@
 # v0.04 Taejoon Kwon
 #DBHost              211.53.212.45
 #DBName              database=bawi;port=3307;host=211.53.212.45
-DBName              db_info
+DBName              bawi_on_perl
 DBUser              db_user
 DBPasswd            db_passwd
 
