@@ -6,8 +6,8 @@ DBUser              db_user
 DBPasswd            db_passwd
 
 # Cookie
-SessionName         bw_cafe24_session
-SessionDomain       .bawi.org
+SessionName         bawi_session
+SessionDomain       .your.domain.name
 #SessionDomain       
 LoginSuccess        ../main/index.cgi
 LoginURL            ../main/login.cgi
@@ -23,13 +23,13 @@ SelfRegistration    0
 DefaultSkin         default
 
 # Attachment upload directory (DO NOT include '/' at the end.)
-AttachDir           /home/bawi/user_attach
+AttachDir           /path/to/attachment/dir
 
 # Character set
 CharSet             utf-8
 
 # HTML Title
-HTMLTitle           천년바위
+HTMLTitle           Bawi
 
 # Bawi::Main specific
 GoogleAnalytics     1
