@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use CGI qw(:standard);
 
+use lib "../lib";
 use Bawi::Auth; 
 use Bawi::Main::UI;
 use Bawi::Main::Note;
