@@ -11,7 +11,7 @@
 <tmpl_if mod_perl> <span class="mod_perl on">mod_perl on</span>
 <tmpl_else> <span class="mod_perl off">mod_perl off</span> </tmpl_if>
 <span class="runtime">runtime:<tmpl_if runtime><tmpl_var runtime></tmpl_if></span>
-<span class="loadavg"><tmpl_include /proc/loadavg></span>
+<tmpl_if loadavg><span class="loadavg"><tmpl_var loadavg></span></tmpl_if>
 
 </div>
 
