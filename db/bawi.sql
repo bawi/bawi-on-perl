@@ -44,7 +44,7 @@ CREATE TABLE `bw_data_major` (
   `major` varchar(32) NOT NULL default '',
   PRIMARY KEY  (`major_id`),
   KEY `parent_id` (`parent_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=70 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -73,7 +73,7 @@ CREATE TABLE `bw_group` (
   UNIQUE KEY `keyword` (`keyword`),
   KEY `pgid` (`pgid`),
   KEY `uid` (`uid`)
-) ENGINE=MyISAM AUTO_INCREMENT=119 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -113,7 +113,7 @@ CREATE TABLE `bw_note` (
   UNIQUE KEY `msg_id` (`msg_id`),
   KEY `to_id` USING BTREE (`to_id`,`sent_time`,`read_time`),
   KEY `from_id` USING BTREE (`from_id`,`sent_time`,`read_time`)
-) ENGINE=MyISAM AUTO_INCREMENT=1309098 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -218,7 +218,7 @@ CREATE TABLE `bw_postman_log` (
   `bawi_uid` mediumint(8) unsigned NOT NULL default '0',
   `submit_time` datetime default NULL,
   PRIMARY KEY  (`postman_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=117 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -320,6 +320,8 @@ CREATE TABLE `bw_user_basic` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
+INSERT INTO bw_user_basic (uid, ename) VALUES (1, "root");
+
 --
 -- Table structure for table `bw_user_circle`
 --
@@ -356,7 +358,7 @@ CREATE TABLE `bw_user_degree` (
   PRIMARY KEY  (`degree_id`),
   KEY `uid` (`uid`),
   KEY `school_id` (`school_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5487 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -377,7 +379,7 @@ CREATE TABLE `bw_user_gbook` (
   KEY `uid` (`uid`),
   KEY `guest_uid` (`guest_uid`),
   KEY `created` (`created`)
-) ENGINE=MyISAM AUTO_INCREMENT=322408 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -483,7 +485,7 @@ CREATE TABLE `bw_xauth_new_passwd` (
   `created` datetime NOT NULL default '0000-00-00 00:00:00',
   PRIMARY KEY  (`no`),
   UNIQUE KEY `id` (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1186 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -505,9 +507,10 @@ CREATE TABLE `bw_xauth_passwd` (
   PRIMARY KEY  (`uid`),
   UNIQUE KEY `id` (`id`),
   KEY `accessed` (`accessed`)
-) ENGINE=MyISAM AUTO_INCREMENT=16952 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
+INSERT INTO bw_xauth_passwd (id, name, passwd, modified) VALUES ("root", "root", ENCRYPT("root"), NOW());
 --
 -- Table structure for table `bw_xauth_session`
 --
@@ -545,7 +548,7 @@ CREATE TABLE `bw_xboard_attach` (
   PRIMARY KEY  (`attach_id`),
   KEY `board_id` (`board_id`,`article_id`),
   KEY `article_id` (`article_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=223708 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -600,7 +603,7 @@ CREATE TABLE `bw_xboard_board` (
   `a_tag` tinyint(1) NOT NULL default '0',
   PRIMARY KEY  (`board_id`),
   UNIQUE KEY `keyword` (`keyword`)
-) ENGINE=MyISAM AUTO_INCREMENT=3209 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -659,7 +662,7 @@ CREATE TABLE `bw_xboard_comment` (
   KEY `article_id` (`article_id`),
   KEY `board` (`board_id`,`article_id`),
   KEY `uid` (`uid`)
-) ENGINE=MyISAM AUTO_INCREMENT=4232430 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -693,7 +696,7 @@ CREATE TABLE `bw_xboard_header` (
   KEY `thread_no` USING BTREE (`board_id`,`thread_no`),
   KEY `created` USING BTREE (`created`),
   KEY `uid` (`uid`)
-) ENGINE=MyISAM AUTO_INCREMENT=1522884 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -727,7 +730,7 @@ CREATE TABLE `bw_xboard_poll` (
   PRIMARY KEY  (`poll_id`),
   KEY `board_id` (`board_id`,`article_id`),
   KEY `article_id` (`article_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=8160 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -759,7 +762,7 @@ CREATE TABLE `bw_xboard_poll_opt` (
   `count` mediumint(8) unsigned NOT NULL default '0',
   PRIMARY KEY  (`opt_id`),
   KEY `poll_id` (`poll_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=39548 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -907,7 +910,7 @@ CREATE TABLE `bw_xpoll` (
   UNIQUE KEY `poll_title` (`poll_title`),
   UNIQUE KEY `xpoll` (`poll_title`),
   KEY `poll_id` (`poll_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=76 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -938,7 +941,7 @@ CREATE TABLE `bw_xpoll_choice` (
   `choice_q` int(11) NOT NULL default '0',
   PRIMARY KEY  (`choice_id`),
   KEY `choice_id` (`choice_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=411 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -954,7 +957,7 @@ CREATE TABLE `bw_xpoll_question` (
   `poll_id` int(11) NOT NULL default '0',
   PRIMARY KEY  (`question_id`),
   KEY `quetion_id` (`question_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1402 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -968,7 +971,7 @@ CREATE TABLE `circles` (
   `id` int(10) unsigned NOT NULL auto_increment,
   `name` varchar(32) NOT NULL default '',
   PRIMARY KEY  (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=74 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -1019,7 +1022,7 @@ CREATE TABLE `majors` (
   `name` varchar(32) NOT NULL default '',
   PRIMARY KEY  (`id`),
   KEY `parent_id` (`parent_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=70 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -1039,7 +1042,7 @@ CREATE TABLE `notes` (
   PRIMARY KEY  (`id`),
   KEY `from_id` (`from_id`),
   KEY `to_id` (`to_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -1060,7 +1063,7 @@ CREATE TABLE `registers` (
   PRIMARY KEY  (`id`),
   KEY `ki` (`ki`,`name`),
   KEY `name` (`name`)
-) ENGINE=MyISAM AUTO_INCREMENT=3639 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -1079,7 +1082,7 @@ CREATE TABLE `schools` (
   PRIMARY KEY  (`id`),
   KEY `full_name` (`full_name`),
   KEY `brief_name` (`brief_name`)
-) ENGINE=MyISAM AUTO_INCREMENT=166 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=0 DEFAULT CHARSET=utf8;
 SET character_set_client = @saved_cs_client;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
