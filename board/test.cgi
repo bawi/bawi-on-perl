@@ -17,6 +17,11 @@ $ui->term(qw(T_BOARD T_WRITE T_TITLE T_BODY T_FILE T_POLL T_OPTION T_SAVE));
 $ui->tparam(allow_write=>1);
 $ui->tparam(allow_attach=>1);
 
+my %cookies;
+%cookies = CGI::Cookie->fetch;
+
+$ui->tparam(mobile_device=>$cookies{'bawi_mobile'}->value);
+
 #my $sql = qq(select poll_id, board_id, article_id from bw_xboard_poll group by board_id, article_id order by poll_id desc);
 #my $rv = $ui->dbh->selectall_hashref($sql, 'poll_id');
 #my @rv = sort { $b->{poll_id} <=> $a->{poll_id} } map { $rv->{$_} } keys %$rv;
