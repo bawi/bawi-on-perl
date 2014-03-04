@@ -404,6 +404,12 @@ $t->param(%{ $xb->get_bookmark_nav(-uid=>$uid) });
 my $t1 = new Benchmark;
 my $runtime = timestr(timediff($t1, $t0));
 $t->param(runtime=>$runtime);
+if (-e "/proc/loading") {
+    open(FH, "< /proc/loadavg");
+    my $loadavg = <FH>;
+    close FH;
+    $t->param(loadavg->$loadavg);
+}
 
 print $ui->output;
 1;
