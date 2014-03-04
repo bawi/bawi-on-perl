@@ -6,7 +6,7 @@
   ServerAdmin webmaster@bawi.org
   Documentroot /home/bawi/bawi-spring/main
   ServerName www.bawi.org
-  ServerAlias bawi.org
+  ServerAlias bawi.org bawi.biz www.bawi.biz m.bawi.org old.bawi.org
   
   Alias /main/    /home/bawi/bawi-spring/main/
   Alias /board/   /home/bawi/bawi-spring/board/

@@ -6,7 +6,7 @@
   ServerAdmin webmaster@bawi.org
   Documentroot /home/bawi/bawi-perl/main
   ServerName new.bawi.org
-  ServerAlias www.bawi.org bawi.org
+  ServerAlias www.bawi.org bawi.org www.bawi.biz
   
   Alias /main/    /home/bawi/bawi-perl/main/
   Alias /board/   /home/bawi/bawi-perl/board/
