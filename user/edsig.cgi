@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use lib '../lib';
+use lib './lib';
 use Bawi::Auth;
 use Bawi::Board;
 use Bawi::User::UI;
