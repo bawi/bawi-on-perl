@@ -14,7 +14,7 @@ my $auth = new Bawi::Auth(-cfg=>$cfg, -dbh=>$dbh);
 my @field = qw(id ki name affiliation email birth_year birth_month birth_day recom_id recom passwd1 passwd2 submit);
 my %f = $ui->form(@field);
 
-my $recom_ki = 21;
+my $recom_ki = 24;
 $ui->tparam(recom_ki=>$recom_ki);
 my $check = 0;
 foreach my $i (@field) {
@@ -36,6 +36,10 @@ if ($check) {
     ++$check;
     $ui->tparam(id=>undef);
     $ui->tparam(msg=>qq($f{id}는 사용할 수 없는 아이디입니다.));
+} elsif ($f{email} !~ /^[a-z0-9._%-]+@[a-z0-9.-]+\.[a-z]{2,4}$/) {
+    ++$check;
+    $ui->tparam(id=>undef);
+    $ui->tparam(msg=>qq(이메일 주소가 올바르지 않습니다.));
 } elsif ($f{birth_year} !~ /^\d+$/ || $f{birth_year} < 1970 || $f{birth_year} > 2000) {
     ++$check;
     $ui->tparam(birth_year=>undef);
@@ -63,7 +67,10 @@ if ($check) {
     $ui->tparam(msg=>qq($f{name}님은 동창회원 명단에 등록되어있지 않습니다.));
 } elsif (&is_sshs($f{ki}, $f{name}, $dbh) <= &is_registered($f{ki}, $f{name}, $dbh) ) {
     ++$check;
-    $ui->tparam(msg=>qq($f{name}님은 이미 가입되어 있습니다.<br>비밀번호를 문의해 주세요.));
+    $ui->tparam(msg=>qq($f{name}님은 이미 가입되어 있습니다.<br>webmaster\@bawi.org로 비밀번호를 문의해 주세요.));
+} elsif (&is_sshs($f{ki}, $f{name}, $dbh) <= &is_applied($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) ) {
+    ++$check;
+    $ui->tparam(msg=>qq($f{name}님은 이미 가입신청을 하셨습니다.<br>추천인이 회원추천을 하도록 말씀해주세요.));
 }
 
 if ($check == 0) {
@@ -99,6 +106,18 @@ sub is_registered {
     my ($ki, $name, $dbh) =@_;
     my $sql = qq(select a.ki, b.name, b.id from bw_user_ki as a, bw_xauth_passwd as b where a.uid=b.uid && a.ki=? && b.name=?);
     my $rv = $dbh->selectall_arrayref($sql, undef, $ki, $name);
+    if ($rv) {
+        return scalar(@$rv);
+    } else {
+        return 0;
+    }
+}
+
+sub is_applied {
+    my ($ki, $name, $birth_year, $birth_month, $birth_day, $dbh) =@_;
+    my $birth = sprintf("%4d-%02d-%02d", $birth_year, $birth_month, $birth_day);
+    my $sql = qq(select ki, name, id, birth from bw_xauth_new_passwd where ki=? && name=? && birth=?);
+    my $rv = $dbh->selectall_arrayref($sql, undef, $ki, $name, $birth);
     if ($rv) {
         return scalar(@$rv);
     } else {
