@@ -15,7 +15,8 @@
   Alias /x/       /home/bawi/bawi-spring/board/
   Alias /xboard/  /home/bawi/bawi-spring/board/
   Alias /admin/   /home/bawi/bawi-spring/admin/
-  
+
+  LogLevel warn
   ErrorLog /var/log/apache2/bawi.org-error.log
   CustomLog /var/log/apache2/bawi.org-access.log combined
 
