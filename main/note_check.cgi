@@ -39,7 +39,7 @@ if ($auth->auth && $auth->{id}) {
     my $notes = $n->check_new_msg($id);
     my $has_messages = ( $notes ? @{$notes} : $notes );
 
-    print $q->header( -charset=>'utf-8', -type=>'text/html' );
+    print $q->header( -charset=>'utf-8', -type=>'text/html', -bawiuser => $id );
     if( $has_messages > 0 ) {
         print div({class=>"note alert"}, alert_message($has_messages, $notes));
     } else {

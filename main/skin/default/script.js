@@ -13,7 +13,7 @@ function update_checking_note () {
   var check = new Ajax.PeriodicalUpdater('note-container',
     "../../note_check.cgi",
     { method: 'get',
-      frequency: 10,
+      frequency: 60,
       decay: 1.2,
       na: 0
     });

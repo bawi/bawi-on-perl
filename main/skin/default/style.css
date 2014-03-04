@@ -605,6 +605,7 @@ form.article-write textarea   { font-size: 100%; width: 95%; height: 20em; paddi
 /* IE8 bug: scroll when typing */
 /* http://www.ozzu.com/website-design-forum/ie8-textarea-scrolling-bug-t99866.html */
 form.article-write textarea   { width: 37em; max-width: 95%; min-width: 95%; }
+form.article-write textarea.body { line-height: 170% }
 form.article-write label.checkbox { width: inherit; text-align: left; }
 form.article-write label.inline   { width: inherit; text-align: left; }
 form.article-write div.text { width: 85%; text-align: right; }
