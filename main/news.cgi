@@ -227,7 +227,7 @@ my $mod = $dbh->selectall_arrayref($modified);
 my @modified = map { { ki=>$$_[0], id=>$$_[1], name=>$$_[2] } } @$mod;
 $t->param(modified=>\@modified);
 
-my $recent = q(select a.title as board_title, a.board_id, b.article_id, b.title, b.name, b.id, @rownum:=@rownum+1 as rownum from bw_xboard_board as a, bw_xboard_header as b, (select @rownum:=0) as c where a.board_id=b.board_id && a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 order by b.article_id desc limit 20);
+my $recent = q(select a.title as board_title, a.board_id, b.article_id, b.title, b.name, b.id, @rownum:=@rownum+1 as rownum from bw_xboard_board as a, bw_xboard_header as b, (select @rownum:=0) as c where a.board_id=b.board_id && a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 order by b.article_id desc limit 40);
 my $rec = $dbh->selectall_hashref($recent, 'article_id');
 my @recent;
 foreach my $i (sort { $b <=> $a } keys %$rec ) {
