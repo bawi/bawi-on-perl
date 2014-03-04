@@ -37,8 +37,9 @@ my $xb = new Bawi::Board(-cfg=>$ui->cfg,
                           -dbh=>$ui->dbh);
 
 $ui->init(-template=>'read_scrap.tmpl');
+$ui->term(qw(T_BOOKMARK T_PREV T_NEXT T_NEWARTICLES T_IMGLIST T_ARTICLELIST T_WRITE T_THREAD T_REPLY T_EDIT T_DELETE T_TITLE T_NAME T_ID T_ADDBOOKMARK T_DELBOOKMARK T_SCRAP T_SCRAPPED T_READ T_RECOMMEND T_RECOMMENDED T_BOARDCFG T_ADDNOTICE T_DELETENOTICE T_NEWCOMMENTS T_COMMENT T_SAVE T_RESET));
 my $t = $ui->template;
-$t->param(HTMLTitle=>$xb->title." (".$xb->id.")");
+$t->param(HTMLTitle=>$xb->title." (".$auth->id.")"); # note that the ID is set to user id here.
 $t->param(board_title=>$xb->title);
 $t->param(img=>$img);
 
@@ -78,7 +79,12 @@ if ($thread) {
 ################################################################################
 # article list
 
-my $al = $xb->get_scrap_articlelist(-uid=>$uid);
+my $al;
+#if ($bid > 0) {
+#	$al = $xb->get_scrap_articlelist_by_board(-uid=>$uid, -bid=>$bid);
+#} else {
+	$al = $xb->get_scrap_articlelist(-uid=>$uid);
+#}
 $t->param(list=>$al);
 
 ################################################################################
