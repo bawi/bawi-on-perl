@@ -89,10 +89,11 @@ sub category_list {
 
 sub major_list {
     my ($mid, $pid) = @_;
-    my $sql = qq(select a.major, a.major_id, count(*) as count 
-                 from bw_data_major as a, bw_user_major as b 
-                 where a.major_id=b.major_id && a.parent_id=?
-                 group by a.major_id 
+    my $sql = qq(select a.major, a.major_id, count(b.major_id) as count
+                 from bw_data_major as a left join bw_user_major as b
+                 on a.major_id=b.major_id
+                 where a.parent_id=?
+                 group by a.major_id
                  order by a.major);
     my $rv = $dbh->selectall_hashref($sql, 'major_id', undef, $pid);
     my @rv = map { $$rv{$_}->{current} = $mid eq $_ ? 1 : 0; $$rv{$_} }
