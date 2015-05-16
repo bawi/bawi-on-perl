@@ -80,7 +80,8 @@ a.button    { cursor: pointer; }
 a.attach span.error,
 a.auto span.error { color: black; background: #fcc; }
 a.auto img  { vertical-align: baseline; outline: 0; }
-a.auto { overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+/* a.auto { overflow: hidden; text-overflow: ellipsis; display: inline-block; } */
+a.auto { overflow: hidden; text-overflow: ellipsis; }
 embed.auto { width: 480px; height: 385px; }
 @media screen and (max-width: 320px) {
   a.auto { max-width: 300px; white-space: nowrap;}
