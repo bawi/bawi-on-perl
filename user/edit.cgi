@@ -97,6 +97,8 @@ if ($uid) {
             $d = "0".$d if ($d =~ /\d{1}/);
             my $wedding = join("-", $y, $m, $d);
             push @update, [$uid, 'wedding', $wedding];
+        } else {
+            push @update, [$uid, 'wedding', '0000-00-00'];
         }
         if ($error == 0 && $#update >= 0) {
             foreach my $i (@update) {
