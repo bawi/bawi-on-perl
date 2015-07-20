@@ -155,8 +155,8 @@ select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, 
            + b.comments * 0.3 ) as score, c.body 
 from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d
 where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id
-   && b.ki > 1 && b.created > date_sub(now(), interval 3 day)
-order by score desc limit 10);
+   && b.ki > 1 && b.created > date_sub(now(), interval 5 day)
+order by score desc);
 #my $hot = qq(select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, date_format(b.created, '%m/%d') as created, round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count ) + b.comments * 0.3 ) as score from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id && b.ki > 1 order by score desc limit 10);
 
 my $hot_stat = $dbh->selectall_hashref($hot, 'article_id');
