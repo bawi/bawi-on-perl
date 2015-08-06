@@ -167,7 +167,7 @@ my $hot_stat = $dbh->selectall_hashref($hot, 'article_id');
 my @hot_stat;
 
 # because of the hash nature, we are redoing the sorting! this should not be so.
-foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> ($$hot_stat{$a}->{score} - $$hot_stat{$b}->{expiry}) } keys %$hot_stat) {
+foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> ($$hot_stat{$a}->{score} - $$hot_stat{$a}->{expiry}) } keys %$hot_stat) {
     if ($$hot_stat{$i}->{score} - $$hot_stat{$i}->{expiry} * 100 > 
     my $body = $$hot_stat{$i}->{body};
     $body =~ s/<\S+.*>//sg;
