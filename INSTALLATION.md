@@ -64,19 +64,28 @@ After synchronization, let us just set up configuration files.
 
 ```
 cd ~/Sites/bawi-on-perl/conf
-ls *.sample | awk '{print("mv "$1" "$1)}' | sed 's/.sample//2'
-ls *.sample | awk '{print("mv "$1" "$1)}' | sed 's/.sample//2' | /bin/sh
+ls *.sample | awk '{print("cp "$1" "$1)}' | sed 's/.sample//2'
+ls *.sample | awk '{print("cp "$1" "$1)}' | sed 's/.sample//2' | /bin/sh
 ```
 
 Now we will set up the mysql databases and then define the configuration files.
 
 ### mysql database setup
 
-TODO 
+```
+mysql -u root -p
+mysql>create database bawi;
+mysql>create user 'bawi'@'localhost' identified by 'qkdnlvotm';
+mysql>grant all privileges on *.* to 'bawi'@'localhost' with grant option;
+mysql>exit
+
+mysql -u bawi -p bawi < ~/Sites/bawi-on-perl/db/bawi.sql
+```
+
 
 ### Installing necessary perl modules
 
-BTW, first, you need to set up some basic paths
+BTW, first, you need to set up some basic paths. (Just to test, later we will link this feature from apache2 directory)
 ```
 cd ~/Sites/bawi-on-perl/
 export BAWI_PERL_HOME=~/Sites/bawi-on-perl
@@ -96,6 +105,7 @@ For the first time, most of the perl modules will not be installed. So let us do
 sudo cpan HTML::Template
 sudo cpan Text::Iconv
 sudo cpan DBI
+sudo cpan Apache::DBI
 ```
 
 For the first time, cpan wants to have the configuration setup. You are given the choice of installing perl modules locally (local::lib) option or doing with superuser. I have not explored the local library option which might be better.
@@ -114,9 +124,6 @@ Hope you can follow from here :
 ```
 # This is tricky part
 # See: http://search.cpan.org/dist/DBD-mysql/lib/DBD/mysql/INSTALL.pod#Mac_OS_X
-
-sudo cpan DBI
-
 perl -MCPAN -e 'shell'
 cpan>get DBD::mysql
 cpan>exit
@@ -124,21 +131,54 @@ cpan>exit
 cd ~/.cpan/build/DBD-mysql-4.032-6_SVJx/ # what ever the version is
 perl Makefile.PL --mysql_config=/usr/local/mysql-5.6.16-osx10.7-x86_64/bin/mysql_config # whatever the version 
 make
-export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/usr/local/mysql-5.6.16-osx10.7-x86_64/lib/  # what ever the version is
+export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/usr/local/mysql-5.6.27-osx10.8-x86_64/lib/  # what ever the version is
 make test
 sudo make install
 ```
 
-At this point, when you run the index.cgi, you will have only two errors about DBI connect, because we do not have any db users.
-
-
-
 ### Set up the virtual hosting
 
-Since bawi.org is also using virtual hosting service, better work on similar environment.
+Now we are ready to set up the virtual hosting. In this part, we will also link some environment variables that we set up before so that on-line, these variables will be invoked as well.
 
-http://coolestguidesontheplanet.com/set-virtual-hosts-apache-mac-osx-10-10-yosemite/
+First of all, let us install mod_perl
+http://blog.n42designs.com/blog/2014/10/23/compiling-mod-perl-for-apache-2-dot-4-on-os-x-10-dot-10-yosemite/
 
+```
+cd ~
+svn checkout https://svn.apache.org/repos/asf/perl/modperl/trunk/ mod_perl-2.0
+cd mod_perl-2.0
+# assume you already have XCode6.1 installed
+/usr/bin/apr-1-config --includedir /usr/include/apr-1
+sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include/apache2 /usr/include/apache2
+sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include/apr-1 /usr/include/apr-1
+perl Makefile.PL MP_CCOPTS=-std=gnu89 ; make ; sudo make install
+sudo vi /etc/apache2/httpd.conf
+# now include the mod_perl line
+# LoadModule perl_module libexec/apache2/mod_perl.so
+sudo apachectl configtest
+sudo apachectl restart
+```
+
+Now you should have the mod_perl module installed in Apache.
+
+Enable virtual hosting.
+
+
+```
+cd /etc/apache2/extra
+sudo mv httpd-vhosts.conf httpd-vhosts.conf.original
+sudo ln -s ~/Sites/bawi-on-perl/apache2/bawi-spring httpd-vhosts.conf
+```
+
+Now, fix the apache2/bawi-spring file to have the correct path. Also, fix the startup.pl path (hold on for the data directory for a minute).
+
+TODO: There is one bug in that relative path to perl module directory is not working. If I put the fixed path it works. What could happened?
+
+Finally, we need to fix the Dynamic loading path once for all. Let us do it in a simpler way.
+
+```
+sudo ln -s /usr/local/mysql/lib/libmysqlclient.18.dylib /usr/lib/libmysqlclient.18.dylib
+```
 
 
 
