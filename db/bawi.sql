@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.34, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.5.44, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: bawi
 -- ------------------------------------------------------
--- Server version	5.5.34-0ubuntu0.13.04.1
+-- Server version	5.5.44-0ubuntu0.14.04.1
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -44,7 +44,7 @@ CREATE TABLE `bw_data_major` (
   `major` varchar(32) NOT NULL DEFAULT '',
   PRIMARY KEY (`major_id`),
   KEY `parent_id` (`parent_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=70 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=71 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,7 +73,7 @@ CREATE TABLE `bw_group` (
   UNIQUE KEY `keyword` (`keyword`),
   KEY `pgid` (`pgid`),
   KEY `uid` (`uid`)
-) ENGINE=MyISAM AUTO_INCREMENT=121 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=125 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -113,7 +113,7 @@ CREATE TABLE `bw_note` (
   UNIQUE KEY `msg_id` (`msg_id`),
   KEY `to_id` (`to_id`,`sent_time`,`read_time`) USING BTREE,
   KEY `from_id` (`from_id`,`sent_time`,`read_time`) USING BTREE
-) ENGINE=MyISAM AUTO_INCREMENT=1383562 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=1426891 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -370,7 +370,7 @@ CREATE TABLE `bw_user_degree` (
   PRIMARY KEY (`degree_id`),
   KEY `uid` (`uid`),
   KEY `school_id` (`school_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5883 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=6115 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -391,7 +391,7 @@ CREATE TABLE `bw_user_gbook` (
   KEY `uid` (`uid`),
   KEY `guest_uid` (`guest_uid`),
   KEY `created` (`created`)
-) ENGINE=MyISAM AUTO_INCREMENT=322929 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=323086 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -497,7 +497,7 @@ CREATE TABLE `bw_xauth_new_passwd` (
   `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`no`),
   UNIQUE KEY `id` (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1352 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=1758 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -519,7 +519,7 @@ CREATE TABLE `bw_xauth_passwd` (
   PRIMARY KEY (`uid`),
   UNIQUE KEY `id` (`id`),
   KEY `accessed` (`accessed`)
-) ENGINE=MyISAM AUTO_INCREMENT=17102 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=17378 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -559,7 +559,7 @@ CREATE TABLE `bw_xboard_attach` (
   PRIMARY KEY (`attach_id`),
   KEY `board_id` (`board_id`,`article_id`),
   KEY `article_id` (`article_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=240590 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=253977 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -614,7 +614,7 @@ CREATE TABLE `bw_xboard_board` (
   `a_tag` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`board_id`),
   UNIQUE KEY `keyword` (`keyword`)
-) ENGINE=MyISAM AUTO_INCREMENT=3343 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=3412 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -674,7 +674,7 @@ CREATE TABLE `bw_xboard_comment` (
   KEY `article_id` (`article_id`),
   KEY `board` (`board_id`,`article_id`),
   KEY `uid` (`uid`)
-) ENGINE=MyISAM AUTO_INCREMENT=4557122 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=4790099 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -709,7 +709,7 @@ CREATE TABLE `bw_xboard_header` (
   KEY `created` (`created`) USING BTREE,
   KEY `uid` (`uid`),
   FULLTEXT KEY `title` (`title`)
-) ENGINE=MyISAM AUTO_INCREMENT=1594148 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=1639372 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -743,7 +743,7 @@ CREATE TABLE `bw_xboard_poll` (
   PRIMARY KEY (`poll_id`),
   KEY `board_id` (`board_id`,`article_id`),
   KEY `article_id` (`article_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=8673 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=9010 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -775,7 +775,7 @@ CREATE TABLE `bw_xboard_poll_opt` (
   `count` mediumint(8) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`opt_id`),
   KEY `poll_id` (`poll_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=41724 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=43352 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1007,6 +1007,20 @@ CREATE TABLE `countries` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Temporary table structure for view `freq_bookmark`
+--
+
+DROP TABLE IF EXISTS `freq_bookmark`;
+/*!50001 DROP VIEW IF EXISTS `freq_bookmark`*/;
+SET @saved_cs_client     = @@character_set_client;
+SET character_set_client = utf8;
+/*!50001 CREATE TABLE `freq_bookmark` (
+  `count` tinyint NOT NULL,
+  `uid` tinyint NOT NULL
+) ENGINE=MyISAM */;
+SET character_set_client = @saved_cs_client;
+
+--
 -- Table structure for table `loads`
 --
 
@@ -1078,7 +1092,7 @@ CREATE TABLE `registers` (
   PRIMARY KEY (`id`),
   KEY `ki` (`ki`,`name`),
   KEY `name` (`name`)
-) ENGINE=MyISAM AUTO_INCREMENT=4035 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=4290 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1097,8 +1111,27 @@ CREATE TABLE `schools` (
   PRIMARY KEY (`id`),
   KEY `full_name` (`full_name`),
   KEY `brief_name` (`brief_name`)
-) ENGINE=MyISAM AUTO_INCREMENT=177 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=184 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Final view structure for view `freq_bookmark`
+--
+
+/*!50001 DROP TABLE IF EXISTS `freq_bookmark`*/;
+/*!50001 DROP VIEW IF EXISTS `freq_bookmark`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8 */;
+/*!50001 SET character_set_results     = utf8 */;
+/*!50001 SET collation_connection      = utf8_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`bawi`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `freq_bookmark` AS select count(0) AS `count`,`bw_xboard_bookmark`.`uid` AS `uid` from `bw_xboard_bookmark` group by `bw_xboard_bookmark`.`uid` order by count(0) desc */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1109,4 +1142,4 @@ CREATE TABLE `schools` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-03-04 15:51:44
+-- Dump completed on 2015-10-18  4:48:27
