@@ -646,13 +646,48 @@ sub get_scrap_articlelist {
                         DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                         a.count, a.recom, a.scrap, a.comments, a.has_attach, 
                         a.has_poll, $page as page,
-                        c.title as board_title
+                        c.title as board_title, b.scrapped as scrapped 
                  FROM $TBL{head} as a, $TBL{scrap} as b, $TBL{board} as c
                  WHERE a.article_id=b.article_id && a.board_id=c.board_id && 
                        b.uid=?
-                 ORDER BY a.article_id DESC limit $start, $article_per_page);
+                 ORDER BY b.scrapped DESC, a.article_id DESC limit $start, $article_per_page);
     my $rv = $DBH->selectall_hashref($sql, 'article_id', undef, $arg{-uid});
-    my @rv = map { $rv->{$_} } sort {$b <=> $a} keys %$rv;
+	my @rv = sort { ($b->{scrapped} || 0) cmp ($a->{scrapped} || 0) ||
+					$b->{article_id} cmp $a->{article_id} }
+			 map { $$rv{$_} }
+			 keys %$rv;
+    return \@rv; 
+    
+}
+
+sub get_scrap_articlelist_by_board {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-uid});
+	return unless (exists $arg{-bid});
+
+    my $tot_page = $self->{tot_page} || 1;
+    my $page = $self->page || $tot_page || 1; 
+    my $article_per_page = $self->{article_per_page} || 16;
+    my $start = &get_start($page, $tot_page, $article_per_page);
+    my $sql = qq(SELECT a.board_id, a.article_id, 
+                        REPLACE(a.title, '<', '&lt;') as title, a.uid, 
+                        a.id, a.name,
+                        IF( a.created + INTERVAL 180 DAY > now(), 
+                          DATE_FORMAT(a.created, '%m/%d'),
+                          DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
+                        DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        a.count, a.recom, a.scrap, a.comments, a.has_attach, 
+                        a.has_poll, $page as page,
+                        c.title as board_title, b.scrapped as scrapped
+                 FROM $TBL{head} as a, $TBL{scrap} as b, $TBL{board} as c
+                 WHERE a.article_id=b.article_id && a.board_id=c.board_id && 
+                       b.uid=? && a.board_id=?
+                 ORDER BY b.scrapped DESC, a.article_id DESC limit $start, $article_per_page);
+    my $rv = $DBH->selectall_hashref($sql, 'article_id', undef, $arg{-uid}, $arg{-bid});
+	my @rv = sort { ($b->{scrapped} || 0) cmp ($a->{scrapped} || 0) ||
+					$b->{article_id} cmp $a->{article_id} }
+			 map { $$rv{$_} }
+			 keys %$rv;
     return \@rv; 
 }
 
@@ -944,10 +979,10 @@ sub get_scrap {
 
 sub add_scrap { 
     my ($self, %arg) = @_;
-    return unless (exists $arg{-article_id} && exists $arg{-uid});
+    return unless (exists $arg{-article_id} && exists $arg{-uid} && exists $arg{-last_comment_no});
 
-    my $sql = qq(INSERT INTO $TBL{scrap} (uid, article_id) VALUES(?, ?) );
-    my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
+    my $sql = qq(INSERT INTO $TBL{scrap} (uid, article_id, last_comment_no, scrapped) VALUES(?, ?, ?, NOW()) );
+    my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id}, $arg{-last_comment_no});
 
     &add_scrap_count($arg{-article_id}) if ($rv and $self->{allow_scrap} == 1);
     return $rv;
@@ -962,7 +997,7 @@ sub delete_scrap {
     
     &dec_scrap_count($arg{-article_id}) if ($rv and $self->{allow_scrap} == 1);
 
-    return $rv;
+	return $rv;
 }
 
 sub get_recommender { 
@@ -1228,6 +1263,20 @@ sub format_commentset {
     return $comments;
 }
 
+sub get_last_comment_no {
+    # for scrapbook extension
+    # by wwolf
+
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-uid});
+	return unless (exists $arg{-article_id});
+
+	my $sql = qq(SELECT MAX(comment_no) FROM $TBL{comment} WHERE article_id=?);
+    
+	my $rv = $DBH->selectrow_array($sql, undef, $arg{-article_id});
+    return 0 || $rv;
+}
+
 ################################################################################
 # Bookmark
 
@@ -1246,8 +1295,8 @@ sub get_bookmarkset {
     return unless (exists $arg{-uid});
 
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq
@@ -1271,7 +1320,7 @@ sub get_totalnewarticles {
     my ($self, %arg) = @_;
     return unless (exists $arg{-uid});
 
-    my $sql = qq(SELECT SUM(GREATEST(a.max_article_no - CAST(b.article_no as signed), 0))
+    my $sql = qq(SELECT SUM(GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0))
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE b.uid=? && b.board_id=a.board_id);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-uid});
@@ -1285,7 +1334,7 @@ sub get_totalnewcomments {
     my ($self, %arg) = @_;
     return unless (exists $arg{-uid});
 
-    my $sql = qq(SELECT SUM(GREATEST(a.max_comment_no- CAST(b.comment_no as signed), 0))
+    my $sql = qq(SELECT SUM(GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0))
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE b.uid=? && b.board_id=a.board_id);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-uid});
@@ -1297,8 +1346,8 @@ sub get_bookmarkset_by_group {
     return unless (exists $arg{-uid});
 
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq, c.gid, c.title as group_title
@@ -1380,8 +1429,8 @@ sub get_bookmark_nav {
     
     my $bid = $self->board_id || $arg{-board_id} || 0;
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq
@@ -1431,7 +1480,7 @@ sub set_bookmark {
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
     my $a_no = $arg{-article_no} || $self->{max_article_no}; 
-    my $c_no = $self->{max_comment_no}; 
+    my $c_no = $arg{-comment_no} || $self->{max_comment_no}; 
     my $sql = qq(UPDATE $TBL{bookmark} SET article_no=?, comment_no=? 
                  WHERE board_id=? && uid=?);
     my $rv = $DBH->do($sql, undef, $a_no, $c_no, $arg{-board_id}, $arg{-uid});
@@ -1499,7 +1548,7 @@ sub get_new_articles_count {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
-    my $sql = qq(SELECT GREATEST(a.max_article_no - CAST(b.article_no as signed), 0)
+    my $sql = qq(SELECT GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0)
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE a.board_id=? && b.board_id=a.board_id && b.uid=?);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-board_id}, $arg{-uid});
@@ -1510,7 +1559,7 @@ sub get_new_comments_count {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
-    my $sql = qq(SELECT GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0)
+    my $sql = qq(SELECT GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0)
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE a.board_id=? && b.board_id=a.board_id && b.uid=?);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-board_id}, $arg{-uid});
@@ -2153,7 +2202,7 @@ sub init_scrap_board {
     my $uid = $arg{-uid}; 
     my $rv = &init_board(%arg);
     $$rv{board_id} = 0;
-    $$rv{title} = 'Scrap';
+    $$rv{title} = 'Scrapbook';
     $$rv{articles} = &get_tot_scrap_by_uid($uid);
     $$rv{tot_page} = &get_tot_page($$rv{articles}, $$rv{article_per_page});
     $$rv{page} = $$rv{tot_page} unless $$rv{page} && $$rv{page} <= $$rv{tot_page};

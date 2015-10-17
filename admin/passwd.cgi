@@ -123,7 +123,7 @@ sub new_passwd {
 sub send_mail {
     my ($to, $subject, $body) = @_;
 
-	open(SENDMAIL, "|/usr/sbin/sendmail -oi -t")
+	open(SENDMAIL, "|/usr/lib/sendmail -oi -t")
 		or die "Can't fork for sendmail: $!\n";
 	print SENDMAIL <<"EOF";
 From: Bawi Webmaster <webmaster\@bawi.org>

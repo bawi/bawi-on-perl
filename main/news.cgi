@@ -152,17 +152,22 @@ my $hot = qq(
 select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, 
        date_format(b.created, '%m/%d') as created, 
        round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count )
-           + b.comments * 0.3 ) as score, c.body 
+           + b.comments * 0.3 ) as score, 
+       (timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)) + abs(timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)))) / (2 * 60 * 24) * 50 as expiry, 
+       c.body 
 from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d
 where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id
-   && b.ki > 1 && b.created > date_sub(now(), interval 3 day)
-order by score desc limit 10);
+   && b.ki > 1 && b.created > date_sub(now(), interval 5 day)
+order by (score - expiry) desc);
 #my $hot = qq(select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, date_format(b.created, '%m/%d') as created, round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count ) + b.comments * 0.3 ) as score from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id && b.ki > 1 order by score desc limit 10);
 
+# in principle, this should be changed to row ref or anything that preserves the order
 my $hot_stat = $dbh->selectall_hashref($hot, 'article_id');
 
 my @hot_stat;
-foreach my $i (sort { $$hot_stat{$b}->{score} <=> $$hot_stat{$a}->{score} } keys %$hot_stat) {
+
+# because of the hash nature, we are redoing the sorting! this should not be so.
+foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> ($$hot_stat{$a}->{score} - $$hot_stat{$a}->{expiry}) } keys %$hot_stat) {
     my $body = $$hot_stat{$i}->{body};
     $body =~ s/<\S+.*>//sg;
     $body =~ s/([-=])+//g;
@@ -227,7 +232,7 @@ my $mod = $dbh->selectall_arrayref($modified);
 my @modified = map { { ki=>$$_[0], id=>$$_[1], name=>$$_[2] } } @$mod;
 $t->param(modified=>\@modified);
 
-my $recent = q(select a.title as board_title, a.board_id, b.article_id, b.title, b.name, b.id, @rownum:=@rownum+1 as rownum from bw_xboard_board as a, bw_xboard_header as b, (select @rownum:=0) as c where a.board_id=b.board_id && a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 order by b.article_id desc limit 20);
+my $recent = q(select a.title as board_title, a.board_id, b.article_id, b.title, b.name, b.id, @rownum:=@rownum+1 as rownum from bw_xboard_board as a, bw_xboard_header as b, (select @rownum:=0) as c where a.board_id=b.board_id && a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 order by b.article_id desc limit 40);
 my $rec = $dbh->selectall_hashref($recent, 'article_id');
 my @recent;
 foreach my $i (sort { $b <=> $a } keys %$rec ) {

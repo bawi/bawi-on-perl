@@ -6,5 +6,6 @@
 <li><a href="<tmpl_var board_url>/adduser.cgi">회원 추가</a></li>
 <li><a href="<tmpl_var user_url>/passwd.cgi">비밀번호</a></li>
 <li><a href="<tmpl_var user_url>/edsig.cgi">시그너쳐</a></li>
+<li><a href="<tmpl_var board_url>/<tmpl_if mobile_device>fullweb.cgi<tmpl_else>mobile.cgi</tmpl_if>"><tmpl_if mobile_device>Full Website<tmpl_else>Mobile site</tmpl_if></a></li>
 <li><a href="logout.cgi">나가기</a></li>
 </ul>

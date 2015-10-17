@@ -43,7 +43,7 @@ sub note {
     my ($self, $from_id, $from_name, $msg, $id) = @_;
     $msg = "[단체쪽지] $msg";
     my $id_list = "'" . join("', '", @$id) . "'";
-    my $sql = qq(insert into bw_note (sent_time, read_time, from_id, from_name, msg, to_id, to_name) select now(), now(), '$from_id', '$from_name', ?, id, name from bw_xauth_passwd where id in ($id_list));
+    my $sql = qq(insert into bw_note (sent_time, from_id, from_name, msg, to_id, to_name) select now(), '$from_id', '$from_name', ?, id, name from bw_xauth_passwd where id in ($id_list));
     my $rv = $DBH->do($sql, undef, $msg);
     return $rv;
 }

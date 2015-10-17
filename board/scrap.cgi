@@ -18,7 +18,7 @@ unless ($auth->auth(-session_key=>$session_key)) {
 
 my ($uid, $id, $name) = ($auth->uid, $auth->id, $auth->name);
 
-my ($bid, $aid, $p) = map { $q->param($_) || undef } qw( bid aid p );
+my ($bid, $aid, $p, $lc) = map { $q->param($_) || undef } qw( bid aid p lc);
 
 my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
 
@@ -26,7 +26,7 @@ if ($aid && $uid) {
   my $article_uid = $xb->get_article_uid(-article_id=>$aid);
   my $rv = $xb->get_scrap(-article_id=>$aid, -uid=>$uid);
   if (!$rv && $article_uid ne $uid && $xb->allow_scrap && ! $xb->is_anonboard) {
-    my $rv1 = $xb->add_scrap(-article_id=>$aid, -uid=>$uid);
+    my $rv1 = $xb->add_scrap(-article_id=>$aid, -uid=>$uid, -last_comment_no=>$lc);
   }
 }
 if ($session_key) {

@@ -101,9 +101,9 @@ if ($allow_write && $bid) {
         $body = "$original_name 님께서 쓰시길,\n> " . $body . "\n";
         $body .= "\n\n--\n" . $signature if $signature;
         $title = "Re: $title" unless ($title =~ /^Re: /);
-        $t->param(title=> $q->escapeHTML($title));
-        $t->param(body => $q->escapeHTML($body ));
-        #$t->param(title=>$title, body=>$body);
+        #$t->param(title=> $q->escapeHTML($title));
+        #$t->param(body => $q->escapeHTML($body ));
+        $t->param(title=>$title, body=>$body);
 
     } else { # write new article
         # board_id, title, body: from form

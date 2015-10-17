@@ -11,9 +11,15 @@ my $atid = $ui->cparam('atid');
 my $xb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 my $attach = $xb->get_attach(-attach_id=>$atid, -thumb=>1);
 
-if ($attach and $$attach{file}) {
+if ($attach and $$attach{filehandle}) {
     print $ui->cgi->header(-type=>$$attach{content_type}, -expires=>'+1M');
-    print $$attach{file};
+    my ($file, $buffer, $bytes);
+    while (my $len = read($$attach{filehandle}, $buffer, 1024)) {
+        $file .= $buffer;
+        $bytes += $len;
+    }
+    close $$attach{filehandle};
+    print $file;
 } elsif ($ui->cgi->server_name ne "www.bawi.org") {
     print $ui->cgi->redirect("http://www.bawi.org/board/thumb.cgi?".$ui->cgi->query_string );
 } else {

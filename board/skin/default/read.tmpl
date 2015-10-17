@@ -10,13 +10,13 @@
 
 <tmpl_if allow_read>
   <tmpl_if total_newcomments>
-<h2><tmpl_var T_NEWCOMMENTS>: <strong><tmpl_var total_newcomments></strong> ...</h2>
+<h2><tmpl_var T_NEWCOMMENTS>: <strong><tmpl_var total_newcomments></strong> ... <a href="read.cgi?bid=<tmpl_var board_id><tmpl_if la>;la=<tmpl_var la></tmpl_if><tmpl_if lc>;lc=<tmpl_var lc></tmpl_if>;a=rb">[rollback]</a></h2>
   <tmpl_include _new_comment.tmpl>
   </tmpl_if><!-- total_newcomments -->
 
 <!--ARTICLE SET-->
   <tmpl_if total_thread>
-<h2><tmpl_var T_NEWARTICLES>: <strong><tmpl_var total_thread></strong> ...</h2>
+<h2><tmpl_var T_NEWARTICLES>: <strong><tmpl_var total_thread></strong> ... <a href="read.cgi?bid=<tmpl_var board_id><tmpl_if la>;la=<tmpl_var la></tmpl_if><tmpl_if lc>;lc=<tmpl_var lc></tmpl_if>;a=rb">[rollback]</a></h2>
   </tmpl_if>
 
   <tmpl_loop article_set>
@@ -57,7 +57,7 @@
 
 <tmpl_if allow_scrap><tmpl_if session_key>
 <!--td class="thead" nowrap><a href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if session_key>;s=<tmpl_var session_key></tmpl_if>" onClick="return window.confirm('Scrap this article?');">스크랩</a></td-->
-<li class="button"><a class="button scrap" href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onClick="if (window.confirm('Scrap this article?')) { tag_article('scrap','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_SCRAP></a></li>
+<li class="button"><a class="button scrap" href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;lc=<tmpl_var last_comment_no>" onClick="if (window.confirm('Scrap this article?')) { tag_article_scrap('scrap','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var last_comment_no>','<tmpl_var session_key>');} return false;"><tmpl_var T_SCRAP></a></li>
 </tmpl_if></tmpl_if>
 
 <tmpl_if is_owner>
@@ -86,7 +86,7 @@
 <!-- LIST -->
 <tmpl_if new_counts>
 <h2>
-<a href="read.cgi?abc=1234;bid=<tmpl_var board_id>;la=<tmpl_var last_article_no>;lc=<tmpl_var last_comment_no><tmpl_if img>;img=1</tmpl_if>"><tmpl_if new_articles_count><tmpl_var T_NEWARTICLES>: <strong> <tmpl_var new_articles_count></strong> </tmpl_if><tmpl_if new_comments_count><tmpl_var T_NEWCOMMENTS>: [<strong><tmpl_var new_comments_count></strong>]</tmpl_if></a>
+<a href="read.cgi?bid=<tmpl_var board_id>;la=<tmpl_var last_article_no>;lc=<tmpl_var last_comment_no><tmpl_if img>;img=1</tmpl_if>"><tmpl_if new_articles_count><tmpl_var T_NEWARTICLES>: <strong> <tmpl_var new_articles_count></strong> </tmpl_if><tmpl_if new_comments_count><tmpl_var T_NEWCOMMENTS>: [<strong><tmpl_var new_comments_count></strong>]</tmpl_if></a>
 [<a href="read.cgi?bid=<tmpl_var board_id>;p=<tmpl_var page>;a=rb<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_RESET></a>]
 </h2>
 </tmpl_if>

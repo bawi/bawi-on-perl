@@ -530,6 +530,9 @@ ul.article-list li { display: table-cell; padding: 3px 3px 3px 3px; border-top: 
 ul.article-list li a { color: black; }
 ul.article-list li.board { width: 445px; outline: 1px dotted red; }
 ul.article-list li.no    { width:  10px; text-align: left; }
+ul.article-list li.board2{ width: 300px; }
+ul.article-list li.article{width: 300px; }
+ul.article-list li.comment{width: 300px; display: block;}
 ul.article-list li.title { width: 445px; }
 ul.article-list li.title a { display: block; }
 ul.article-list li.name  { width: 125px; white-space: nowrap; text-align: left; } /* name */
@@ -605,6 +608,7 @@ form.article-write textarea   { font-size: 100%; width: 95%; height: 20em; paddi
 /* IE8 bug: scroll when typing */
 /* http://www.ozzu.com/website-design-forum/ie8-textarea-scrolling-bug-t99866.html */
 form.article-write textarea   { width: 37em; max-width: 95%; min-width: 95%; }
+form.article-write textarea.body { line-height: 170% }
 form.article-write label.checkbox { width: inherit; text-align: left; }
 form.article-write label.inline   { width: inherit; text-align: left; }
 form.article-write div.text { width: 85%; text-align: right; }

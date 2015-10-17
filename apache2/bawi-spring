@@ -6,7 +6,7 @@
   ServerAdmin webmaster@bawi.org
   Documentroot /home/bawi/bawi-spring/main
   ServerName www.bawi.org
-  ServerAlias bawi.org
+  ServerAlias bawi.org m.bawi.org old.bawi.org
   
   Alias /main/    /home/bawi/bawi-spring/main/
   Alias /board/   /home/bawi/bawi-spring/board/
@@ -15,7 +15,8 @@
   Alias /x/       /home/bawi/bawi-spring/board/
   Alias /xboard/  /home/bawi/bawi-spring/board/
   Alias /admin/   /home/bawi/bawi-spring/admin/
-  
+
+  LogLevel warn
   ErrorLog /var/log/apache2/bawi.org-error.log
   CustomLog /var/log/apache2/bawi.org-access.log combined
 
@@ -33,6 +34,7 @@
     AllowOverride All
     Order allow,deny
     Allow from all
+    Require all granted
 
     AddHandler cgi-script .cgi
   </Directory>
