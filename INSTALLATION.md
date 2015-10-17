@@ -46,8 +46,6 @@ print "Hello Perl World!\n";
 
 ### GIT clone the code
 
-The above installation instructions does not care about perl scripts being run. So we need to check this.
-
 Go to the user based directory
 ```
 cd ~/Sites/
@@ -132,10 +130,6 @@ sudo make install
 ```
 
 At this point, when you run the index.cgi, you will have only two errors about DBI connect, because we do not have any db users.
-
-(Tiny note: For the first time, cpan wants to have the configuration setup. You are given the choice of installing perl modules locally (local::lib) option or doing with superuser. I have not explored the local library option which might be better.)
-
-
 
 
 
