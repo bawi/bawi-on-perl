@@ -91,6 +91,9 @@ Specifically, you need to change
 DBName bawi
 DBUser bawi
 DBpasswd [your MySQL password]
+
+SessionName   bawi_session_local # something that does not interfere with other applications
+SessionDomain dev.bawi.org
 ```
 
 ### Installing necessary perl modules
@@ -219,4 +222,39 @@ Voila!
 
 ### Database sampler
 
-Now we have the first page on-line. But we do not have 
+Now we have the first page on-line. But we do not have any users and any databases, so we have to make one.
+
+A easy way is to make a sampler from the existing database. Because of security reasons, if anyone request a sampler database, I can pick up *only* that requester by performing mysqldump :
+
+```
+mysqldump --opt --user=bawi -p bawi bw_xauth_passwd --where="id='WWolf'" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_user_basic --where="uid=[the requesters id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_user_ki --where ="uid=[the requesters id]" >> sampler.sql
+``` 
+
+
+### Installing Image::Magick
+
+This is another beast, but essentially source install.
+http://www.imagemagick.org/script/perl-magick.php
+
+```
+cd ~/Sites
+curl -O http://www.imagemagick.org/download/ImageMagick.tar.gz
+tar xvzf ImageMagick.tar.gz
+cd ImageMagick-6.9.2-4/
+./configure -with-perl
+make
+sudo make install # takes pretty long time...
+sudo ldconfig /usr/local/lib # really necessary? (did not do)
+perl -e "use Image::Magick; print Image::Magick->QuantumDepth"  # just for testing
+sudo apachectl restart # necessary once.
+```
+
+### Now, the empty Bawi (local) world.
+
+Congratulations! You are now able to explore the empty barren world of bawi-on-perl.
+If you want to just test the behavior of CSS, please use addboard.cgi to make a board and proceed.
+
+
+

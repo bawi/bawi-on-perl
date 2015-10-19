@@ -20,7 +20,7 @@ our $DefaultClass = 'Bawi::Auth';
 my (%OPT, %TBL, $DBH);
 
 %OPT = (
-  login_url       => 'http://www.bawi.org/login.cgi',
+  login_url       => 'http://dev.bawi.org/login.cgi',
   denied_url      => CGI::url(-base=>1).'/denied.cgi',
   #passwd_url      => 'passwd.cgi',
   session_path    => '/',
@@ -583,7 +583,7 @@ sub tot_page {
 
 sub is_admin {
     my ($self,$id) = @_; #self_or_default(@_);
-    $id = $self->id unless $id;
+	$id = $self->id if ($self->id and not $id);
     my @jigi = qw(root aragorn doslove linusben seouri WWolf mukluk sylee honest);
     return 1 if grep { $_ eq $id } @jigi;
     return 0;
