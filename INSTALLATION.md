@@ -55,7 +55,7 @@ then type on your browser `http://127.0.0.1/~[username]/test.cgi` on your prefer
 Go to the user based directory
 ```
 cd ~/Sites/
-git clone https://github.com/bawi/bawi-on-perl.git local
+git clone https://github.com/bawi/bawi-on-perl.git -b local
 ```
 
 Note that the [master] branch has not been merged for long time, and the acting server branch is [sync], but detached from HEAD. That means that any testing that you do on your [local] branch (or derivatives) will have to be merged carefully to the [sync] branch.
