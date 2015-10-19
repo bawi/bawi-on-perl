@@ -202,6 +202,10 @@ sudo apachectl configtest
 sudo apachectl restart
 ```
 
+Then modify httpd.conf file to include vhosts configuration.
+* http://coolestguidesontheplanet.com/set-virtual-hosts-apache-mac-osx-10-10-yosemite/
+* do up to "Edit the vhosts.conf file".
+
 Now, we have to configure the virtual host setting. What we are going to do is to soft link the httpd-vhosts.conf file to the already set up file in apache2/ directory. Follow below.
 
 ```
