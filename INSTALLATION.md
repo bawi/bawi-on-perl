@@ -58,7 +58,13 @@ cd ~/Sites/
 git clone https://github.com/bawi/bawi-on-perl.git -b local
 ```
 
-Note that the [master] branch has not been merged for long time, and the acting server branch is [sync], but detached from HEAD. That means that any testing that you do on your [local] branch (or derivatives) will have to be merged carefully to the [sync] branch.
+------------------------------------
+(Tip) Note that the [master] branch has not been merged for long time (tag: [original_code]), and the production server runs with the [sync] branch with minor modifications that you can track by the log. [local] branch is a branch from the [sync] branch, with very few modifications as yet, and the initial working installation instructions and code tagged as [local_dev]. (Unfortunately, just before this commit explaining the tags and branches)
+
+In principle, you could work on the [local] branch, test and once it is fixed then merge into [sync] branch and later `git pull` on the server. Beware that there is one hard-wired default domain name in lib/Bawi/Auth.pm that is different between [local] and [sync]. In theory this should not affect when merged, but work around would be to checkout [sync] branch, and individually merge commits by `git cherry-pick` or even `git checkout local [filename]`.
+
+(See more on http://jasonrudolph.com/blog/2009/02/25/git-tip-how-to-merge-specific-files-from-another-branch/ )
+------------------------------------
 
 Once you have the code on your directory, first thing is to make configuration files from sample files.
 ```
