@@ -64,6 +64,7 @@ git clone https://github.com/bawi/bawi-on-perl.git -b local
 In principle, you could work on the [local] branch, test and once it is fixed then merge into [sync] branch and later `git pull` on the server. Beware that there is one hard-wired default domain name in lib/Bawi/Auth.pm that is different between [local] and [sync]. In theory this should not affect when merged, but work around would be to checkout [sync] branch, and individually merge commits by `git cherry-pick` or even `git checkout local [filename]`.
 
 (See more on http://jasonrudolph.com/blog/2009/02/25/git-tip-how-to-merge-specific-files-from-another-branch/ )
+
 ------------------------------------
 
 Once you have the code on your directory, first thing is to make configuration files from sample files.
