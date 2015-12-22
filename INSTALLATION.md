@@ -2,24 +2,25 @@
 
 This instruction is for Mac OSX. Please kindly contribute for the Linux or Windows version.
 
-## MacOSX (Yosemite)
+## MacOSX (El Capitan)
 
-### Apache, MySQL 
+El Capitan is different from Yosemite in that the root privileges is very strengthened. There are several ways to cope with this. One is using proprietary setup Docker. The other is to carefully install it the "right way". I will try to follow this.
 
-To set up locally the bawi-on-perl setting, first we need to setup the Apache and MySQL setup.
-For convenience, we will use the user based directory instead of the DocumentRoot.
+### Apache
 
-The following link is very useful:
+Installation is based on (El capitan):
+http://coolestguidesontheplanet.com/get-apache-mysql-php-and-phpmyadmin-working-on-osx-10-11-el-capitan/
 
-http://coolestguidesontheplanet.com/get-apache-mysql-php-phpmyadmin-working-osx-10-10-yosemite/
-
-* You can skip anything related to PHP. Not necessary.
-* installed MySQL 5.6.27. (I just chose to automatically start on boot)
-* Note that for mysql root set up, do not put the password on command line.
-* Also uncomment LoadModule cgi_module libexec/apache2/mod_cgi.so in httpd.conf
-* Edit /etc/apache2/users/[username].conf
+For safety, I will put everything I have done following the above mentioned link:
 
 ```
+# For El capitan, Apache is default installed, need only to run on Terminal
+sudo apachectl start
+```
+
+Set up the user-level configuration file. [username] is replaced by your actual username. You can check username by `whoami` command.
+```
+sudo vi /etc/apache2/users/[username].conf
 <Directory "/Users/[username]/Sites/">
     AllowOverride All
     AddHandler cgi-script .cgi
@@ -29,55 +30,154 @@ http://coolestguidesontheplanet.com/get-apache-mysql-php-phpmyadmin-working-osx-
 </Directory>
 ```
 
-At this point, you should be able to access the local website by typing `http://127.0.0.1/~[username]/` on your preferred browser.
-
-You can test whether perl based script is working by writing the code to Sites directory:
-
+Check the permissions
 ```
-cd ~/Sites/
-vi test.cgi
-
-#!/usr/bin/perl -w
-
-use strict;
-use warnings;
-
-print qq(Content-type: text/plain\n\n);
-
-print "Hello Perl World!\n";
+-rw-r--r--  1 root  wheel  238 Dec 21 17:04 [username].conf
 ```
 
-then type on your browser `http://127.0.0.1/~[username]/test.cgi` on your preferred browser.
-
-
-### GIT clone the code
-
-Go to the user based directory
+Let us not edit the apache2 configuration file. To do so,
 ```
+sudo vi /etc/apache2/httpd.conf
+```
+
+Now search for modules for apache2, by searching the following lines and removing the "#" in front. First two should be already uncommented.
+
+```
+LoadModule authz_core_module libexec/apache2/mod_authz_core.so
+```
+
+```
+LoadModule authz_host_module libexec/apache2/mod_authz_host.so
+```
+
+```
+LoadModule userdir_module libexec/apache2/mod_userdir.so
+```
+
+```
+LoadModule include_module libexec/apache2/mod_include.so
+```
+
+```
+LoadModule rewrite_module libexec/apache2/mod_rewrite.so
+```
+
+Also, install mod_cgi, because this is what is explicitly used in bawi-on-perl.
+```
+LoadModule cgi_module libexec/apache2/mod_cgi.so
+```
+
+You do not need to have php running uncomment (if you are curious of the difference from the guidebook)
+
+
+Now also uncomment user home directory
+```
+Include /private/etc/apache2/extra/httpd-userdir.conf
+```
+
+Now let us edit the userdirectory specific configuration file that we just uncommented.
+
+```
+sudo vi /etc/apache2/extra/httpd-userdir.conf
+```
+
+Now uncomment
+```
+Include /private/etc/apache2/users/*.conf
+```
+
+This will ensure that our [username].conf is now read.
+
+Restart apache.
+```
+sudo apachectl restart
+```
+
+Now test on your web browser whether
+```
+http://localhost/~[username]/
+```
+
+will show up the (empty) directory structure.
+
+
+### MySQL
+
+To isolate all configuration (except apache installation that we have done successfully above), we will install mysql using homebrew. Homebrew is "the" package manager for Mac OSX: http://brew.sh/
+(Useful link: http://coolestguidesontheplanet.com/installing-homebrew-on-os-x-el-capitan-10-11-package-manager-for-unix-apps/ )
+
+
+``` 
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+brew doctor
+brew update
+```
+
+-----------------------------------
+Homebrew installs all packages in /usr/local/Cellar so that it is effectively isolated. It involves less of superadmin privileges. The following configuration is based on https://gist.github.com/kevinelliott/e12aa642a8388baf2499
+
+If you want to install MySQL system-wide, skip this section and download and install MySQL via the following link: http://dev.mysql.com/downloads/file/?id=459872. Everything else, refer to the old Yosemite installation instructions.
+-----------------------------------
+
+Now via homebrew, install mysql
+```
+brew install mysql  # for this installation instruction, I was installation 5.7.9.
+brew pin mysql # if you want to just keep mysql at this version... really not necessary
+
+# Copy launch agent into place
+mkdir -p ~/Library/LaunchAgents && cp /usr/local/Cellar/mysql/VERSION/homebrew.mxcl.mysql.plist ~/Library/LaunchAgents/
+
+# Edit launch agent and set both keepalive and launch at startup to false
+vi ~/Library/LaunchAgents/homebrew.mxcl.mysql.plist
+
+# Inject launch agent
+launchctl load -w ~/Library/LaunchAgents/homebrew.mxcl.mysql.plist
+
+# Set up databases to run as your user account. This will also generate a temporary root account password you have to copy
+mysqld --initialize --user=`whoami` --basedir="$(brew --prefix mysql)" --datadir =/usr/local/var/mysql
+
+# Start mysql
+mysql.server start
+```
+
+Now change the root password for the mysql server. This is simply changing the temporary password you have to something that you can remember. Note that you do not need to change it to the same password you have for your machine; recommended not to because the mysql password may be breached easily.
+
+```
+mysqladmin -u root -p'VMlLWuaoZ7<=' password
+mysqladmin: [Warning] Using a password on the command line interface can be insecure.
+New password: 
+Confirm new password: 
+Warning: Since password will be sent to server in plain text, use ssl connection to ensure password safety.
+```
+
+That is it!
+
+
+## GIT clone the code
+
+Now, let us put the code here
 cd ~/Sites/
 git clone https://github.com/bawi/bawi-on-perl.git -b local
-```
 
-------------------------------------
+--------------------------------------------------------
 (Tip) Note that the [master] branch has not been merged for long time (tag: [original_code]), and the production server runs with the [sync] branch with minor modifications that you can track by the log. [local] branch is a branch from the [sync] branch, with very few modifications as yet, and the initial working installation instructions and code tagged as [local_dev]. (Unfortunately, just before this commit explaining the tags and branches)
 
-In principle, you could work on the [local] branch, test and once it is fixed then merge into [sync] branch and later `git pull` on the server. Beware that there is one hard-wired default domain name in lib/Bawi/Auth.pm that is different between [local] and [sync]. In theory this should not affect when merged, but work around would be to checkout [sync] branch, and individually merge commits by `git cherry-pick` or even `git checkout local [filename]`.
+In principle, you could work on the [local] branch, test and once it is fixed then merge into [sync] branch and later git pull on the server. Beware that there is one hard-wired default domain name in lib/Bawi/Auth.pm that is different between [local] and [sync]. In theory this should not affect when merged, but work around would be to checkout [sync] branch, and individually merge commits by `git cherry-pick` or even `git checkout local [filename]`.
 
 (See more on http://jasonrudolph.com/blog/2009/02/25/git-tip-how-to-merge-specific-files-from-another-branch/ )
-
-------------------------------------
+--------------------------------------------------------------------
 
 Once you have the code on your directory, first thing is to make configuration files from sample files.
+
 ```
 cd ~/Sites/bawi-on-perl/conf
 ls *.sample | awk '{print("cp "$1" "$1)}' | sed 's/.sample//2'
 ls *.sample | awk '{print("cp "$1" "$1)}' | sed 's/.sample//2' | /bin/sh
 ```
 
-Now we will set up the mysql databases and then correctly configure the configuration files.
-I assume that MySQL has been set up at the Apache2, MySQL installation section and have the root user set up.
+Now we will set up the mysql databases and then correctly configure the configuration files. I assume that MySQL has been set up at the Apache2, MySQL installation section and have the root user set up.
 
-### mysql database setup
+## mysql database setup
 
 db/bawi.sql has the most up-to-date table schema of the running bawi system (and other things as well, may need to trim).
 
@@ -90,10 +190,10 @@ mysql>exit
 
 mysql -u bawi -p bawi < ~/Sites/bawi-on-perl/db/bawi.sql
 ```
+
 (You can use different DBUser name or DB name, just change the configuration file accordingly)
 
-Based on the MySQL database and user/password, now you can configure board.conf, main.conf, user.conf
-Specifically, you need to change
+Based on the MySQL database and user/password, now you can configure board.conf, main.conf, user.conf Specifically, you need to change
 
 ```
 DBName bawi
@@ -106,71 +206,56 @@ SessionDomain dev.bawi.org
 
 It is very important to set up the SessionDomain right. Currently I have set as dev.bawi.org (later I will add this in other settings), but if you want another name, do not forget to change the three files accordingly (board.conf, main.conf, user.conf).
 
-### Installing necessary perl modules
 
-We will eventually run the startup.pl in apache2/ folder for virtual hosting for mod_perl Apache, but to test whether all necessary Perl modules are installed in the system, let us run in shell the CGI scripts first. For that, you need to manually set up some environment variables (that works in only one shell session. You could put it in .bash_profile if you want)
+## Installing necessary perl modules
 
+The ur-old BawiX engine requires certain perl modules to be installed. Starting from El Capitan, it is almost impossible to set up system-level perl module installation via cpan. That barred many people successfully installing BawiX locally. Here, we will try out Perlbrew (http://perlbrew.pl) to locally install all modules. This will effectively isolate our BawiX installation from dependency issues with OS upgrades.
+
+Download perlbrew for install
 ```
-cd ~/Sites/bawi-on-perl/
-export BAWI_PERL_HOME=~/Sites/bawi-on-perl
-export BAWI_DATA_HOME=~/Sites/bawi-on-perl
-```
-
-One way to check whether necessary perl modules are intact is to try to run one CGI script and see what error it emits.
-
-```
-cd ~/Sites/bawi-on-perl/main/
-./index.cgi
+\curl -L http://install.perlbrew.pl | bash
 ```
 
-For the first time, most of the perl modules will not be installed. So let us do one by one by testing the above cgi script and running it and installing it.
-
+Set up bin path by putting the following line to ~/.bashrc or ~/.bash_profile:
 ```
-sudo cpan HTML::Template
-sudo cpan Text::Iconv
-sudo cpan DBI
-sudo cpan Apache::DBI
+source ~/perl5/perlbrew/etc/bashrc
 ```
 
-For the first time, cpan wants to have the configuration setup. You are given the choice of installing perl modules locally (local::lib) option or doing with superuser. I have not explored the local library option which might be better.
-
-One tricky installation is the DBI::mysql package. General consensus seems to suggest that on Mac system, compile with a *defined* Perl version to avoid any break during an (automatic) update of OSX. Honestly I am fine with Yosemite and we are going to test a small CGI script code cohort, so I moved on without considering the fixed Perl version (We could re-install it I believe).
-
-The strategy for the install of DBI::mysql package is to source install and soft link the resulting libraries to a general path.
-
-See some informations:
-
-* http://search.cpan.org/dist/DBD-mysql/lib/DBD/mysql/INSTALL.pod#Mac_OS_X
-* https://movabletype.org/documentation/installation/osx-10-9.html
-* http://www.ensembl.info/blog/2013/09/09/installing-perl-dbdmysql-and-ensembl-on-osx/ 
-* http://bixsolutions.net/forum/thread-8.html
-
-Hope you can follow from here what I have done:
+Now you can switch different perl installations. El Capitan has a built-in perl 5.18.2 which you can check by typing `perl -v` on command line. Changing to the local installed perl requires 
 ```
-# This is tricky part
-# See: http://search.cpan.org/dist/DBD-mysql/lib/DBD/mysql/INSTALL.pod#Mac_OS_X
-perl -MCPAN -e 'shell'
-cpan>get DBD::mysql
-cpan>exit
-
-cd ~/.cpan/build/DBD-mysql-4.032-6_SVJx/ # what ever the version is probably different directory name. Use Tab to figure out
-
-perl Makefile.PL --mysql_config=/usr/local/mysql-5.6.16-osx10.7-x86_64/bin/mysql_config # whatever the version it is. Mine is 5.6.27.
-
-make
-
-export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:/usr/local/mysql-5.6.27-osx10.8-x86_64/lib/  # what ever the version is
-
-make test
-
-sudo make install
-
-# For us, it might be easier to just link the libmysqlclient.18.dylib (why we defined the DYLD_LIBRARY_PATH) by soft link.
-sudo ln -s /usr/local/mysql/lib/libmysqlclient.18.dylib /usr/lib/libmysqlclient.18.dylib
+perlbrew switch perl-5.16.0
+perl -v
 ```
 
-This will set up the DBI::mysql to the proper mysql. You can check that by again running the main index.cgi script on shell.
+And you can see that now the perl is linked to 5.16.0. version. (If you want to get out, just comment the line in .bashrc or .bash_profile sourcing the perlbrew configuration)
 
+With perlbrew, looks like cpanm work better than cpan.
+```
+perlbrew install-cpanm
+```
+
+Now install all the necessary modules via cpanm
+```
+cpanm install HTML::Template
+cpanm install Text::Iconv
+cpanm install URI::Escape
+cpanm install DBI
+cpanm install Apache::DBI
+cpanm install DBD::mysql
+```
+
+The only caveat with this approach is that all shebang settings are hard-coded in the original code. This creates a problem when perlbrew is to be used. http://perlbrew.pl/Dealing-with-shebangs.html
+
+Since we simply want to run a local version of BawiX engine, the simplest, brute-force answer is to change all shebangs of perl code into /usr/bin/env perl
+
+------------------------------
+See also:
+
+* http://unix.stackexchange.com/questions/29608/why-is-it-better-to-use-usr-bin-env-name-instead-of-path-to-name-as-my
+* http://stackoverflow.com/questions/3794922/how-do-i-use-perlbrew-to-manage-perl-installations-aimed-at-web-applications
+------------------------------
+
+TODO
 
 ### Set up the virtual hosting
 
