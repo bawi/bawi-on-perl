@@ -116,7 +116,9 @@ brew update
 -----------------------------------
 Homebrew installs all packages in /usr/local/Cellar so that it is effectively isolated. It involves less of superadmin privileges. The following configuration is based on https://gist.github.com/kevinelliott/e12aa642a8388baf2499
 
-If you want to install MySQL system-wide, skip this section and download and install MySQL via the following link: http://dev.mysql.com/downloads/file/?id=459872. Everything else, refer to the old Yosemite installation instructions.
+If you want to install MySQL system-wide, skip this section and download and install MySQL via the following link:
+
+http://dev.mysql.com/downloads/file/?id=459872. Everything else, refer to the old Yosemite installation instructions.
 -----------------------------------
 
 Now via homebrew, install mysql
