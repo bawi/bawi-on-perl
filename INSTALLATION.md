@@ -143,7 +143,7 @@ mysql.server start
 Now change the root password for the mysql server. This is simply changing the temporary password you have to something that you can remember. Note that you do not need to change it to the same password you have for your machine; recommended not to because the mysql password may be breached easily.
 
 ```
-mysqladmin -u root -p'VMlLWuaoZ7<=' password
+mysqladmin -u root -p password
 mysqladmin: [Warning] Using a password on the command line interface can be insecure.
 New password: 
 Confirm new password: 
@@ -209,57 +209,48 @@ It is very important to set up the SessionDomain right. Currently I have set as 
 
 ## Installing necessary perl modules
 
-The ur-old BawiX engine requires certain perl modules to be installed. Starting from El Capitan, it is almost impossible to set up system-level perl module installation via cpan. That barred many people successfully installing BawiX locally. Here, we will try out Perlbrew (http://perlbrew.pl) to locally install all modules. This will effectively isolate our BawiX installation from dependency issues with OS upgrades.
+The ur-old BawiX engine requires certain perl modules to be installed. Starting from El Capitan, it is almost impossible to set up system-level perl module installation via cpan. That barred many people successfully installing BawiX locally. 
 
-Download perlbrew for install
-```
-\curl -L http://install.perlbrew.pl | bash
-```
+For just perl scripts, we could try out Perlbrew (http://perlbrew.pl) to locally install all modules. This will effectively isolate our BawiX installation from dependency issues with OS upgrades. However, another complication is that the default mode to run locally is via mod_perl, and that effectively skips any run via perlbrew (something complicated to fix). So, we will actually change the module directory target to /usr/local/bin and run in sudo mode.
 
-Set up bin path by putting the following line to ~/.bashrc or ~/.bash_profile:
 ```
-source ~/perl5/perlbrew/etc/bashrc
-```
-
-Now you can switch different perl installations. El Capitan has a built-in perl 5.18.2 which you can check by typing `perl -v` on command line. Changing to the local installed perl requires 
-```
-perlbrew switch perl-5.16.0
-perl -v
+cpan
+# setup and choose sudo mode
+cpan> o conf makepl_arg "INSTALLBIN=/usr/local/bin INSTALLSCRIPT=/usr/local/bin"
+cpan> o conf commit
+cpan> exit
 ```
 
-And you can see that now the perl is linked to 5.16.0. version. (If you want to get out, just comment the line in .bashrc or .bash_profile sourcing the perlbrew configuration)
-
-With perlbrew, looks like cpanm work better than cpan.
+Now install all the necessary modules via cpan
 ```
-perlbrew install-cpanm
+cpan install HTML::Template
+cpan install Text::Iconv
+cpan install URI::Escape
+cpan install DBI
+cpan install Apache::DBI
+cpan install DBD::mysql
+```
+--------------------------------------------
+
+First, check whether the CGI script (without the help of mod_perl) works. For this, you need to temporarily setup environment variables:
+```
+export BAWI_PERL_HOME=~/Sites/bawi-on-perl
+export BAWI_DATA_HOME=~/Sites/bawi-on-perl
+
+cd ~/Sites/bawi-on-perl/main
+./index.cgi
 ```
 
-Now install all the necessary modules via cpanm
-```
-cpanm install HTML::Template
-cpanm install Text::Iconv
-cpanm install URI::Escape
-cpanm install DBI
-cpanm install Apache::DBI
-cpanm install DBD::mysql
-```
+You should see the HTML code being outputted correctly.
 
-The only caveat with this approach is that all shebang settings are hard-coded in the original code. This creates a problem when perlbrew is to be used. http://perlbrew.pl/Dealing-with-shebangs.html
 
-Since we simply want to run a local version of BawiX engine, the simplest, brute-force answer is to change all shebangs of perl code into /usr/bin/env perl
+### Set up the virtual hosting - 1 (installing mod_perl)
 
-------------------------------
-See also:
+You may be tempted to try out even http://localhost/~[username]/bawi-on-perl/main/index.cgi
 
-* http://unix.stackexchange.com/questions/29608/why-is-it-better-to-use-usr-bin-env-name-instead-of-path-to-name-as-my
-* http://stackoverflow.com/questions/3794922/how-do-i-use-perlbrew-to-manage-perl-installations-aimed-at-web-applications
-------------------------------
+Unfortunately you get an internal server error. This is because the apache2 does not know the two environmental variables that we have setup in shell. There is a small snipped of perl code that has to be invoked to have the environmental variables setup. This requires configuring the apache configuration file, and let us do also setup the virtual hosting at this timepoint.
 
-TODO
-
-### Set up the virtual hosting
-
-Now we are ready to set up the virtual hosting. That is to say, instead of running it like "http://localhost/~WWolf/index.cgi" we have a virtual domain name (only used by ourselves). For convenience, I have set up dev.bawi.org. 
+Virtual hosting is to say, instead of running it like "http://localhost/~WWolf/index.cgi" we have a virtual domain name (only used by ourselves). For convenience, I have set up dev.bawi.org. 
 
 The code should run independent of whatever domain we are using except for a few archaic predefined URLs (which is not critical). To remedy this, there is one difference (as of now) from the sync branch to the local branch, about the defaults. By `cd ~/Sites/bawi-on-perl; grep -R dev.bawi.org .` you will easily figure out the code.
 
@@ -267,29 +258,97 @@ Majority of virtual hosting apache configuration is pre-written in apache2/bawi-
 
 Finally, although most of the Bawi code is essentially CGI program and we can interrogate the workings on shell, there is a thin wrap where mod_perl comes in, and it has to do with the apache2/bawi-spring configuration file. That is, we want to define the BAWI_PERL_HOME environment variable by using a small mod_perl snippet run every time Apache restarts. So edit of the apache2/startup.pl is also important.
 
-So first, let us have mod_perl installed in Apache. Follow the steps in the link, but a brief summary described below.
+So first, mod_perl has to be installed in Apache. From El Capitan, root is dished out, so we need workaround. This is the biggested change from Yosemite. 
 
-* See: http://blog.n42designs.com/blog/2014/10/23/compiling-mod-perl-for-apache-2-dot-4-on-os-x-10-dot-10-yosemite/
+* See: http://stackoverflow.com/questions/34240610/how-to-install-mod-perl-2-0-10-in-apache-2-4-on-os-x-el-capitan
+** See *not* the accepted answer but a bit below, there is an answer for El Capitan. One important thing is missing though which I will describe below.
 
 ```
 cd ~
-svn checkout https://svn.apache.org/repos/asf/perl/modperl/trunk/ mod_perl-2.0
+svn checkout https://svn.apache.org/repos/asf/perl/modperl/tags/2_0_9/ mod_perl-2.0
 cd mod_perl-2.0
-# assume you already have XCode6.1 installed
-/usr/bin/apr-1-config --includedir /usr/include/apr-1
-sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include/apache2 /usr/include/apache2
-sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include/apr-1 /usr/include/apr-1
-perl Makefile.PL MP_CCOPTS=-std=gnu89 ; make ; sudo make install
+```
+
+Install XCode7 (in the case of El capitan). Then link the header file paths to /usr/***local***/include.
+
+```
+sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/apache2  /usr/local/include/apache2
+sudo ln -s /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/usr/include/apr-1  /usr/local/include/apr-1
+```
+
+Now, fix two build codes to direct to /usr/local instead of /usr
+
+```
+sudo cp /usr/sbin/apxs /usr/local/bin # make a copy of APXS tool which Makefile.PL uses
+sudo vi /usr/local/bin/apxs
+```
+locate the line which says:
+```
+my $prefix = get_vars("prefix");
+```
+and replace with
+```
+my $prefix = "/usr/local";
+```
+
+Now (this is not present in the answer from stackoverflow), you need to also fix the apr-1-config code which spits out the paths for build:
+
+```
+sudo cp /usr/bin/apr-1-config /usr/local/bin
+sudo vi /usr/local/bin/apr-1-config
+```
+
+locate the line which says:
+```
+prefix="/usr"
+```
+and change to
+```
+prefix="/usr/local"
+```
+
+Now, ensure that /usr/local/bin is in your path before /usr/sbin/ :
+```
+export PATH=/usr/local/bin:$PATH
+```
+
+Now we are set to build mod_perl:
+```
+cd ~/mod_perl-2.0
+perl Makefile.PL MP_CCOPTS=-std=gnu89; make ; sudo make install
+```
+
+Now change the apache configuration file to include mod_perl (from correct path)
+```
 sudo vi /etc/apache2/httpd.conf
-# now include the mod_perl line
-# LoadModule perl_module libexec/apache2/mod_perl.so
+```
+
+On the last line with all the LoadModule specifications add:
+```
+LoadModule perl_module /usr/local/libexec/apache2/mod_perl.so
+```
+
+Test configuration file and re-run:
+```
 sudo apachectl configtest
 sudo apachectl restart
 ```
 
+### Set up virtual hosting - 2
+
 Then modify httpd.conf file to include vhosts configuration.
 * http://coolestguidesontheplanet.com/set-virtual-hosts-apache-mac-osx-10-10-yosemite/
 * do up to "Edit the vhosts.conf file".
+
+That is, editing httpd.conf and enabling by uncommenting this line:
+```
+Include /private/etc/apache2/extra/httpd-vhosts.conf
+```
+
+and this line:
+```
+LoadModule vhost_alias_module libexec/apache2/mod_vhost_alias.so
+```
 
 Now, we have to configure the virtual host setting. What we are going to do is to soft link the httpd-vhosts.conf file to the already set up file in apache2/ directory. Follow below.
 
