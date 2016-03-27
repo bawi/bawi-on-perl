@@ -118,7 +118,9 @@ Homebrew installs all packages in /usr/local/Cellar so that it is effectively is
 
 If you want to install MySQL system-wide, skip this section and download and install MySQL via the following link:
 
-http://dev.mysql.com/downloads/file/?id=459872. Everything else, refer to the old Yosemite installation instructions.
+http://dev.mysql.com/downloads/file/?id=459872. 
+
+Everything else, refer to the old Yosemite installation instructions.
 -----------------------------------
 
 Now via homebrew, install mysql
