@@ -405,23 +405,38 @@ mysqldump --opt --user=bawi -p bawi bw_user_ki --where ="uid=[the requesters id]
 
 ### Installing Image::Magick
 
-After this, you will be able to get into the first main page (after updating your personal information). There is one more Perl module left which is Image::Magick, used scarcely in image boards and so makes error. Let us install it (which is again a bit tricky in Mac OSX).
-
-This is another beast, but essentially source install.
-http://www.imagemagick.org/script/perl-magick.php
+Now, El Capitan version of image magick is available by homebrew.
 
 ```
-cd ~/Sites
-curl -O http://www.imagemagick.org/download/ImageMagick.tar.gz
-tar xvzf ImageMagick.tar.gz
-cd ImageMagick-6.9.2-4/ # whatever version it is.
-./configure -with-perl
-make
-sudo make install # takes pretty long time...
-sudo ldconfig /usr/local/lib # really necessary? (did not do)
+brew install ImageMagick --with-perl
+# it may ask to do brew link libpng
+# and it may fail due to man5 ownership which you could change by sudo chown
+```
+
+If you have previous imagemagick installation via homebrew, please uninstall and re-install with the --with-perl option.
+The installation, if properly setup with "--with-perl", will give you a suggestion in running successfully Image::Magick. Check whether it works:
+
+```
+export PERL5LIB=/usr/local/lib/perl5/site_perl
 perl -e "use Image::Magick; print Image::Magick->QuantumDepth"  # just for testing
-sudo apachectl restart # necessary once.
 ```
+
+Now, to invoke successfully Image::Magick, we have to set the environmental variable PERL5LIB. This is same as adding a line in apache2/startup.pl in mod_perl situation:
+```
+cd ~/Sites/bawi-on-perl/apache2
+vi startup.pl
+```
+
+Then add this line:
+```
+$ENV{PERL5LIB} = "/usr/local/lib/perl5/site_perl";
+```
+
+Now, restart apache:
+```
+sudo apachectl restart
+```
+
 
 ### Now, the empty Bawi (local) world.
 
