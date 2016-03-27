@@ -401,7 +401,21 @@ A easy way is to make a sampler from the existing database. Because of security 
 mysqldump --opt --user=bawi -p bawi bw_xauth_passwd --where="id='WWolf'" >> sampler.sql
 mysqldump --opt --user=bawi -p bawi bw_user_basic --where="uid=[the requesters id]" >> sampler.sql
 mysqldump --opt --user=bawi -p bawi bw_user_ki --where ="uid=[the requesters id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_xboard_board --where="uid=[the requesters id]" >> sampler.sql # s/he should have at least one private board created by oneself
+mysqldump --opt --user=bawi -p bawi bw_xboard_header --where="uid=[the requesters id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_xboard_comment --where="uid=[the requesters id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_xboard_body --where="board_id=[the requesters private board id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_xboard_notice --where="board_id=[the requesters private board id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_xboard_bookmark --where="uid=[the requesters id]" >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_group >> sampler.sql
+mysqldump --opt --user=bawi -p bawi bw_group_user --where="uid=[the requesters id]" >> sampler.sql
 ``` 
+
+In the end, sampler.sql will be sent and this can be directly put into MySQL database:
+
+```
+mysql -u bawi -p bawi < sampler.sql
+```
 
 ### Installing Image::Magick
 
