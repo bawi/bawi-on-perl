@@ -584,7 +584,7 @@ sub tot_page {
 sub is_admin {
     my ($self,$id) = @_; #self_or_default(@_);
     $id = $self->id unless $id;
-    my @jigi = qw(root aragorn doslove linusben seouri WWolf mukluk sylee honest);
+    my @jigi = qw(root aragorn doslove linusben seouri WWolf mukluk sylee honest fantics);
     return 1 if grep { $_ eq $id } @jigi;
     return 0;
 }
