@@ -2511,10 +2511,10 @@ sub make_hyperlink {
         return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><object class="auto" width="480" height="385" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"><param name="movie" value="/main/jwplayer/player.swf"></param><param name="allowfullscreen" value="true"></param><param name="allowscriptaccess" value="always"></param><param name="quality" value="best"></param><param name="play" value="false"></param><param name="flashvars" value="file=$src_escaped"></param><embed class="auto" src="/main/jwplayer/player.swf" allowfullscreen="true" allowscriptaccess="always" quality="best" play="false" flashvars="file=$src_escaped" width="480" height="385"></embed></object>);
 
       m#( [^/]+ youtube\.com/watch\?v=([^&\s]+) )#iogx and
-        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><iframe id="ytplayer" type="text/html" width="480" height="270" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0"></iframe>);
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe id="ytplayer" type="text/html" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0" allowfullscreen></iframe></div>);
 
       m#( vimeo\.com/(\d+) )#iogx and
-        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><br><iframe class="auto" src="http://player.vimeo.com/video/$2" width="480" height="360" frameborder="0"></iframe>);
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe class="auto" src="http://player.vimeo.com/video/$2" frameborder="0" allowfullscreen></iframe></div>);
       return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a>);
     };
     # http://daringfireball.net/2010/07/improved_regex_for_matching_urls
