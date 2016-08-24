@@ -404,7 +404,7 @@ ul.article > li.created { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.count   { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.visualClear { clear: left; width: 100%; border-bottom: 1px solid #C5CDD8; height: 0; padding: 0; }
 ul.article > li.body        { float: none; clear: both; overflow: visible; width: 100%; padding: 6px 0 5px 0; border-bottom: 1px solid #C5CDD8; }
-ul.article > li.body.text   { line-height: 170%; white-space: pre-wrap; text-align: justify; padding: 20px 0 10px 0;  }
+ul.article > li.body.text   { line-height: 170%; text-align: justify; padding: 20px 0 10px 0;  }
 ul.article > li.body.text   { border-bottom: 0; }
 ul.article > li.body.text   { max-width: 600px; margin: 0 auto 0 auto; }
 ul.article > li.body.text table.safety.wrapper { position: relative; width: 100%; }
