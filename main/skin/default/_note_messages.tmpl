@@ -3,7 +3,7 @@
 </tmpl_loop>
 
 <tmpl_if notes>
-<div class="msg">[<strong><tmpl_var mbox></strong>]에 <strong id="note-mbox-count"><tmpl_var msg_count></strong>개의 쪽지가 있습니다.</div>
+<div class="msg">[<strong><tmpl_var mbox></strong>](<tmpl_var correspondent>)에 <strong id="note-mbox-count"><tmpl_var msg_count></strong>개의 쪽지가 있습니다.</div>
 
 <tmpl_loop notes>
 <form class="note" method="post">
@@ -22,7 +22,9 @@
 <input type="submit" name="action" value="Delete+Reply" />
 <input type="submit" name="action" value="Save+Reply" />
 <tmpl_else>
+<tmpl_unless is_conversation>
 <input type="submit" name="action" value="Delete" />
+</tmpl_unless>
 </tmpl_if>
 </form>
 </tmpl_loop>
