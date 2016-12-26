@@ -5,6 +5,16 @@
   <h1><img src="image/note.gif" /> <tmpl_var HTMLTitle></h1>
   <div id="content">
 
+<tmpl_if is_conversation>
+<form class="note" method="get">
+<label>대화상대(아이디)</label>
+<input type="text" name="correspondent" value="<tmpl_var correspondent>"/>
+<input type="hidden" name="mbox" value="<tmpl_var mbox>"/>
+<tmpl_else>
+<input type="hidden" name="correspondent" value="<tmpl_var correspondent>"/>
+</form>
+</tmpl_if>
+
 <div id="note-messages-container"><tmpl_include _note_messages.tmpl></div>
 
 <tmpl_if is_inbox>
@@ -22,22 +32,13 @@
 </form>
 </tmpl_if>
 
-<tmpl_if is_conversation>
-<form class="note" method="get">
-<label>대화상대(아이디)</label>
-<input type="text" name="correspondent" value="<tmpl_var correspondent>"/>
-<input type="hidden" name="mbox" value="<tmpl_var mbox>"/>
-<tmpl_else>
-<input type="hidden" name="correspondent" value="<tmpl_var correspondent>"/>
-</form>
-</tmpl_if>
 </div><!-- content -->
 
 <ul class="bottom-menu">
 <li><a href="?mbox=inbox">새 쪽지</a></li>
 <li><a href="?mbox=sent">보낸 쪽지</a></li>
 <li><a href="?mbox=saved">쪽지함</a></li>
-<li><a href="?mbox=conversation">대화록</a></li>
+<li><a href="?mbox=conversation&correspondent=<tmpl_var to_default>">대화록</a></li>
 <li><a href="?wait=1">기다리기</a></li>
 <li><a href="?wait=0">멈추기</a></li>
 </ul>
