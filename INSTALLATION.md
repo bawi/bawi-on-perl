@@ -141,6 +141,9 @@ launchctl load -w ~/Library/LaunchAgents/homebrew.mxcl.mysql.plist
 # Set up databases to run as your user account. This will also generate a temporary root account password you have to copy
 mysqld --initialize --user=`whoami` --basedir="$(brew --prefix mysql)" --datadir =/usr/local/var/mysql
 
+# Copy my.cnf file. This is only necessary to avoid NO_ZERO_DATE mysql option to be disabled. See more http://stackoverflow.com/questions/9192027/invalid-default-value-for-create-date-timestamp-field
+copy my.cnf file from /usr/local/opt/mysql/support-files/my-default.cnf /usr/local/etc/my.cnf
+
 # Start mysql
 mysql.server start
 ```

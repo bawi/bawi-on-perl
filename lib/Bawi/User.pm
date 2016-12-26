@@ -251,6 +251,9 @@ sub get_degree {
                 $$d{$_}->{type_brief} = "학사" if $$d{$_}->{type} eq "Bachelor";
                 $$d{$_}->{type_brief} = "석사" if $$d{$_}->{type} eq "Master";
                 $$d{$_}->{type_brief} = "박사" if $$d{$_}->{type} eq "Doctor";
+                $$d{$_}->{type_brief} = "포닥" if $$d{$_}->{type} eq "Postdoc";
+                $$d{$_}->{type_brief} = "레지던트" if $$d{$_}->{type} eq "Resident";
+                $$d{$_}->{type_brief} = "펠로우" if $$d{$_}->{type} eq "Fellow";
                 $$d{$_}->{status_brief} = "재학" if $$d{$_}->{status} eq "attending";
                 $$d{$_}->{status_brief} = "졸업" if $$d{$_}->{status} eq "graduated";
                 $$d{$_}->{status_brief} = "수료" if $$d{$_}->{status} eq "course_completed";
