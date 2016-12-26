@@ -115,9 +115,11 @@ sub check_messages {
     my ($self, %arg) = @_;
     my $mbox = $arg{-mbox} || "inbox";
     my $id = $arg{-id};
+    my $correspondent = $arg{-correspondent} || $id;
     my $note_per_page = $self->note_per_page;
 
     return unless $id;
+
 
     my $sql;
     $sql = qq( select count(*) from $DBTABLE
@@ -126,7 +128,15 @@ where to_id = ? && read_time IS NULL order by msg_id DESC ) if $mbox eq "inbox";
 where to_id = ? && read_time != sent_time order by msg_id DESC ) if $mbox eq "saved";
     $sql = qq( select count(*) from $DBTABLE
 where from_id = ? && read_time IS NULL order by msg_id DESC ) if $mbox eq "sent";
-    my $rv = $self->{'-dbh'}->selectrow_array($sql, undef, $id);
+    $sql = qq/ select count(*) from $DBTABLE
+               where (from_id like ? && to_id like ?) || (from_id like ? && to_id like ?)/ if $mbox eq "conversation";
+
+    my $rv;
+    if ($mbox ne "conversation") {
+        $rv = $self->{'-dbh'}->selectrow_array($sql, undef, $id);
+    } else {
+        $rv = $self->{'-dbh'}->selectrow_array($sql, undef, $id, $correspondent, $correspondent, $id);
+    }
 
     $self->id($id);
     $self->mbox($mbox);
@@ -141,8 +151,9 @@ sub get_messages {
     my $id = $arg{-id} || return;
     my $mbox = $arg{-mbox} || "inbox";
     my $page = $arg{-page} || 0;
+    my $correspondent = $arg{-correspondent} || $id;
 
-    my $notes = $self->check_messages(-mbox=>$mbox,-id=>$id);
+    my $notes = $self->check_messages(-mbox=>$mbox,-id=>$id, -correspondent=>$correspondent);
     my $note_per_page = $self->note_per_page;
     my $tot_page = $self->tot_page || &get_tot_page($notes, $note_per_page);
     $page = $page ? $page : $tot_page;
@@ -151,22 +162,39 @@ sub get_messages {
     my $start = &get_start($page, $tot_page, $note_per_page);
     #warn("mbox=>$mbox,page=$page,start=$start,tot_page=$tot_page,note_per_page=$note_per_page");
     my $sql;
-    $sql = qq( select msg_id, from_id as id, from_name as name,
-                      msg, sent_time, read_time from $DBTABLE
-               where to_id = ? && read_time IS NULL
-               order by msg_id desc limit ?, ? ) if $mbox eq "inbox";
-    $sql = qq( select msg_id, from_id as id, from_name as name,
-                      msg, sent_time, read_time from $DBTABLE
-               where to_id = ? && read_time != sent_time order
-               by msg_id desc limit ?, ? ) if $mbox eq "saved";
-    $sql = qq( select msg_id, to_id as id, to_name as name,
-                      msg, sent_time, read_time from $DBTABLE
-               where from_id = ? && read_time IS NULL
-               order by msg_id desc limit ?, ? ) if $mbox eq "sent";
-    my $rv = $self->{'-dbh'}->selectall_hashref($sql, 'msg_id', undef, $id, $start, $note_per_page);
-    my @rv = sort { $b->{msg_id} <=> $a->{msg_id} }
+    if ($mbox ne "conversation") {
+        $sql = qq( select msg_id, from_id as id, from_name as name,
+                          msg, sent_time, read_time from $DBTABLE
+                   where to_id = ? && read_time IS NULL
+                   order by msg_id desc limit ?, ? ) if $mbox eq "inbox";
+        $sql = qq( select msg_id, from_id as id, from_name as name,
+                          msg, sent_time, read_time from $DBTABLE
+                   where to_id = ? && read_time != sent_time order
+                   by msg_id desc limit ?, ? ) if $mbox eq "saved";
+        $sql = qq( select msg_id, to_id as id, to_name as name,
+                          msg, sent_time, read_time from $DBTABLE
+                   where from_id = ? && read_time IS NULL
+                   order by msg_id desc limit ?, ? ) if $mbox eq "sent";
+        
+        my $rv = $self->{'-dbh'}->selectall_hashref($sql, 'msg_id', undef, $id, $start, $note_per_page);
+        my @rv = sort { $b->{msg_id} <=> $a->{msg_id} } 
              map { $$rv{$_} } keys %$rv;
-    return \@rv;
+        return \@rv;
+
+    } else {
+        $sql = qq/ select msg_id, from_id as id, to_id, from_name as name, to_name,
+                          msg, sent_time, read_time from $DBTABLE
+               where (from_id like ? && to_id like ?) || (from_id like ? && to_id like ?)
+               order by sent_time desc limit ?, ?/ if $mbox eq "conversation";
+        
+        my $rv = $self->{'-dbh'}->selectall_hashref($sql, 'msg_id', undef, $id, $correspondent, $correspondent, $id, $start, $note_per_page);
+        #my $rv = $self->{'-dbh'}->selectall_hashref($sql, 'msg_id', undef, $id, $correspondent, $correspondent, $id);
+        my @rv = sort { $b->{msg_id} <=> $a->{msg_id} } 
+             map { $$rv{$_} } keys %$rv;
+
+        return \@rv;
+    }
+   
 }
 
 sub check_new_msg {
