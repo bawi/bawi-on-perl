@@ -261,7 +261,9 @@ sub get_degree {
                 $$d{$_}->{status_brief} = "기타" if $$d{$_}->{status} eq "other";
                 $$d{$_}
             } sort {
-                $$d{$a}->{start_date} cmp $$d{$b}->{start_date}
+                if ($$d{$a}->{end_date} eq "0000-00") { return 1; }
+                elsif ($$d{$b}->{end_date} eq "0000-00") { return -1; }
+                else { return $$d{$a}->{end_date} cmp $$d{$b}->{end_date} };
             } keys %$d;
         return \@degree;
     }
