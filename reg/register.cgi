@@ -14,7 +14,7 @@ my $auth = new Bawi::Auth(-cfg=>$cfg, -dbh=>$dbh);
 my @field = qw(id ki name affiliation email birth_year birth_month birth_day recom_id recom passwd1 passwd2 submit);
 my %f = $ui->form(@field);
 
-my $recom_ki = 25;
+my $recom_ki = 27;
 $ui->tparam(recom_ki=>$recom_ki);
 my $check = 0;
 foreach my $i (@field) {
@@ -40,7 +40,7 @@ if ($check) {
     ++$check;
     $ui->tparam(id=>undef);
     $ui->tparam(msg=>qq(이메일 주소가 올바르지 않습니다.));
-} elsif ($f{birth_year} !~ /^\d+$/ || $f{birth_year} < 1970 || $f{birth_year} > 2000) {
+} elsif ($f{birth_year} !~ /^\d+$/ || $f{birth_year} < 1970) {
     ++$check;
     $ui->tparam(birth_year=>undef);
     $ui->tparam(msg=>qq(생일 연도 형식이 맞지 않습니다.));
