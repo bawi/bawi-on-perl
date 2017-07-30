@@ -174,7 +174,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
     # la - last article no
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
-    if ($bm and ( $la or $lc ) and $a eq 'rb') { # rollback bookmark (if la or lc are given, set this)
+    if ($bm and ( $la or $lc ) and $a and $a eq 'rb') { # rollback bookmark (if la or lc are given, set this)
 		# note that la, lc are sanitized as numerics.
 		# in principle, if comment_no or article_no are zero, it should set in the library.
 		# (it wasn't so updated as well) 2014. 01. 03. -WWolf
