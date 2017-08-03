@@ -1,13 +1,32 @@
 #NameVirtualHost *
 
 ##############################################################################
-# BOARD.BAWI.ORG
 <VirtualHost *:80>
   ServerAdmin webmaster@bawi.org
   Documentroot /home/bawi/bawi-spring/main
   ServerName www.bawi.org
   ServerAlias bawi.org m.bawi.org old.bawi.org
-  
+
+  LogLevel warn
+  ErrorLog /var/log/apache2/bawi.org-error.log
+  CustomLog /var/log/apache2/bawi.org-access.log combined
+
+  RewriteEngine On
+  RewriteCond %{HTTPS} !on
+  RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerAdmin webmaster@bawi.org
+  Documentroot /home/bawi/bawi-spring/main
+  ServerName www.bawi.org
+  ServerAlias bawi.org m.bawi.org old.bawi.org
+
+  SSLEngine on
+  SSLCertificateFile /etc/letsencrypt/live/bawi.org/cert.pem
+  SSLCertificateChainFile /etc/letsencrypt/live/bawi.org/chain.pem
+  SSLCertificateKeyFile /etc/letsencrypt/live/bawi.org/privkey.pem
+
   Alias /main/    /home/bawi/bawi-spring/main/
   Alias /board/   /home/bawi/bawi-spring/board/
   Alias /user/    /home/bawi/bawi-spring/user/
@@ -118,6 +137,7 @@
       Options +ExecCGI
     </Files>
   </Directory>
+  
 </VirtualHost>
 
 
