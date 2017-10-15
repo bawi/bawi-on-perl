@@ -468,20 +468,14 @@ ul.comment      { outline: 1px dotted red;  }
 ul.comment > li { outline: 1px dotted green; }
  */
 
-ul.comment-form           { display: table; width: 100%; margin-bottom: 20px; }
-ul.comment-form li        { display: table-cell; padding: 3px; }
-ul.comment-form li.head   { width:  70px; text-align: right; }
-ul.comment-form li.body   { width: 520px; position: relative; }
-ul.comment-form li.submit { width:  60px; position: relative; text-align: right; }
-ul.comment-form input.text   { font-size: 100%; width:  98%; }
+ul.comment-form              { width: 100%; margin-bottom: 20px; }
+ul.comment-form > li         { display: block; }
+ul.comment-form > li.body    { width: 100%; }
+ul.comment-form > li.submit  { width: 100%; }
+ul.comment-form textarea     { font-size: 100%; width: 100%; box-sizing: border-box; border-color: #ccc; max-height: 100px; }
 ul.comment-form input.submit { font-size: 100%; width: 100%; }
 @media screen and (max-width: 480px) {
-  ul.comment-form             { display: table; width: 100%; }
-  ul.comment-form > li        { display: table-cell; float: none; }
-  ul.comment-form > li.head   { display: none; width: 0; }
-  ul.comment-form > li.body   { width: auto; }
-  ul.comment-form > li.submit { width: 4em; padding: 0px 0px 3px 4px; }
-  ul.comment-form input.text  { width:  95%; }
+  ul.comment-form            { width: 100%; }
 }
 /**********************************************************************************/
 ul.article > li.attach { }
