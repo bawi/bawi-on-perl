@@ -472,7 +472,7 @@ ul.comment-form              { width: 100%; margin-bottom: 20px; }
 ul.comment-form > li         { display: block; }
 ul.comment-form > li.body    { width: 100%; }
 ul.comment-form > li.submit  { width: 100%; }
-ul.comment-form textarea     { font-size: 100%; width: 100%; box-sizing: border-box; border-color: #ccc; max-height: 100px; }
+ul.comment-form textarea     { font-size: 100%; width: 100%; box-sizing: border-box; max-height: 100px; }
 ul.comment-form input.submit { font-size: 100%; width: 100%; }
 @media screen and (max-width: 480px) {
   ul.comment-form            { width: 100%; }
