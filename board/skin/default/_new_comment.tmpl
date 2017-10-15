@@ -3,12 +3,8 @@
     <tmpl_unless __first__>
 <tmpl_if allow_comment>
 <ul class="comment-form">
-<li class="head"><tmpl_var T_COMMENT></li>
-<li class="body">
-  <input type="text" class="text" name="body" value=""
-         id="article-<tmpl_var article_id>-comment-form" />
-</li>
-<li class="submit"><input type="submit" class="submit" name="submit" value="<tmpl_var T_SAVE>" /></li>
+  <li class="body"><textarea rows="3" class="text" name="body" id="article-<tmpl_var article_id>-comment-form"></textarea></li>
+  <li class="submit"><input type="submit" class="submit" name="submit" value="<tmpl_var T_COMMENT>" /></li>
 </ul>
 </tmpl_if>
 </form>
