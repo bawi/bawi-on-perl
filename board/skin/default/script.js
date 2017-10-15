@@ -68,22 +68,6 @@ function updateComment(c) {
     document.addcomment.onsubmit = '';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const elements = document.querySelectorAll('.comment-form textarea');
-  for (const element of elements) {
-    const originalHeight = element.getBoundingClientRect().height;
-    element.addEventListener('input', event => {
-      element.style.height = 'auto';
-      element.style.height = Math.max(originalHeight, element.scrollHeight) + 'px';
-    });
-    element.addEventListener('keyup', event => {
-      if (event.keyCode == 13 && event.shiftKey) {
-        element.closest('.comment-form').querySelector('input[type="submit"]').click();
-      }
-    });
-  }
-});
-
 document.observe("dom:loaded", function() {
   $$('a.auto img').each( function(item) {
     item.observe('error', broken_image_link);
@@ -116,7 +100,7 @@ function copy_comment_no(e) {
   e.stop(); /* prevent default action */
 
   var cmt_no = this.innerHTML;
-  var input = this.up('form').down('ul.comment-form').down('textarea');
+  var input = this.up('form').down('ul.comment-form').down('input.text');
   var value = $(input).getValue();
   if (value && value.endsWith(' '))
        { $(input).setValue(value +  "#" + cmt_no + " "); }
