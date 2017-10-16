@@ -483,6 +483,7 @@ ul.comment-form input.submit { font-size: 100%; width: 100%; }
   ul.comment-form > li.body   { width: auto; }
   ul.comment-form > li.submit { width: 4em; padding: 0px 0px 3px 4px; }
   ul.comment-form input.text  { width:  95%; }
+}
 /**********************************************************************************/
 ul.article > li.attach { }
 ol.attach             { list-style: decimal; padding: 0px; overflow: hidden; }
