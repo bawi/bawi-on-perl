@@ -436,7 +436,7 @@ ul.article.head li.button.right { max-width: 20em; }
 
 div.article.head        { border-bottom: 1px solid #C5CDD8; }
 ul.comment              { display: table-row; width: 100%; line-height: 170%; }
-ul.comment li         { display: table-cell; padding: 3px 3px 3px 3px; text-overflow: ellipsis; overflow: hidden; vertical-align: top; border-bottom: 1px solid #C5CDD8;}
+ul.comment li         { display: table-cell; padding: 3px 3px 3px 3px; vertical-align: top; border-bottom: 1px solid #C5CDD8;}
 ul.comment li a       { color: black; cursor: pointer; }
 ul.comment li.no      { width: 35px; white-space: nowrap; font-size: 0.8em; padding-left: 0; }
 ul.comment li.no:before { content: "#"; }
