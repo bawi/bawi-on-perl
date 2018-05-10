@@ -102,14 +102,14 @@ sub get_user {
                  where a.uid=b.uid && a.uid=c.uid && a.uid=?);
     my $p = $DBH->selectrow_hashref($sql, undef, $uid);
     delete $$p{uid};
-    if ($$p{wedding} ne '0000-00-00') {
+    if ($$p{wedding} ne '1001-01-01') {
         my @d = split(/-/, $$p{wedding});
         $$p{wedding_y} = $d[0];
         $$p{wedding_m} = $d[1];
         $$p{wedding_d} = $d[2];
     }
     delete $$p{wedding};
-    delete $$p{death} if ($$p{death} eq '0000-00-00');
+    delete $$p{death} if ($$p{death} eq '1001-01-01');
 
     foreach my $t (qw(home mobile office temp)) {
         my $tel = $t . "_tel";
@@ -247,7 +247,7 @@ sub get_degree {
     if ($d) {
         my @degree = 
             map {
-                $$d{$_}->{end_date} =~ s/0000-00/현재/g;
+                $$d{$_}->{end_date} =~ s/1001-01/현재/g;
                 $$d{$_}->{type_brief} = "학사" if $$d{$_}->{type} eq "Bachelor";
                 $$d{$_}->{type_brief} = "석사" if $$d{$_}->{type} eq "Master";
                 $$d{$_}->{type_brief} = "박사" if $$d{$_}->{type} eq "Doctor";
@@ -261,8 +261,8 @@ sub get_degree {
                 $$d{$_}->{status_brief} = "기타" if $$d{$_}->{status} eq "other";
                 $$d{$_}
             } sort {
-                if ($$d{$a}->{end_date} eq "0000-00") { return 1; }
-                elsif ($$d{$b}->{end_date} eq "0000-00") { return -1; }
+                if ($$d{$a}->{end_date} eq "1001-01") { return 1; }
+                elsif ($$d{$b}->{end_date} eq "1001-01") { return -1; }
                 else { return $$d{$a}->{end_date} cmp $$d{$b}->{end_date} };
             } keys %$d;
         return \@degree;
@@ -392,9 +392,9 @@ sub year_list {
     my $current_year = (localtime)[5] + 1900;
     my @year = map {
                         my $c = $year eq $_ ? 1 : 0;
-                        my $y2 = $_ eq '0000' ? '현재' : "$_년";
+                        my $y2 = $_ eq '1001' ? '현재' : "$_년";
                         { year=>$_, year2=>$y2, current=>$c}
-                   } reverse (1991 .. $current_year, '0000');
+                   } reverse (1991 .. $current_year, '1001');
     return \@year;
 }
 
@@ -438,6 +438,7 @@ sub update_degree {
 
 sub add_degree {
     my ($self, @field) = @_;
+
     my $sql = qq(insert into bw_user_degree
                  (uid, type, school_id, department, advisors, content,start_date,end_date, status) 
                  value (?, ?, ?, ?, ?, ?, ?, ?, ?));

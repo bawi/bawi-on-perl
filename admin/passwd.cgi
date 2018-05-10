@@ -96,7 +96,7 @@ sub user_info {
 sub reset_www {
     my ($id, $passwd) = @_;
     my $sql = qq(update bw_xauth_passwd set passwd=encrypt(?), 
-                 modified='0000-00-00 00:00:00' where id=?);
+                 modified='1001-01-01 00:00:00' where id=?);
     my $rv = $dbh->do($sql, undef, $passwd, $id);
     if ($rv) { return 1; }
     else { return 0; }
@@ -109,7 +109,7 @@ sub reset_bawimail {
 
 sub reset_infodate {
     my ($uid) = @_;
-    my $sql = qq(update bw_user_basic set modified='0000-00-00 00:00:00' where uid=?);
+    my $sql = qq(update bw_user_basic set modified='1001-01-01 00:00:00' where uid=?);
     my $rv = $dbh->do($sql, undef, $uid);
     if ($rv) { return 1; }
     else { return 0; }

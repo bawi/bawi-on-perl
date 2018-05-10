@@ -98,7 +98,7 @@ if ($uid) {
             my $wedding = join("-", $y, $m, $d);
             push @update, [$uid, 'wedding', $wedding];
         } else {
-            push @update, [$uid, 'wedding', '0000-00-00'];
+            push @update, [$uid, 'wedding', '1001-01-01'];
         }
         if ($error == 0 && $#update >= 0) {
             foreach my $i (@update) {

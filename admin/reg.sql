@@ -1,9 +1,9 @@
-insert into bw_xauth_passwd (id, name, passwd, email, modified) select id, name,
-passwd, email, now() as 'modified' from bw_xauth_new_passwd where
+insert into bw_xauth_passwd (id, name, passwd, email, modified, accessed) select id, name,
+passwd, email, now() as 'modified', '1001-01-01 00:00:00' from bw_xauth_new_passwd where
 status='recommended' order by ki, name, id;
 
 insert into bw_user_basic (uid, birth, affiliation, modified)
-select a.uid, b.birth, b.affiliation, '0000-00-00 00:00:00' from
+select a.uid, b.birth, b.affiliation, '1001-01-01 00:00:00' from
 bw_xauth_passwd as a, bw_xauth_new_passwd as b where a.id=b.id &&
 b.status='recommended' order by uid;
 

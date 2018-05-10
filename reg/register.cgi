@@ -14,7 +14,7 @@ my $auth = new Bawi::Auth(-cfg=>$cfg, -dbh=>$dbh);
 my @field = qw(id ki name affiliation email birth_year birth_month birth_day recom_id recom passwd1 passwd2 submit);
 my %f = $ui->form(@field);
 
-my $recom_ki = 27;
+my $recom_ki = 29;
 $ui->tparam(recom_ki=>$recom_ki);
 my $check = 0;
 foreach my $i (@field) {

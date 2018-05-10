@@ -55,7 +55,7 @@ my $s_date = "$s_year-$s_month-01"
 my $e_date = "$e_year-$e_month-01"
     if ($e_year && $e_month);
 
-if ($uid && $type && $school_id && $department && $s_date && $e_date) {
+if ($uid && $type && $school_id && $department && $s_date && $e_date && $status) {
     my @field = ($uid, $type, $school_id, $department, $advisors, $content, $s_date, $e_date, $status);
     $field[3] = $ui->cgi->escapeHTML($field[3]);
     $field[4] = $ui->cgi->escapeHTML($field[4]);

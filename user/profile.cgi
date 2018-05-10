@@ -41,8 +41,8 @@ if ($id) {
     } else {
         $user->add_count($uid);
     }
-    delete $$p{wedding} if ($$p{wedding} eq '0000-00-00');
-    delete $$p{death} if ($$p{death} eq '0000-00-00');
+    delete $$p{wedding} if ($$p{wedding} eq '1001-01-01');
+    delete $$p{death} if ($$p{death} eq '1001-01-01');
     foreach my $i (qw(home_address office_address temp_address)) {
         $$p{$i} =~ s/\n/<br>/g;
     }
