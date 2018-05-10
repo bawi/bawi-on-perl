@@ -10,7 +10,7 @@ CREATE TABLE `bw_group` (
   `uid` mediumint(8) unsigned NOT NULL default '0',
   `type` enum('open','review','closed') NOT NULL default 'open',
   `seq` smallint(5) unsigned NOT NULL default '0',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   `g_sub` tinyint(1) NOT NULL default '0',
   `m_sub` tinyint(1) NOT NULL default '0',
   `a_sub` tinyint(1) NOT NULL default '0',
@@ -33,7 +33,7 @@ CREATE TABLE `bw_group_user` (
   `gid` mediumint(8) unsigned NOT NULL default '0',
   `uid` mediumint(8) unsigned NOT NULL default '0',
   `status` enum('active','inactive') NOT NULL default 'active',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY  (`gid`,`uid`),
   UNIQUE KEY `user` (`uid`,`gid`)
 ) TYPE=MyISAM;
@@ -58,8 +58,8 @@ CREATE TABLE `bw_xauth_passwd` (
   `name` char(32) binary NOT NULL default '',
   `passwd` char(13) NOT NULL default '',
   `email` char(64) NOT NULL default '',
-  `modified` datetime NOT NULL default '0000-00-00 00:00:00',
-  `accessed` datetime NOT NULL default '0000-00-00 00:00:00',
+  `modified` datetime NOT NULL default '1001-01-01 00:00:00',
+  `accessed` datetime NOT NULL default '1001-01-01 00:00:00',
   `access` int(10) unsigned NOT NULL default '0',
   PRIMARY KEY  (`uid`),
   UNIQUE KEY `id` (`id`),
@@ -77,7 +77,7 @@ CREATE TABLE `bw_xauth_session` (
   `uid` mediumint(8) unsigned NOT NULL default '0',
   `id` char(64) binary NOT NULL default '',
   `name` char(32) binary NOT NULL default '',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY  (`session_key`)
 ) TYPE=MyISAM;
 
@@ -128,7 +128,7 @@ CREATE TABLE `bw_xboard_board` (
   `is_imgboard` tinyint(1) NOT NULL default '0',
   `is_anonboard` tinyint(1) NOT NULL default '0',
   `seq` smallint(5) unsigned NOT NULL default '0',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   `articles` mediumint(8) unsigned NOT NULL default '0',
   `images` mediumint(8) unsigned NOT NULL default '0',
   `max_article_no` mediumint(8) unsigned NOT NULL default '0',
@@ -185,7 +185,7 @@ CREATE TABLE `bw_xboard_comment` (
   `uid` mediumint(8) unsigned NOT NULL default '0',
   `id` char(10) binary NOT NULL default '',
   `name` char(10) NOT NULL default '',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY  (`comment_id`),
   UNIQUE KEY `bookmark` (`board_id`,`comment_no`),
   KEY `article_id` (`article_id`),
@@ -213,7 +213,7 @@ CREATE TABLE `bw_xboard_header` (
   `comments` smallint(5) unsigned NOT NULL default '0',
   `has_attach` tinyint(1) NOT NULL default '0',
   `has_poll` tinyint(1) NOT NULL default '0',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY  (`article_id`),
   UNIQUE KEY `a_no` (`board_id`,`article_no`),
   UNIQUE KEY `board` (`board_id`,`article_id`),
@@ -239,8 +239,8 @@ CREATE TABLE `bw_xboard_poll` (
   `board_id` smallint(5) unsigned NOT NULL default '0',
   `article_id` mediumint(8) unsigned NOT NULL default '0',
   `poll` text NOT NULL,
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
-  `closed` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
+  `closed` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY  (`poll_id`),
   KEY `board_id` (`board_id`,`article_id`),
   KEY `article_id` (`article_id`)
@@ -304,7 +304,7 @@ CREATE TABLE `bw_xboard_tagmap` (
   `article_id` mediumint(8) unsigned NOT NULL default '0',
   `uid` mediumint(8) unsigned NOT NULL default '0',
   `tag_id` mediumint(8) unsigned NOT NULL default '0',
-  `created` datetime NOT NULL default '0000-00-00 00:00:00',
+  `created` datetime NOT NULL default '1001-01-01 00:00:00',
   PRIMARY KEY (`tagmap_id`),
   UNIQUE KEY `tagmap` (`board_id`,`article_id`,`uid`,`tag_id`)
 ) TYPE=MyISAM;
