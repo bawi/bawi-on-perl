@@ -13,7 +13,7 @@
 
   RewriteEngine On
   RewriteCond %{HTTPS} !on
-  RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}
+  RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [NE,L]
 </VirtualHost>
 
 <VirtualHost *:443>
