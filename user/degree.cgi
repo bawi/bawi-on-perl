@@ -40,15 +40,17 @@ status
 my ($action, $degree_id, $type, $school_id, $department, $advisors, $content, $s_year, $s_month, $e_year, $e_month, $status) = map { $ui->cparam($_) || '' } @field;
 
 if ($e_year && $s_year && 
-    ( ($e_year ne '0000' && $e_year < $s_year) || 
-      $s_year eq '0000' || 
+    ( ($e_year ne '1001' && $e_year < $s_year) || 
+      $s_year eq '1001' || 
       ($e_year eq $s_year && $e_month < $s_month) ) ) {
     $e_year = '';
     $e_month = '';
 }
 
-$s_month = '' if ($s_month eq '00' || $s_year eq '0000');
-$s_year = '' if ($s_year eq '0000');
+$s_month = '' if ($s_month eq '00' || $s_year eq '1001');
+$s_year = '' if ($s_year eq '1001');
+
+$e_month = '01' if ($e_year eq '1001');
 
 my $s_date = "$s_year-$s_month-01"
     if ($s_year && $s_month);
