@@ -677,13 +677,14 @@ a[accesskey].accesskey:after {
 /**********************************************************************************/
 /* note.cgi */
 body.note h1 { text-align: center; background-color: #CEDAF3; }
-body.note #content { width: 400px; margin: 0 auto; }
+body.note #content { max-width:100%; width: 400px; margin: 0 auto; padding: 0 5px; box-sizing: border-box; }
 @media print { body.note #content { width: inherit; } }
 body.note div.msg { color: #047; }
 div.note { white-space: pre-wrap; }
 div.sender { text-align: right; }
 form.note label { color: #047; display: block; }
-form.note textarea { width: 100%; xxdisplay: block; }
+form.note input[type="text"] { width: 100%; box-sizing: border-box; }
+form.note textarea { width: 100%; box-sizing: border-box; }
 form.note { margin: 1.5em 0; }
 
 /**********************************************************************************/
