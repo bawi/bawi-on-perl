@@ -164,7 +164,7 @@ body.board.read form#login fieldset a:hover  { background: #eee; }
 body.board.read form#login fieldset a:active { background: #ddd; color: #111; }
 
 @media screen and (max-width: 480px) {
-  body.board.read 
+  body.board.read
   form#login {
     overflow: visible;
     width: 260px;
@@ -172,11 +172,11 @@ body.board.read form#login fieldset a:active { background: #ddd; color: #111; }
   }
   body.board.read table.login-form td.label { padding-left: 20px; }
 }
-	
+
 /**************************************************************************************/
 /** index.tmpl - notice to update personal information **/
 div.notice
-{	
+{
 	width: 680px;
 	margin: 40px auto 0 auto;
 	padding: 0 0 2em 0;
@@ -388,7 +388,7 @@ div.top-head:after { content: "clearing float"; clear: both; display: block; hei
   div.top-head h1       { font-size: 100%; }
   div.top-head span     { font-size:  80%; }
 }
-/* 
+/*
 div.top-head     { outline: 1px dotted blue; }
 div.top-head > * { outline: 1px dotted red; }
 */
@@ -404,10 +404,14 @@ ul.article > li.created { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.count   { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.visualClear { clear: left; width: 100%; border-bottom: 1px solid #C5CDD8; height: 0; padding: 0; }
 ul.article > li.body        { float: none; clear: both; overflow: visible; width: 100%; padding: 6px 0 5px 0; border-bottom: 1px solid #C5CDD8; }
+ul.article > li.body        { max-width: 600px; margin: 0 auto; }
 ul.article > li.body.text   { line-height: 170%; text-align: justify; padding: 20px 0 10px 0;  }
 ul.article > li.body.text   { border-bottom: 0; }
-ul.article > li.body.text   { max-width: 600px; margin: 0 auto 0 auto; }
 ul.article > li.body.text table.safety.wrapper { position: relative; width: 100%; }
+ul.article > li.attach ol   { list-style: decimal; padding: 0; overflow: hidden; }
+ul.article > li.attach li   { padding: 0; margin: 0; line-height: 170%; vertical-align: top; list-style-position: inside; }
+ul.article > li.attach a    { display: inline; }
+ul.article > li.attach img  { max-width: 100%; }
 
 ul.article > li.button   { color: white; background: #8B98B1; white-space: nowrap; max-width: 10em; padding: 0; }
 ul.article > li.button a { color: white; background: #8B98B1; display: block; padding: 0px 8px 0px 8px;  }
@@ -471,7 +475,7 @@ ul.comment      { outline: 1px dotted red;  }
 ul.comment > li { outline: 1px dotted green; }
  */
 
- 
+
 ul.comment-form           { display: table; width: 100%; margin-bottom: 20px; }
 ul.comment-form li        { display: table-cell; padding: 3px; }
 ul.comment-form li.head   { width:  70px; text-align: right; }
@@ -488,20 +492,10 @@ ul.comment-form input.submit { font-size: 100%; width: 100%; }
   ul.comment-form input.text  { width:  95%; }
 }
 /**********************************************************************************/
-ul.article > li.attach { }
-ol.attach             { list-style: decimal; padding: 0px; overflow: hidden; }
-ol.attach li        { width: 675px; margin: 10px 0px 10px 40px; line-height: 170%; vertical-align: top; }
-ol.attach li a      { display: inline; }
-@media screen and (max-width: 480px) { ol.attach li { width: 435px; } }
-@media screen and (max-width: 320px) { ol.attach li { width: 275px; } }
 @media screen and (max-width: 480px) { ul.article img { max-width: 100%; } }
 @media screen and (max-width: 480px) { ul.comment img { max-width: 100%; } }
 ul.article img:hover { outline: 3px solid #C5CDD8; }
 ul.comment img:hover { outline: 3px solid #C5CDD8; }
-/*
-ol.attach     { outline: 1px dotted red; }
-ol.attach li  { outline: 1px dotted green; }
-*/
 
 
 
@@ -650,7 +644,7 @@ form.article-write fieldset.gray-round {
     display: none;
   }
 }
-/* 
+/*
 form.article-write    { outline: 1px dotted grey; padding: 2px; }
 form.article-write fieldset table  { outline: 1px dotted grey; }
 form.article-write fieldset table tr td { outline: 1px dotted blue; }
@@ -667,7 +661,7 @@ div.msg h2 {
   padding: 6px; line-height: 100%;
   display: block; width: 60%;
   margin: 0 auto 7px auto;
-  background: #cb8; 
+  background: #cb8;
   -webkit-border-radius: 6px;
   -moz-border-radius: 6px;
 }
@@ -723,5 +717,3 @@ div.debug span.user_agent   { background: #fdf; }
 	border: 0px dotted blue;
 	width: 20px; height: 20px;
 }
-
-
