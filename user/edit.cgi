@@ -26,9 +26,10 @@ ename
 affiliation
 title
 homepage
+facebook
+twitter
 email
 im_google
-im_msn
 im_nate
 im_yahoo
 home_address
@@ -41,6 +42,9 @@ greeting
 class1
 class2
 class3
+orcid
+gscholar
+linkedin
 );
 
 if ($uid) {

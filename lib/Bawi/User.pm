@@ -96,7 +96,7 @@ sub get_user {
                         c.home_map, c.office_map, c.temp_map, c.greeting, 
                         c.class1, c.class2, c.class3,
                         c.im_msn, c.im_nate, c.im_yahoo, c.im_google,
-						c.twitter, c.facebook,
+						c.twitter, c.facebook, c.orcid, c.gscholar, c.linkedin,
                         date_format(c.modified, "%Y-%m-%d") as modified
                  from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
                  where a.uid=b.uid && a.uid=c.uid && a.uid=?);

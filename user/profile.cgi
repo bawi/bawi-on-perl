@@ -26,6 +26,7 @@ my $profile = qq(select a.uid, a.name, a.id, b.ki, c.ename, c.affiliation, c.tit
                         c.im_msn, c.im_nate, c.im_yahoo, c.im_google,
                         c.home_map, c.office_map, c.temp_map,
                         c.greeting, c.class1, c.class2, c.class3, c.count, 
+                        c.facebook, c.twitter, c.orcid, c.gscholar, c.linkedin,
                         date_format(c.modified, "%Y-%m-%d") as modified,
                         DATE_FORMAT(a.accessed, "%Y-%m") as accessed
                  from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
