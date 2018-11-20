@@ -28,8 +28,8 @@ if ($auth->auth) {
     ($uid, $id, $name, $session_key) = (0, 'guest', 'guest', '');
 }
 
-my ($bid, $aid, $la, $lc, $tno, $p, $a, $img, $keyword, $field) = 
-    map { $q->param($_) || undef } qw( bid aid la lc tno p a img k f);
+my ($bid, $aid, $la, $lc, $tno, $p, $a, $img, $keyword, $field, $autosave) = 
+    map { $q->param($_) || undef } qw( bid aid la lc tno p a img k f autosave);
 
 # keyword encoding for proper operation at IE.
 my $enc_keyword = $q->escapeHTML($keyword) || '';
@@ -62,6 +62,7 @@ $t->param(owner=>[{name=>$xb->name, id=>$xb->id}] );
 $t->param(img=>$img);
 $t->param(la=>$la); # just for rollback purpose
 $t->param(lc=>$lc); # just for rollback purpose
+$t->param(autosave=>$autosave); # just for removing autosave draft purpose
 
 my $dev = "";
 $dev = $ENV{SERVER_NAME} if (exists $ENV{SERVER_NAME} and ($ENV{SERVER_NAME} ne "www.bawi.org"));

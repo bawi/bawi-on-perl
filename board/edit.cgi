@@ -110,7 +110,7 @@ if ($allow_write && $bid && $bid =~ /^\d+$/ && $aid && $aid =~ /^\d+$/) {
                 my $rv = $xb->edit_article(-article_id=>$aid, 
                                            -title=>$ftitle, 
                                            -body=>$fbody);
-                print $q->redirect("read.cgi?bid=$bid&aid=$aid&p=$p");
+                print $q->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&autosave=1");
                 exit (1);
             } else {
                 $t->param(title=> $q->escapeHTML($title));

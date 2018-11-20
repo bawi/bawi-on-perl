@@ -128,6 +128,16 @@
 <li class="button right"><a href="boardcfg.cgi?board_id=<tmpl_var board_id>"><tmpl_var T_BOARDCFG></a></li>
 </tmpl_if>
 
+<tmpl_if autosave>
+<script type="text/javascript">
+	var autosave = "<tmpl_var autosave>";
+	if (autosave == "1") {
+		localStorage.removeItem("draft");
+		localStorage.removeItem("title");
+	}
+</script>
+</tmpl_if>
+
 <li class="button separator"><a>&nbsp;</a></li>
 </ul>
 

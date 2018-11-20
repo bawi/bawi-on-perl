@@ -150,7 +150,7 @@ if ($allow_write && $bid) {
         if ($poll) {
             my $rv = $xb->add_pollset(-query=>$q, -article_id=>$article_id); 
         }
-        print $q->redirect("read.cgi?bid=$bid&aid=$article_id");
+        print $q->redirect("read.cgi?bid=$bid&aid=$article_id&autosave=1");
         exit (1);
     }
 } else {
