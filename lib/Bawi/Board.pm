@@ -952,7 +952,7 @@ sub add_recommender {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id} && exists $arg{-uid});
 
-    my $sql = qq(INSERT INTO $TBL{recom} (uid, article_id) VALUES (?, ?) );
+    my $sql = qq(INSERT INTO $TBL{recom} (uid, article_id, rectime) VALUES (?, ?, NOW()) );
     my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
 
     &add_recom_count($arg{-article_id}) if ($rv and $self->{allow_recom} == 1);
@@ -962,7 +962,7 @@ sub add_recommender {
 sub add_recom {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id} && exists $arg{-uid});
-    my $sql = qq(REPLACE INTO $TBL{recom} (uid, article_id) VALUES (?, ?));
+    my $sql = qq(REPLACE INTO $TBL{recom} (uid, article_id, rectime) VALUES (?, ?, NOW()));
     my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
     return $rv;
 }
@@ -1778,6 +1778,7 @@ sub img_resize {
     $height = int( $height * $ratio );
     $width = int( $width * $ratio );
     $im->Resize(width=>$width, height=>$height) if ($ratio < 1);
+    $im->AutoOrient();
     my $rv = $im->ImageToBlob();
     return $rv;
 }
