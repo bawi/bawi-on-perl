@@ -213,7 +213,7 @@ $t->param(comments=>$comments);
 
 my $lastdayfix = ((localtime)[4] + 1 . "/" . (localtime)[3]) eq "12/31" ? "desc" : "";
 
-my $birth = qq(select a.ki, b.id, b.name, date_format(c.birth, "%m/%d") as birth from bw_user_ki as a, bw_xauth_passwd as b, bw_user_basic c where a.uid=b.uid && b.uid=c.uid && ((date_format(c.birth, '%m-%d') = date_format(now(), '%m-%d')) || (date_format(c.birth, '%m-%d') = date_format(now() + interval 1 day, '%m-%d'))) && a.ki > 0 && (c.death='1001-01-01') order by birth $lastdayfix, a.ki, b.name);
+my $birth = qq(select a.ki, b.id, b.name, date_format(c.birth, "%m/%d") as birth from bw_user_ki as a, bw_xauth_passwd as b, bw_user_basic c where a.uid=b.uid && b.uid=c.uid && ((date_format(c.birth, '%m-%d') = date_format(now(), '%m-%d')) || (date_format(c.birth, '%m-%d') = date_format(now() + interval 1 day, '%m-%d'))) && a.ki > 0 && (c.death='1001-01-01') && (c.birth != '1001-01-01') order by birth $lastdayfix, a.ki, b.name);
 my $birthday = $dbh->selectall_arrayref($birth);
 my @birthday = map {
   my $class = "opt hidden"; $class = "" if abs($user_ki - $$_[0]) < 6;
@@ -222,7 +222,7 @@ my @birthday = map {
 $t->param(birthday=>\@birthday);
 $t->param(date=> (localtime)[4] + 1 . "/" . (localtime)[3]);
 
-my $anniversary = qq(select a.ki, b.id, b.name, YEAR(now()) - YEAR(c.wedding) as year from bw_user_ki as a, bw_xauth_passwd as b, bw_user_basic as c where a.uid=b.uid && b.uid=c.uid && DATE_FORMAT(c.wedding, '%m-%d')=DATE_FORMAT(now(), '%m-%d') && c.wedding < now() order by a.ki, b.name);
+my $anniversary = qq(select a.ki, b.id, b.name, YEAR(now()) - YEAR(c.wedding) as year from bw_user_ki as a, bw_xauth_passwd as b, bw_user_basic as c where a.uid=b.uid && b.uid=c.uid && DATE_FORMAT(c.wedding, '%m-%d')=DATE_FORMAT(now(), '%m-%d') && (c.wedding != '1001-01-01') && c.wedding < now() order by a.ki, b.name);
 my $anni = $dbh->selectall_arrayref($anniversary);
 my @anniversary = map { { ki=>$$_[0], id=>$$_[1], name=>$$_[2], year=>$$_[3] } } @$anni;
 $t->param(anniversary=>\@anniversary);
