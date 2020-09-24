@@ -2025,11 +2025,12 @@ sub get_optset {
                 $_->{tot} = $tot;
                 $_->{allow_vote} = $allow_vote;
                 #####TEMP CODE#####
-                if ($pid == 1427) {
-                    $_->{pct} = '';
-                    $_->{width} = '';
-                    $_->{count} = '';
-                }
+                #if ($pid == 1427) {
+                #if ($pid == 9696 || $pid == 9698) {
+                #    $_->{pct} = '';
+                #    $_->{width} = '';
+                #    $_->{count} = '';
+                #}
                 #####TEMP CODE#####
                 $_; } @rv;
     return \@rv;
