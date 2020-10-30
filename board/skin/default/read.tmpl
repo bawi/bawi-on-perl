@@ -38,7 +38,7 @@
 <li class="body attach"><tmpl_include _attach.tmpl></li>
 </tmpl_if>
 
-<li class="body text"><table class="safety wrapper"><tr><td><tmpl_var body></td></tr></table></li>
+<li class="body text"><table class="safety wrapper"><tr><td><tmpl_if expired><img src="../user/photo.cgi?id=root" border="1" width="105" height="140" alt="photo"/>게시판 설정 읽기 유효기간이 지났습니다.</div><tmpl_else><tmpl_var body></tmpl_if></td></tr></table></li>
 
 <tmpl_if pollset>
 <li class="body poll" id="article-<tmpl_var article_id>-poll"><tmpl_include _pollset.tmpl></li>

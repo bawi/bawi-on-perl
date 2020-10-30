@@ -123,11 +123,13 @@ if ($article) {
     $$article{allow_comment} = $allow_comment;
     $$article{allow_write} = $allow_write;
     $$article{is_owner} = 1;
+    $$article{expired} = 0 if ($$article{uid} == $uid);
     unless ($$article{uid} == $uid) {
         $$article{is_owner} = 0;
         ++$$article{count};
         $xb->add_article_read_count(-article_id=>$aid);
     }
+
     $$article{pollset} = $xb->get_pollset(-article_id=>$aid, 
                                           -uid=>$uid,
                                           -page=>$p)
@@ -161,6 +163,7 @@ if ($thread) {
         $$i{allow_comment} = $allow_comment;
         $$i{allow_write} = $allow_write;
         $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
+        $$i{expired} = 0 if ($$i{uid} == $uid);
     }
     $article_set = $thread;
     $t->param(total_thread=>$#{$thread} + 1);
@@ -201,6 +204,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
                 $$i{allow_write} = $allow_write;
+                $$i{expired} = 0 if ($$i{uid} == $uid);
                 my $comment = $xb->get_commentset(-article_id=>$$i{article_id}, 
                                                   -uid=>$uid);
                 $$i{comment} = $comment;
@@ -279,6 +283,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
                 $$i{allow_write} = $allow_write;
+                $$i{expired} = 0 if $$i{uid} == $uid;
                 my $comment = $xb->get_commentset(-article_id=>$$i{article_id}, 
                                                   -uid=>$uid);
                 $$i{comment} = $comment;

@@ -45,6 +45,11 @@
 </select>
 </p>
 
+<p>
+<label for="expire_days">Article expiration in </label>
+<input type="text" name="expire_days" value="<tmpl_var expire_days>" class="text" size="8" maxlength="8" /> days (0=infinite)
+</p>
+
 <tmpl_if is_root>
 <p>
 <label for="seq">seq</label>

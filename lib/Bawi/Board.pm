@@ -127,6 +127,12 @@ sub skin {
     return $self->{skin};
 }
 
+sub expire_days {
+    my $self = shift;
+    if (@_) { $self->{expire_days} = shift }
+    return $self->{expire_days};
+}
+
 sub article_per_page {
     my $self = shift;
     if (@_) { $self->{article_per_page} = shift }
@@ -349,7 +355,8 @@ sub save_instance {
                      a_write=?,
                      g_comment=?,
                      m_comment=?,
-                     a_comment=?
+                     a_comment=?,
+                     expire_days=?
                  where board_id=?
                 );
     my $rv = $DBH->do($sql, undef, $self->title,
@@ -379,6 +386,7 @@ sub save_instance {
                                    $self->g_comment,
                                    $self->m_comment,
                                    $self->a_comment,
+                                   $self->expire_days,
                                    $self->board_id);
     return $rv;
 }
@@ -704,6 +712,7 @@ sub get_article {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
                         a.title, a.uid, a.id, a.name,
@@ -712,6 +721,7 @@ sub get_article {
                           DATE_FORMAT(a.created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                         a.count, a.recom, a.scrap, a.has_attach, a.has_poll, a.comments,
+                        a.created + INTERVAL $expired DAY < now() as expired,
                         b.body, $page as page, $img as img,
                         $is_anonboard as is_anonboard,
                         '$session_key' as session_key,
@@ -722,6 +732,7 @@ sub get_article {
                  WHERE a.article_id=b.article_id && a.board_id=? && 
                        a.article_id=?);
     my $rv = $DBH->selectrow_hashref($sql, undef, $bid, $aid);
+
     return $rv;
 }
 
@@ -748,6 +759,7 @@ sub get_thread {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(UPDATE $TBL{head} SET count=count+1 
                  WHERE board_id=? && thread_no=? && uid != ?);
@@ -760,6 +772,7 @@ sub get_thread {
                      DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                      a.count, a.recom, a.scrap, a.has_attach, a.has_poll, a.comments,
                      b.body, $page as page, $img as img, 
+                     a.created + INTERVAL $expired DAY < now() as expired,
                      $is_anonboard as is_anonboard,
                      '$session_key' as session_key,
                      $allow_recom as allow_recom, $allow_scrap as allow_scrap,
@@ -785,6 +798,7 @@ sub get_new_articles {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql2 = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
                      a.title, a.uid, a.id, a.name,
@@ -794,6 +808,7 @@ sub get_new_articles {
                      DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                      a.count, a.recom, 
                      a.scrap, a.has_attach, a.has_poll, a.comments, 
+                     a.created + INTERVAL $expired DAY < now() as expired,
                      b.body, $page as page, $img as img,
                      $is_anonboard as is_anonboard,
                      '$session_key' as session_key,
@@ -1161,12 +1176,14 @@ sub edit_comment {
 sub get_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id});
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(SELECT comment_id, board_id, article_id, body, uid, id, name, 
                         IF( created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(created, '%m/%d %H:%i'),
                           DATE_FORMAT(created, '%y/%m/%d %H:%i') ) as created,
-                        DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str
+                        DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        created + INTERVAL $expired DAY < now() as comment_expired
                  FROM $TBL{comment} WHERE comment_id=?);
     my $rv = $DBH->selectrow_hashref($sql, undef, $arg{-comment_id});
     if ($rv) {
@@ -1185,12 +1202,14 @@ sub get_commentset {
     my $uid = $arg{-uid} || -1;
     my $page = $self->page || $self->tot_page || 1;
     my $is_anonboard = $self->is_anonboard || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
 
     my $sql = qq(SELECT comment_id, board_id, article_id, body, uid, id, name, 
                         IF( created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(created, '%m/%d %H:%i'),
                           DATE_FORMAT(created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        created + INTERVAL $expired DAY < now() as comment_expired,
                         $page as page, comment_no,
                         $is_anonboard as is_anonboard
                  FROM $TBL{comment} WHERE board_id=? && article_id=? 
@@ -1213,12 +1232,15 @@ sub get_new_comments {
     my $last_article_no = $arg{-last_article_no} || $self->{max_article_no};
     my $img = $self->img || 0;
     my $is_anonboard = $self->is_anonboard || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
+
     my $sql = qq(SELECT c.comment_id, c.board_id, c.article_id, c.body, c.uid, 
                         c.id, c.name,
                         IF( c.created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(c.created, '%m/%d %H:%i'),
                           DATE_FORMAT(c.created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(c.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        c.created + INTERVAL $expired DAY < now() as comment_expired,
                         h.article_id, h.article_no, h.title,
                         h.id as artcl_id, 
                         h.name as artcl_name,

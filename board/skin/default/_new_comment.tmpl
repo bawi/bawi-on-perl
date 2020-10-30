@@ -30,7 +30,7 @@
      href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>#c<tmpl_var comment_no>" 
      title="Quote this no #<tmpl_var comment_no>"><tmpl_var comment_no></a></li>
 <li class="author"><tmpl_include _name_id.tmpl></li>
-<li class="body text"><tmpl_var body></li>
+<li class="body text"><tmpl_if comment_expired><tmpl_if is_owner><tmpl_var body><tmpl_else>게시판 설정 읽기 유효기간이 지났습니다.</tmpl_if><tmpl_else><tmpl_var body></tmpl_if></li>
 <li class="created"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
 <li class="delete"><tmpl_if is_owner>
 <a href="comment.cgi?action=delete;bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;cid=<tmpl_var comment_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>" onclick="return window.confirm('Delete this comment?');">x</a>

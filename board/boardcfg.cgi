@@ -47,6 +47,7 @@ $t->param(owner=>[{name=>$xb->name, id=>$xb->id}] );
 $t->param(img=>$xb->is_imgboard);
 $t->param(is_root=>$is_root);
 $t->param(is_owner=>$is_owner);
+$t->param(expire_days=>$xb->expire_days);
 
 my $grp = new Bawi::Board::Group(-gid=>$xb->gid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
 $t->param(path=>$grp->get_path);
@@ -67,7 +68,7 @@ $t->param(AllowAnonAccess=>$allow_anon_access);
 
 my %cfg;
 my $submitted = $ui->cparam('submit') ? 1 : 0;
-my @field = qw(title id keyword skin is_imgboard allow_attach allow_recom allow_scrap);
+my @field = qw(title id keyword skin expire_days is_imgboard allow_attach allow_recom allow_scrap);
 push @field, qw(seq gid article_per_page page_per_page 
                attach_limit image_width thumb_width
                is_anonboard
@@ -124,6 +125,11 @@ foreach my $i (@field) {
             unless ($val =~ /^\d+$/ && $val >= 0 && $val <= 65535) {
                 ++$check;
                 $ui->msg(qq($i should be a number from 0 to 65535.));
+            }
+        } elsif ($i eq 'expire_days') {
+            unless ($val =~ /^\d+$/ && $val >= 0 && $val <= 36500) {
+                ++$check;
+                $ui->msg(qq($i should be a number from 0 to 36500.));
             }
         } elsif ($i =~ /^allow_|is_|_read|_write|_comment/) {
             $val = 0 unless $val == 1;
