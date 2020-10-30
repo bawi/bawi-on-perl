@@ -80,11 +80,11 @@ if ($thread) {
 # article list
 
 my $al;
-#if ($bid > 0) {
-#	$al = $xb->get_scrap_articlelist_by_board(-uid=>$uid, -bid=>$bid);
-#} else {
+if ($bid > 0) {
+	$al = $xb->get_scrap_articlelist_by_board(-uid=>$uid, -bid=>$bid);
+} else {
 	$al = $xb->get_scrap_articlelist(-uid=>$uid);
-#}
+}
 $t->param(list=>$al);
 
 ################################################################################
