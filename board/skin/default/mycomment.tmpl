@@ -39,6 +39,8 @@
   <li class="article"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>"><tmpl_var article_title></a></li>
   <li class="comment"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page>#c<tmpl_var comment_no>"><tmpl_var comment></a></li>
   <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+  <li class="delete">
+  <a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>&redirect=mycomment" onclick="return window.confirm('Delete this comment?');">x</a></li>
 </ul>
 </tmpl_loop>
 </div><!-- article-list wrapper -->

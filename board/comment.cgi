@@ -69,7 +69,12 @@ if ($xb->board_id && $allow_comment) {
         }
     }
 }
-print $ui->cgi->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&img=$img".$redirect_position);
+
+if ($q->param("redirect") and $q->param("redirect") eq 'mycomment') {
+    print $ui->cgi->redirect("mycomment.cgi?p=$p".$redirect_position);
+} else {
+    print $ui->cgi->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&img=$img".$redirect_position);
+}
 
 sub check_param {
     my ($q, @list) = @_;

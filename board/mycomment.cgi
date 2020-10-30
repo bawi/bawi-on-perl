@@ -69,19 +69,23 @@ $t->param(prev_page=>$prev_page);
 $t->param(first_page=>$first_page);
 $t->param(last_page=>$last_page);
 $t->param(pages=>\@pages);
+$t->param(p=>$p);
 
-$sql = qq(SELECT a.board_id as board_id, a.article_id as article_id, a.comment_id as comment_id,
-                 a.comment_no as comment_no, b.title as article_title,
-                 REPLACE(a.body, '<', '&lt;') as comment, a.uid as uid, a.id as id, a.name as name,
-                 IF( a.created + INTERVAL 180 DAY > now(),
+$sql = qq(SELECT a.board_id as board_id, a.article_id as article_id, a.comment_id as comment_id,                  
+                 a.comment_no as comment_no, b.title as article_title,                  
+                 REPLACE(a.body, '<', '&lt;') as comment, a.uid as uid, a.id as id, a.name as name,                  
+                 IF( a.created + INTERVAL 180 DAY > now(),                      
                      DATE_FORMAT(a.created, '%m/%d'),
                      DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
-                 DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                 DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,                  
                  c.title as board_title
-                 FROM bw_xboard_comment as a, bw_xboard_header as b, bw_xboard_board as c
-                 WHERE a.board_id=c.board_id && a.article_id=b.article_id && a.uid=?
+                 FROM bw_xboard_comment as a 
+                 LEFT JOIN bw_xboard_header as b ON a.article_id=b.article_id 
+                 LEFT JOIN bw_xboard_board as c ON a.board_id=c.board_id 
+                 WHERE a.uid=?
                  ORDER BY a.comment_id DESC
 				 LIMIT $start_limit, $article_per_page);
+           
 $rv = $DBH->selectall_hashref($sql, "comment_id", undef, $uid);
 my @rv = map { $rv->{$_} } sort {$b <=> $a} keys %$rv;
 $t->param(list=>\@rv);

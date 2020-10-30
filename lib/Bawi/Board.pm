@@ -927,10 +927,14 @@ sub del_article {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-article_id});
 
+    # as for comments, only remove comments from the same user as the
+    # article in question
+    my $article_uid = $self->get_article_uid(-article_id=>$arg{-article_id});
+
     # $TBL{head}, $TBL{body}, $TBL{comment}, $TBL{attach}, ($TBL{notice})
     # update $TBL{board}: articles
     my $del = 0;
-    foreach my $i ( qw( head body comment attach notice) ) {
+    foreach my $i ( qw( head body attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
         my $rv = $DBH->do($sql, undef, $arg{-article_id});
         if ($rv == 1) {
@@ -938,6 +942,19 @@ sub del_article {
             $self->del_attachset(-article_id=>$arg{-article_id});
         }
     }
+
+    # Delete comments from the user of the article
+    my $sql = qq(DELETE FROM $TBL{comment} 
+                 WHERE uid=? && article_id=?);
+    my $rv = $DBH->do($sql, undef, $article_uid, $arg{-article_id});
+    if ($rv == 1) {
+      ++$del;
+    }
+
+    # Update the dangling comments that have the article_id
+    $sql = qq(UPDATE $TBL{comment} SET article_id=0 WHERE article_id=?);
+    $rv = $DBH->do($sql, undef, $arg{-article_id});
+
     if ($del) {
         &dec_article_count($arg{-board_id});
         &update_max_article_no($arg{-board_id});
