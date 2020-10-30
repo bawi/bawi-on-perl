@@ -26,8 +26,18 @@ if ($auth->auth) {
     ($uid, $id, $name, $session_key) = (0, 'guest', 'guest', '');
 }
 
-my $sql = qq(SELECT count(*) FROM bw_xboard_header WHERE uid=?);
-my $rv = $DBH->selectrow_array($sql, undef, $uid);
+my $board_id = $q->param('bid') || 0;
+my $sql;
+my $rv;
+
+if ($board_id) {
+  $sql = qq(SELECT count(*) FROM bw_xboard_header WHERE uid=? && board_id=?);
+  $rv = $DBH->selectrow_array($sql, undef, $uid, $board_id);
+} else {
+  $sql = qq(SELECT count(*) FROM bw_xboard_header WHERE uid=?);
+  $rv = $DBH->selectrow_array($sql, undef, $uid);
+}
+
 my $articles = $rv;
 my $article_per_page = 16;
 my $page_per_page = 10;
@@ -63,13 +73,28 @@ my $t = $ui->template;
 $t->param(HTMLTitle=>"나의 글 보기: $name (".$id.")");
 $t->param(name=>$name);
 $t->param(id=>$id);
-$t->param(url=>"myarticle");
 $t->param(next_page=>$next_page);
 $t->param(prev_page=>$prev_page);
 $t->param(first_page=>$first_page);
 $t->param(last_page=>$last_page);
 $t->param(pages=>\@pages);
+$t->param(p=>$p);
 
+if ($board_id) {
+$sql = qq(SELECT a.board_id, a.article_id,
+                 REPLACE(a.title, '<', '&lt;') as title, a.uid, a.id, a.name,
+                 IF( a.created + INTERVAL 180 DAY > now(), DATE_FORMAT(a.created, '%m/%d'), DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
+                 DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                 a.count, a.recom, a.scrap, a.comments, a.has_attach,
+                 a.has_poll, $page as page,
+                 c.title as board_title
+                 FROM bw_xboard_header as a, bw_xboard_board as c
+                 WHERE a.board_id=c.board_id && a.uid=? && a.board_id=? 
+                 ORDER BY a.article_id DESC
+		  LIMIT $start_limit, $article_per_page);
+  $rv = $DBH->selectall_hashref($sql, "article_id", undef, $uid, $board_id);
+  $t->param(url=>"myarticle.cgi?bid=$board_id&");
+} else {
 $sql = qq(SELECT a.board_id, a.article_id,
                  REPLACE(a.title, '<', '&lt;') as title, a.uid, a.id, a.name,
                  IF( a.created + INTERVAL 180 DAY > now(), DATE_FORMAT(a.created, '%m/%d'), DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
@@ -81,7 +106,9 @@ $sql = qq(SELECT a.board_id, a.article_id,
                  WHERE a.board_id=c.board_id && a.uid=?
                  ORDER BY a.article_id DESC
 		  LIMIT $start_limit, $article_per_page);
-$rv = $DBH->selectall_hashref($sql, "article_id", undef, $uid);
+  $rv = $DBH->selectall_hashref($sql, "article_id", undef, $uid);
+  $t->param(url=>"myarticle.cgi?");
+}
 my @rv = map { $rv->{$_} } sort {$b <=> $a} keys %$rv;
 $t->param(list=>\@rv);
 

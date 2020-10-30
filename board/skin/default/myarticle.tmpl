@@ -40,7 +40,7 @@
 
 <tmpl_loop list>
 <ul class="article-list <tmpl_if new>new</tmpl_if>">
-  <li class="board2"><a href="read.cgi?bid=<tmpl_var board_id>"><tmpl_var board_title></a></li>
+  <li class="board2"><a href="myarticle.cgi?bid=<tmpl_var board_id>"><tmpl_var board_title></a></li>
   <li class="title"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if keyword>;k=<tmpl_var keyword></tmpl_if><tmpl_if field>;f=<tmpl_var field></tmpl_if>"><tmpl_if depth><tmpl_var depth><img src="skin/default/images/reply.gif" alt="`->" class="icon reply" /></tmpl_if><tmpl_var title><tmpl_if comments> [<tmpl_var comments>]</tmpl_if><tmpl_if has_attach> <img src="skin/default/images/attach.gif" alt="attach" class="icon attach" /></tmpl_if><tmpl_if has_poll> <img src="skin/default/images/poll.gif" alt="poll" class="icon poll" /></tmpl_if></a></li>
   <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
   <li class="read"><tmpl_var count></li>

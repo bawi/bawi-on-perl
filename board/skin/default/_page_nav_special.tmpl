@@ -1,22 +1,22 @@
 <ul class="page-nav">
 <tmpl_if last_page>
-<li><a href="<tmpl_var url>.cgi?p=<tmpl_var last_page>">[<tmpl_var last_page>]</a>...</li>
+<li><a href="<tmpl_var url>p=<tmpl_var last_page>">[<tmpl_var last_page>]</a>...</li>
 </tmpl_if>
 <tmpl_if prev_page>
-<li><a href="<tmpl_var url>.cgi?p=<tmpl_var prev_page>">[이전]</a></li>
+<li><a href="<tmpl_var url>p=<tmpl_var prev_page>">[이전]</a></li>
 </tmpl_if>
 <tmpl_loop pages>
   <tmpl_if current>
 <li class="current"><tmpl_var page></li>
   <tmpl_else>
-<li><a href="<tmpl_var url>.cgi?p=<tmpl_var page>"><tmpl_var page></a></li>
+<li><a href="<tmpl_var url>p=<tmpl_var page>"><tmpl_var page></a></li>
   </tmpl_if>
 </tmpl_loop>
 <tmpl_if next_page>
-<li><a href="<tmpl_var url>.cgi?p=<tmpl_var next_page>">[다음]</a></li>
+<li><a href="<tmpl_var url>p=<tmpl_var next_page>">[다음]</a></li>
 </tmpl_if>
 <tmpl_if first_page>
-<li>...<a href="<tmpl_var url>.cgi?p=<tmpl_var first_page>">[1]</a></li>
+<li>...<a href="<tmpl_var url>p=<tmpl_var first_page>">[1]</a></li>
 </tmpl_if>
 </ul>
 
