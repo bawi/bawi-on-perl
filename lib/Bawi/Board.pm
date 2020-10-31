@@ -11,6 +11,7 @@ $TBL{head}      = 'bw_xboard_header';
 $TBL{body}      = 'bw_xboard_body';
 $TBL{board}     = 'bw_xboard_board';
 $TBL{comment}   = 'bw_xboard_comment';
+$TBL{commentref}= 'bw_xboard_commentref';
 $TBL{recom}     = 'bw_xboard_recom';
 $TBL{scrap}     = 'bw_xboard_scrap';
 $TBL{bookmark}  = 'bw_xboard_bookmark';
@@ -963,7 +964,19 @@ sub del_article {
                  WHERE uid=? && article_id=?);
     my $rv = $DBH->do($sql, undef, $article_uid, $arg{-article_id});
     if ($rv == 1) {
-      ++$del;
+        ++$del;
+        # If comments are deleted, possibly references should be cleaned up as well.
+        # In general, only need to SQL select ref_ids that no longer exists in comment
+#        $sql = qq(DELETE FROM $TBL{commentref}
+#                  WHERE NOT EXISTS (SELECT 1 FROM $TBL{comment} as b WHERE ref_id = b.comment_id)
+#                );
+#        $rv = $DBH->do($sql);
+#
+#        # also the actual comments that are dangling
+#        $sql = qq(DELETE FROM $TBL{commentref}
+#                  WHERE NOT EXISTS (SELECT 1 FROM $TBL{comment} as b WHERE $TBL{commentref}.comment_id = b.comment_id) );
+#        $rv = $DBH->do($sql);
+                    
     }
 
     # Update the dangling comments that have the article_id
@@ -1150,6 +1163,47 @@ sub add_comment {
                                    $arg{-id},
                                    $arg{-name},
                      );
+
+    # parse the body to find out potential comment_no to insert
+    # this needs to be concurrent with the previous sql
+    # always contains self
+
+    $sql = qq(INSERT INTO $TBL{commentref}
+              (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
+              SELECT 
+                board_id, 
+                article_id, 
+                comment_id, 
+                comment_no, 
+                comment_id as ref_id, 
+                comment_no as ref_no
+              FROM $TBL{comment}
+              WHERE board_id=? && comment_no=? );
+    my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $comment_no);
+
+    # split all and iterate
+    my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
+    foreach my $cn (@reference_comment_no) {
+        $sql = qq(INSERT INTO $TBL{commentref}
+                  (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
+                  SELECT
+                     a.board_id,
+                     a.article_id,
+                     a.comment_id,
+                     a.comment_no,
+                     b.comment_id as ref_id,
+                     b.comment_no as ref_no
+                  FROM $TBL{comment} a, $TBL{comment} b
+                  WHERE a.board_id=? && b.board_id=? && a.comment_no=? && b.comment_no=?);
+
+         my $rv2 = $DBH->do($sql, undef, 
+                                 $arg{-board_id},
+                                 $arg{-board_id},
+                                 $comment_no,
+                                 $cn
+                        );
+    }
+
     &add_comment_count($arg{-article_id}, $arg{-board_id}) if $rv;
     my $bm = $self->get_bookmark(-board_id=>$arg{-board_id}, 
                                  -uid=>$arg{-uid});
@@ -1158,10 +1212,12 @@ sub add_comment {
         $self->set_comment_bookmark(-board_id=>$arg{-board_id}, 
                                     -uid=>$arg{-uid});
     }
+
     return $comment_no;
 }
 
 sub edit_comment {
+    # deprecated. If this is to be used, need to consider ref comments
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && 
                          exists $arg{-body} &&
@@ -1276,6 +1332,13 @@ sub del_comment {
         &dec_comment_count($arg{-article_id});
         &update_max_comment_no( $arg{-board_id} );
         &update_bookmark( $arg{-board_id} );
+
+        # remove also for the commentref
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
+        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
+        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
     }
     return $rv;
 }
@@ -1284,10 +1347,25 @@ sub del_commentset {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-article_id} && exists $arg{-board_id});
 
+    # this is deprecated because deletes only user id generated comments
+    # so be careful in using this!
+
     my $sql = qq(DELETE FROM $TBL{comment} WHERE board_id=? && article_id=?);
     my $rv = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
-    &update_max_comment_no( $arg{-board_id} ) if ($rv);
-    &update_bookmark( $arg{-board_id} ) if ($rv);
+
+    if ($rv) {
+        &update_max_comment_no( $arg{-board_id} );
+        &update_bookmark( $arg{-board_id} );
+
+        # if the entire thing is removed, also removed commentref
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE board_id=? && article_id?);
+        my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
+
+        # Clean up commentref as well
+        # Now need to remove all commentref that does not have corresponding
+        # comment_id in comment table as well.
+        # This is innucous if the SELECT operation is done well, so TODO
+    }
     return $rv;
 }
 
