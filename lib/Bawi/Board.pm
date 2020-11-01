@@ -1290,6 +1290,8 @@ sub get_new_comments {
     my $is_anonboard = $self->is_anonboard || 0;
     my $expired = $self->expire_days || 36500; # 100 years
 
+    # Note that this SQL is super slow compared to the original one. Need optimization
+    # probably because of the two join operations?
     my $sql = qq(SELECT c.comment_id, c.board_id, c.article_id, c.body, c.uid, 
                         c.id, c.name,
                         IF( c.created + INTERVAL 180 DAY > now(), 
@@ -1306,10 +1308,10 @@ sub get_new_comments {
                         $page as page, 
                         c.comment_no as comment_no, $img as img,
                         $is_anonboard as is_anonboard
-                 FROM $TBL{comment} as c, $TBL{head} as h 
-                 WHERE c.board_id=? && c.comment_no > ? && 
-                       c.article_id=h.article_id && c.board_id=h.board_id  &&
-                       h.article_no <= ?
+                 FROM $TBL{commentref} as r
+                 INNER JOIN $TBL{comment} as c ON r.ref_id = c.comment_id
+                 INNER JOIN $TBL{head} as h ON r.board_id=h.board_id && r.article_id=h.article_id
+                 WHERE r.board_id=? && r.comment_no > ? && h.article_no <= ?
                  ORDER BY c.comment_id);
     my $rv = $DBH->selectall_hashref($sql, 'comment_id', undef, $bid,
                                                                 $arg{-comment_no}, 
