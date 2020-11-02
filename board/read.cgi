@@ -229,9 +229,11 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                                                  -last_article_no=>$last_article->{article_no});
         my @new_comments;
         my %read_article;
+        my $commentref_flag;
         foreach my $c (@$new_comments) {
             $max_comment_no = $$c{comment_no} 
                 if( $max_comment_no < ($$c{comment_no} || -1));
+            $commentref_flag = 1 if ($$c{comment_no} <= $lc);
 
             $$c{title} = $q->escapeHTML($$c{title});
             $$c{is_owner} = $$c{uid} == $uid ? 1 : 0;
@@ -244,6 +246,15 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                     delete $$c{artcl_id};
                 }
                 ++$read_article{ $$c{article_no} }  if $$c{article_no};
+
+                if ($commentref_flag and $$c{comment_no} > $lc) {
+                    my $d = { %$c };
+                    delete $$d{body};
+                    delete $$d{comment_no};
+                     
+                    push @new_comments, $d;
+                    $commentref_flag = 0;
+                }
                 push @new_comments, $c;
             }
         }

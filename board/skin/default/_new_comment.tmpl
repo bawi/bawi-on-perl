@@ -25,6 +25,7 @@
 <input type="hidden" name="bid" value="<tmpl_var board_id>" />
     </tmpl_if><!-- article_no -->
 
+<tmpl_if comment_no>
 <ul class="comment" id="c<tmpl_var comment_no>">
 <li class="no"><a alt="Quote this no #<tmpl_var comment_no>"
      href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>#c<tmpl_var comment_no>" 
@@ -36,7 +37,15 @@
 <a href="comment.cgi?action=delete;bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;cid=<tmpl_var comment_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if>" onclick="return window.confirm('Delete this comment?');">x</a>
 <tmpl_else>x</tmpl_if></li>
 </ul>
-
+<tmpl_else>
+<ul class="comment" id="spacer">
+<li></li>
+<li class="author"></li>
+<li class="body text"></li>
+<li class="created"></li>
+<li class="delete"</li>
+</ul>
+</tmpl_if>
   <tmpl_if  __last__>
 <tmpl_if allow_comment>
 <ul class="comment-form">
