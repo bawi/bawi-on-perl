@@ -2634,6 +2634,9 @@ sub make_hyperlink {
       m#( [^/]+ youtube\.com/watch\?v=([^&\s]+) )#iogx and
         return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe id="ytplayer" type="text/html" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0" allowfullscreen></iframe></div>);
 
+      m#( youtu\.be/([^&\s]+) )#iogx and
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe id="ytplayer" type="text/html" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0" allowfullscreen></iframe></div>);
+
       m#( vimeo\.com/(\d+) )#iogx and
         return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe class="auto" src="http://player.vimeo.com/video/$2" frameborder="0" allowfullscreen></iframe></div>);
       return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a>);
