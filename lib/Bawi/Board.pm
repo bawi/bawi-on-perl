@@ -1182,8 +1182,10 @@ sub add_comment {
     my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $comment_no);
 
     # split all and iterate
-    my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
-    foreach my $cn (@reference_comment_no) {
+    # my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
+    my %reference_comment_no;
+    map { $reference_comment_no{$1} = 1; } ($arg{-body} =~ m/#([0-9]+)($|\s)/g);
+    foreach my $cn (keys %reference_comment_no) {
         $sql = qq(INSERT INTO $TBL{commentref}
                   (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
                   SELECT
@@ -1194,7 +1196,7 @@ sub add_comment {
                      b.comment_id as ref_id,
                      b.comment_no as ref_no
                   FROM $TBL{comment} a, $TBL{comment} b
-                  WHERE a.board_id=? && b.board_id=? && a.comment_no=? && b.comment_no=?);
+                  WHERE a.board_id=? && b.board_id=? && a.comment_no=? && b.comment_no=? && b.article_id=a.article_id limit 1);
 
          my $rv2 = $DBH->do($sql, undef, 
                                  $arg{-board_id},
