@@ -1184,7 +1184,7 @@ sub add_comment {
     # split all and iterate
     # my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
     my %reference_comment_no;
-    map { $reference_comment_no{$1} = 1; } ($arg{-body} =~ m/#([0-9]+)($|\s)/g);
+    map { $reference_comment_no{$_} = 1 if ($_ > 0); } ($arg{-body} =~ m/#([0-9]+)($|\s)/g);
     foreach my $cn (keys %reference_comment_no) {
         $sql = qq(INSERT INTO $TBL{commentref}
                   (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
