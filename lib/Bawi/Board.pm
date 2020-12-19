@@ -1100,7 +1100,7 @@ sub format_article {
     }
 
     #$body = join("\n", @body);
-    $body = join("<br />", @body);
+    $body = join("<br />\n", @body);
     
     return $body;
 }
