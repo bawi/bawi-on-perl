@@ -43,7 +43,7 @@ sub note {
     my ($self, $from_id, $from_name, $msg, $id) = @_;
     $msg = "[단체쪽지] $msg";
     my $id_list = "'" . join("', '", @$id) . "'";
-    my $sql = qq(insert into bw_note (sent_time, read_time, from_id, from_name, msg, to_id, to_name) select now(), now(), '$from_id', '$from_name', ?, id, name from bw_xauth_passwd where id in ($id_list));
+    my $sql = qq(insert into bw_note (sent_time, from_id, from_name, msg, to_id, to_name) select now(), '$from_id', '$from_name', ?, id, name from bw_xauth_passwd where id in ($id_list));
     my $rv = $DBH->do($sql, undef, $msg);
     return $rv;
 }
@@ -96,20 +96,20 @@ sub get_user {
                         c.home_map, c.office_map, c.temp_map, c.greeting, 
                         c.class1, c.class2, c.class3,
                         c.im_msn, c.im_nate, c.im_yahoo, c.im_google,
-						c.twitter, c.facebook,
+						c.twitter, c.facebook, c.orcid, c.gscholar, c.linkedin,
                         date_format(c.modified, "%Y-%m-%d") as modified
                  from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
                  where a.uid=b.uid && a.uid=c.uid && a.uid=?);
     my $p = $DBH->selectrow_hashref($sql, undef, $uid);
     delete $$p{uid};
-    if ($$p{wedding} ne '0000-00-00') {
+    if ($$p{wedding} ne '1001-01-01') {
         my @d = split(/-/, $$p{wedding});
         $$p{wedding_y} = $d[0];
         $$p{wedding_m} = $d[1];
         $$p{wedding_d} = $d[2];
     }
     delete $$p{wedding};
-    delete $$p{death} if ($$p{death} eq '0000-00-00');
+    delete $$p{death} if ($$p{death} eq '1001-01-01');
 
     foreach my $t (qw(home mobile office temp)) {
         my $tel = $t . "_tel";
@@ -247,10 +247,13 @@ sub get_degree {
     if ($d) {
         my @degree = 
             map {
-                $$d{$_}->{end_date} =~ s/0000-00/현재/g;
+                $$d{$_}->{end_date} =~ s/1001-01/현재/g;
                 $$d{$_}->{type_brief} = "학사" if $$d{$_}->{type} eq "Bachelor";
                 $$d{$_}->{type_brief} = "석사" if $$d{$_}->{type} eq "Master";
                 $$d{$_}->{type_brief} = "박사" if $$d{$_}->{type} eq "Doctor";
+                $$d{$_}->{type_brief} = "포닥" if $$d{$_}->{type} eq "Postdoc";
+                $$d{$_}->{type_brief} = "레지던트" if $$d{$_}->{type} eq "Resident";
+                $$d{$_}->{type_brief} = "펠로우" if $$d{$_}->{type} eq "Fellow";
                 $$d{$_}->{status_brief} = "재학" if $$d{$_}->{status} eq "attending";
                 $$d{$_}->{status_brief} = "졸업" if $$d{$_}->{status} eq "graduated";
                 $$d{$_}->{status_brief} = "수료" if $$d{$_}->{status} eq "course_completed";
@@ -258,7 +261,9 @@ sub get_degree {
                 $$d{$_}->{status_brief} = "기타" if $$d{$_}->{status} eq "other";
                 $$d{$_}
             } sort {
-                $$d{$a}->{start_date} cmp $$d{$b}->{start_date}
+                if ($$d{$a}->{end_date} eq "1001-01") { return 1; }
+                elsif ($$d{$b}->{end_date} eq "1001-01") { return -1; }
+                else { return $$d{$a}->{end_date} cmp $$d{$b}->{end_date} };
             } keys %$d;
         return \@degree;
     }
@@ -387,9 +392,9 @@ sub year_list {
     my $current_year = (localtime)[5] + 1900;
     my @year = map {
                         my $c = $year eq $_ ? 1 : 0;
-                        my $y2 = $_ eq '0000' ? '현재' : "$_년";
+                        my $y2 = $_ eq '1001' ? '현재' : "$_년";
                         { year=>$_, year2=>$y2, current=>$c}
-                   } reverse (1991 .. $current_year, '0000');
+                   } reverse (1991 .. $current_year, '1001');
     return \@year;
 }
 
@@ -433,6 +438,7 @@ sub update_degree {
 
 sub add_degree {
     my ($self, @field) = @_;
+
     my $sql = qq(insert into bw_user_degree
                  (uid, type, school_id, department, advisors, content,start_date,end_date, status) 
                  value (?, ?, ?, ?, ?, ?, ?, ?, ?));

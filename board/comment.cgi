@@ -50,6 +50,24 @@ if ($xb->board_id && $allow_comment) {
         if (&check_param($q, qw(bid aid body)) == 0) {
             #my $body = $ui->substrk( $q->param('body'), 200);
             my $body = $q->param('body');
+
+            # check whether it is a tweet link
+            # and retrieve from JSON API
+            if ($body =~ m#(https://twitter.com/[A-Za-z0-9_]{1,15}/status/[^\s]+)#g) {
+                my $tweet_url = $1;
+                if ($body !~ m#class="twitter-tweet"#) {
+                    use JSON;
+                    use HTTP::Tiny;
+                    my $url = "https://publish.twitter.com/oembed?url=$tweet_url";
+                    my $response = HTTP::Tiny->new->get($url);
+                    if ($response->{success} and length $response->{content}) {
+                        my $embed_tweet = JSON->new->utf8->decode($response->{content});
+                        $body =~ s/https:\/\/twitter.com\/[A-Za-z0-9_]{1,15}\/status\/[^\s]+/$$embed_tweet{html}/g;
+                        $body =~ s/<script async src="https:\/\/platform.twitter.com\/widgets.js" charset="utf-8"><\/script>//g;
+                    }
+                }
+            }
+
             my %data = (
                 -board_id=>$bid,
                 -article_id=>$aid,
@@ -69,7 +87,12 @@ if ($xb->board_id && $allow_comment) {
         }
     }
 }
-print $ui->cgi->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&img=$img".$redirect_position);
+
+if ($q->param("redirect") and $q->param("redirect") eq 'mycomment') {
+    print $ui->cgi->redirect("mycomment.cgi?p=$p".$redirect_position);
+} else {
+    print $ui->cgi->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&img=$img".$redirect_position);
+}
 
 sub check_param {
     my ($q, @list) = @_;

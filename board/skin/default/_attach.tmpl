@@ -5,9 +5,9 @@
     <a href="detach.cgi?atid=<tmpl_var attach_id>;bid=<tmpl_var board_id>">x</a>
     <div>
     <tmpl_if image>
-    <a class="attach" href="attach.cgi?atid=<tmpl_var attach_id>;name=/<tmpl_var filename>"
+    <tmpl_unless mobile_device><a class="attach" href="attach.cgi?atid=<tmpl_var attach_id>;name=/<tmpl_var filename>"
        rel="lightbox[attach-<tmpl_var article_id>]"
-       title="<tmpl_var title> [<tmpl_var filename>] by <tmpl_var name> (<tmpl_var id>)">
+       title="<tmpl_var title> [<tmpl_var filename>] by <tmpl_var name> (<tmpl_var id>)"></tmpl_unless>
       <img class="internal" src="attach.cgi?atid=<tmpl_var attach_id>;name=/<tmpl_var filename>" alt="<tmpl_var filename>" /></a>
     </tmpl_if>
     </div>

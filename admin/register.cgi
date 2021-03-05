@@ -65,7 +65,7 @@ sub stat {
 }
 
 sub same_name {
-    my $sql = qq(select ki, name, count(*) as count from bw_xauth_new_passwd group by ki, name order by count desc, ki, name limit 4;);
+    my $sql = qq(select ki, name, count(*) as count from bw_xauth_new_passwd group by ki, name order by count desc, ki desc, name limit 4;);
     my $rv = $dbh->selectall_arrayref($sql);
     my @rv = map { {
                     ki => $$_[0],

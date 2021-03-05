@@ -26,9 +26,10 @@ ename
 affiliation
 title
 homepage
+facebook
+twitter
 email
 im_google
-im_msn
 im_nate
 im_yahoo
 home_address
@@ -41,6 +42,9 @@ greeting
 class1
 class2
 class3
+orcid
+gscholar
+linkedin
 );
 
 if ($uid) {
@@ -97,6 +101,8 @@ if ($uid) {
             $d = "0".$d if ($d =~ /\d{1}/);
             my $wedding = join("-", $y, $m, $d);
             push @update, [$uid, 'wedding', $wedding];
+        } else {
+            push @update, [$uid, 'wedding', '1001-01-01'];
         }
         if ($error == 0 && $#update >= 0) {
             foreach my $i (@update) {

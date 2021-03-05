@@ -1,0 +1,22 @@
+<ul class="page-nav">
+<tmpl_var page>
+<tmpl_if last_page>
+<li><a href="search3.cgi?keyword=<tmpl_var keyword>;type=<tmpl_var type>;page=<tmpl_var last_page>">[<tmpl_var last_page>]</a>...</li>
+</tmpl_if>
+<tmpl_if prev_page>
+<li><a href="search3.cgi?keyword=<tmpl_var keyword>;type=<tmpl_var type>;page=<tmpl_var prev_page>">[<tmpl_var T_PREV>]</a></li>
+</tmpl_if>
+<tmpl_loop pages>
+  <tmpl_if current>
+<li class="current"><tmpl_var page></li>
+  <tmpl_else>
+<li><a href="search3.cgi?keyword=<tmpl_var keyword>;type=<tmpl_var type>;page=<tmpl_var page>"><tmpl_var page></a></li>
+  </tmpl_if>
+</tmpl_loop>
+<tmpl_if next_page>
+<li><a href="search3.cgi?keyword=<tmpl_var keyword>;type=<tmpl_var type>;page=<tmpl_var next_page>">[<tmpl_var T_NEXT>]</a></li>
+</tmpl_if>
+<tmpl_if first_page>
+<li>...<a href="search3.cgi?keyword=<tmpl_var keyword>;type=<tmpl_var type>;page=<tmpl_var first_page>">[1]</a></li>
+</tmpl_if>
+</ul>

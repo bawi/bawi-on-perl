@@ -19,7 +19,7 @@
 <meta name="bawi-mobile-device" id="bawi-mobile-device" content="yes" />
 </tmpl_if>
 
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/prototype/1.6/prototype.js"></script>
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/prototype/1.6/prototype.js"></script>
 <link rel="stylesheet" type="text/css" href="skin/<tmpl_if skin><tmpl_var skin><tmpl_else>default</tmpl_if>/style.css" />
 <!--[if lt IE 8]>
 <link rel="stylesheet" type="text/css" href="<tmpl_var main_url>/skin/default/IE70Fixes.css" /><![endif]-->
@@ -28,7 +28,17 @@
 <script type="text/javascript" src="<tmpl_var main_url>/skin/default/script.js"></script>
 <script type="text/javascript" src="<tmpl_var board_url>/skin/default/script.js"></script>
 
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+  </script>
+  <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML">
+  </script>
+
 <link rel="stylesheet" type="text/css" href="<tmpl_var board_url>/skin/default/litebox/lightbox.css" media="screen" />
+
+<link href="<tmpl_var board_url>/skin/default/prism.css" rel="stylesheet" />
+<script type="text/javascript" src="<tmpl_var board_url>/skin/default/prism.js"></script>
+
 <script type="text/javascript" src="<tmpl_var board_url>/skin/default/litebox/moo.fx.js"></script>
 <script type="text/javascript" src="<tmpl_var board_url>/skin/default/litebox/litebox-1.0.js"></script>
 <script type="text/javascript">//<![CDATA[

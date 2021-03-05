@@ -50,13 +50,21 @@
     <td class="iteml">http://<input type="text" name="homepage" value="<tmpl_var homepage>" maxlength="64" class="text" style="width:409px"></td>
 </tr>
 <tr>
+    <td class="lhead" nowrap>facebook</td>
+    <td class="iteml"><input type="text" name="facebook" value="<tmpl_var facebook>" maxlength="192" class="text" style="width:450px"></td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>twitter</td>
+    <td class="iteml"><input type="text" name="twitter" value="<tmpl_var twitter>" maxlength="16" class="text" style="width:450px"></td>
+</tr>
+<tr>
     <td class="lhead" nowrap>Google 메신저</td>
     <td class="iteml"><input type="text" name="im_google" value="<tmpl_var im_google>" maxlength="64" class="text" style="width:450px"></td>
 </tr>
-<tr>
+<!-- <tr>
     <td class="lhead" nowrap>MSN 메신저</td>
     <td class="iteml"><input type="text" name="im_msn" value="<tmpl_var im_msn>" maxlength="64" class="text" style="width:450px"></td>
-</tr>
+</tr> -->
 <tr>
     <td class="lhead" nowrap>네이트 메신저</td>
     <td class="iteml"><input type="text" name="im_nate" value="<tmpl_var im_nate>" maxlength="64" class="text" style="width:450px"></td>
@@ -159,11 +167,11 @@
         <a href="majors.cgi?mid=<tmpl_var major_id>&pid=<tmpl_var parent_id>"><tmpl_var major></a><tmpl_unless __last__>, </tmpl_unless>
             </tmpl_loop>
         </tmpl_if>
-        [<a href="majors.cgi">추가</a>]
+        [<a href="major.cgi">추가</a>]
     </td>
 </tr>
 <tr>
-    <td class="lhead" nowrap>학위</td>
+    <td class="lhead" nowrap>학위/경력</td>
     <td class="iteml">
         <tmpl_if degree>
             <tmpl_loop degree>
@@ -172,6 +180,21 @@
         </tmpl_if>
     [<a href="degree.cgi">추가/변경</a>]
     </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>ORCID</td>
+    <td class="iteml"><input type="text" name="orcid" value="<tmpl_var orcid>" maxlength="192" class="text" style="width:450px"><br/>
+https://orcid.org/0000-000x-xxxx-xxxx</td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>google scholar</td>
+    <td class="iteml"><input type="text" name="gscholar" value="<tmpl_var gscholar>" maxlength="192" class="text" style="width:450px"><br/>
+https://scholar.google.com/citations?user=...</td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>linkedin</td>
+    <td class="iteml"><input type="text" name="linkedin" value="<tmpl_var linkedin>" maxlength="192" class="text" style="width:450px"><br/>
+https://www.linkedin.com/in/[linkedin_user]/</td>
 </tr>
 <tr>
     <td class="lhead" nowrap>반</td>

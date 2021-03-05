@@ -7,7 +7,7 @@ use warnings;
 use CGI;
 use CGI::Cookie;
 use URI::Escape;
-
+use HTML::ParseBrowser;
 use Bawi::DBI;
 #use Bawi::Board::Config;
 #use Bawi::User::Config;
@@ -187,7 +187,7 @@ sub login {
 
     my $user = &check_passwd($arg{-id}, $arg{-passwd}); 
     if ($user) {
-        &expire_session($user->{uid}) unless $arg{-simultaneous};
+          &expire_session($user->{uid}) unless $arg{-simultaneous};
         my $session_key = &add_session($user->{uid}, 
                                        $user->{id}, 
                                        $user->{name});
@@ -502,12 +502,19 @@ sub add_session {
 
     my $session_str = $uid . $id . $name . time();
     my $sql = qq(INSERT INTO $TBL{session} 
-                 (session_key, uid, id, name, created)
-                 VALUES (MD5(?), ?, ?, ?, NOW()));
-   
-    my $rv = $DBH->do($sql, undef, $session_str, $uid, $id, $name);
+                 (session_key, uid, id, name, created, ip_address, user_agent)
+                 VALUES (MD5(?), ?, ?, ?, NOW(), ?, ?));
+ 
+    my $ua = HTML::ParseBrowser->new($ENV{'HTTP_USER_AGENT'});
+    my $rv = $DBH->do($sql, undef, $session_str, $uid, $id, $name, $ENV{REMOTE_ADDR}, $ua->os." ".$ua->name);
 
     if ($rv) {
+        ### Temporary for logging - linusben 2020/03/23
+        my ($sec, $min, $hr, $day, $mon, $year) = localtime;
+        my $time_str = sprintf("%02d/%02d/%04d %02d:%02d:%02d\n", 
+                               $day, $mon + 1, 1900 + $year, $hr, $min, $sec);
+        warn( "LOGIN: $id, $name, ".$ENV{REMOTE_ADDR}.", $time_str");
+        ####
         my $session_key = $DBH->selectrow_array('SELECT MD5(?)', undef, $session_str);
         return $session_key;
     } else {
@@ -519,6 +526,14 @@ sub get_session {
     my $session_key = shift;
 
     my $sql = qq(SELECT uid, id, name FROM $TBL{session} WHERE session_key=?);
+    my $rv = $DBH->selectrow_hashref($sql, undef, $session_key);
+    return $rv;
+}
+
+sub get_session_info {
+    my $session_key = shift;
+
+    my $sql = qq(SELECT uid, id, name, created FROM $TBL{session} WHERE session_key=?);
     my $rv = $DBH->selectrow_hashref($sql, undef, $session_key);
     return $rv;
 }
@@ -584,7 +599,9 @@ sub tot_page {
 sub is_admin {
     my ($self,$id) = @_; #self_or_default(@_);
     $id = $self->id unless $id;
-    my @jigi = qw(root aragorn doslove linusben seouri WWolf mukluk sylee honest);
+    my @jigi = qw(root aragorn doslove linusben seouri WWolf mukluk sylee honest fantics);
+    
+    # Temporary comment out
     return 1 if grep { $_ eq $id } @jigi;
     return 0;
 }

@@ -28,8 +28,8 @@ if ($auth->auth) {
     ($uid, $id, $name, $session_key) = (0, 'guest', 'guest', '');
 }
 
-my ($bid, $aid, $la, $lc, $tno, $p, $a, $img, $keyword, $field) = 
-    map { $q->param($_) || undef } qw( bid aid la lc tno p a img k f);
+my ($bid, $aid, $la, $lc, $tno, $p, $a, $img, $keyword, $field, $autosave) = 
+    map { $q->param($_) || undef } qw( bid aid la lc tno p a img k f autosave);
 
 # keyword encoding for proper operation at IE.
 my $enc_keyword = $q->escapeHTML($keyword) || '';
@@ -37,6 +37,8 @@ $enc_keyword =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
 
 $bid = 0 unless (defined $bid && $bid =~ /^\d+$/);
 $p = 0 unless ($p && $p =~ /^\d+$/);
+$la = 0 unless ($la && $la =~ /^\d+$/); # sanitation check for la, lc parameters
+$lc = 0 unless ($lc && $lc =~ /^\d+$/);
 
 my $xb = new Bawi::Board(-board_id     => $bid, 
                           -img          => $img, 
@@ -58,6 +60,9 @@ $t->param(board_id=>$bid);
 $t->param(board_title=>$xb->title);
 $t->param(owner=>[{name=>$xb->name, id=>$xb->id}] );
 $t->param(img=>$img);
+$t->param(la=>$la); # just for rollback purpose
+$t->param(lc=>$lc); # just for rollback purpose
+$t->param(autosave=>$autosave); # just for removing autosave draft purpose
 
 my $dev = "";
 $dev = $ENV{SERVER_NAME} if (exists $ENV{SERVER_NAME} and ($ENV{SERVER_NAME} ne "www.bawi.org"));
@@ -110,6 +115,7 @@ if ($article) {
     $$article{body} = $xb->format_article(-body=>$$article{body}, -article=>$article);
     $$article{comment} = $xb->get_commentset(-article_id=>$aid, -uid=>$uid)
         if ($$article{comments});
+	$$article{last_comment_no} = $xb->get_last_comment_no(-article_id=>$aid, -uid=>$uid);
     $$article{attach} = $xb->get_attachset(-article_id=>$aid)
         if ($$article{has_attach});
     $$article{is_board_owner} = $is_board_owner if ($is_board_owner);
@@ -117,11 +123,13 @@ if ($article) {
     $$article{allow_comment} = $allow_comment;
     $$article{allow_write} = $allow_write;
     $$article{is_owner} = 1;
+    $$article{expired} = 0 if ($$article{uid} == $uid);
     unless ($$article{uid} == $uid) {
         $$article{is_owner} = 0;
         ++$$article{count};
         $xb->add_article_read_count(-article_id=>$aid);
     }
+
     $$article{pollset} = $xb->get_pollset(-article_id=>$aid, 
                                           -uid=>$uid,
                                           -page=>$p)
@@ -142,6 +150,8 @@ if ($thread) {
         $$i{comment} = $xb->get_commentset(-article_id => $$i{article_id},
                                            -uid        => $uid)
             if ($$i{comments});
+		$$i{last_comment_no} = $xb->get_last_comment_no(-article_id=>$$i{article_id}, 
+														-uid=>$uid);
         $$i{attach} = $xb->get_attachset(-article_id=>$$i{article_id})
             if ($$i{has_attach});
         $$i{pollset} = $xb->get_pollset(-article_id=>$$i{article_id}, 
@@ -153,6 +163,7 @@ if ($thread) {
         $$i{allow_comment} = $allow_comment;
         $$i{allow_write} = $allow_write;
         $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
+        $$i{expired} = 0 if ($$i{uid} == $uid);
     }
     $article_set = $thread;
     $t->param(total_thread=>$#{$thread} + 1);
@@ -167,7 +178,14 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
     # la - last article no
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
-    if ($bm and ( $la or $lc )) { # new articles
+    if ($bm and ( $la or $lc ) and $a and $a eq 'rb') { # rollback bookmark (if la or lc are given, set this)
+		# note that la, lc are sanitized as numerics.
+		# in principle, if comment_no or article_no are zero, it should set in the library.
+		# (it wasn't so updated as well) 2014. 01. 03. -WWolf
+        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid, -article_no=>$la, -comment_no=>$lc);
+		
+		# do not load anything as new articles.
+    } elsif ($bm and ( $la or $lc )) { # new articles
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$la,
                                        -max_article_count=> $max_article_count);
@@ -186,6 +204,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
                 $$i{allow_write} = $allow_write;
+                $$i{expired} = 0 if ($$i{uid} == $uid);
                 my $comment = $xb->get_commentset(-article_id=>$$i{article_id}, 
                                                   -uid=>$uid);
                 $$i{comment} = $comment;
@@ -194,6 +213,8 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                     $max_comment_no = $$c{comment_no} 
                         if( $max_comment_no < $$c{comment_no} );
                 }
+				$$i{last_comment_no} = $xb->get_last_comment_no(-article_id=>$$i{article_id}, 
+																-uid=>$uid);
                 $$i{attach} = $xb->get_attachset(-article_id=>$$i{article_id})
                     if ($$i{has_attach});
                 $$i{pollset} = $xb->get_pollset(-article_id=>$$i{article_id}, 
@@ -208,9 +229,11 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                                                  -last_article_no=>$last_article->{article_no});
         my @new_comments;
         my %read_article;
+        my $commentref_flag;
         foreach my $c (@$new_comments) {
             $max_comment_no = $$c{comment_no} 
                 if( $max_comment_no < ($$c{comment_no} || -1));
+            $commentref_flag = 1 if ($$c{comment_no} <= $lc);
 
             $$c{title} = $q->escapeHTML($$c{title});
             $$c{is_owner} = $$c{uid} == $uid ? 1 : 0;
@@ -223,6 +246,15 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                     delete $$c{artcl_id};
                 }
                 ++$read_article{ $$c{article_no} }  if $$c{article_no};
+
+                if ($commentref_flag and $$c{comment_no} > $lc) {
+                    my $d = { %$c };
+                    delete $$d{body};
+                    delete $$d{comment_no};
+                     
+                    push @new_comments, $d;
+                    $commentref_flag = 0;
+                }
                 push @new_comments, $c;
             }
         }
@@ -237,11 +269,9 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
             if ($xb->is_anonboard);
         $t->param(new_comments=> $new_commentset);
         $t->param(total_newcomments=>$#new_comments + 1);
-    } elsif ($bm && $la eq 'rb') { # reset bookmark
-        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid);
-    } elsif ($bm && $la eq 'db') { # delete bookmark
+    } elsif ($bm && $a eq 'db') { # delete bookmark
         $xb->del_bookmark(-board_id=>$bid, -uid=>$uid);
-    }
+    }  
 } elsif ($allow_read && $a && $uid ) { 
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
     if ($bm && $a eq 'na') { # new articles
@@ -264,6 +294,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
                 $$i{allow_write} = $allow_write;
+                $$i{expired} = 0 if $$i{uid} == $uid;
                 my $comment = $xb->get_commentset(-article_id=>$$i{article_id}, 
                                                   -uid=>$uid);
                 $$i{comment} = $comment;
@@ -272,6 +303,8 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
                     $max_comment_no = $$c{comment_no} 
                         if( $max_comment_no < $$c{comment_no} );
                 }
+				$$i{last_comment_no} = $xb->get_last_comment_no(-article_id=>$$i{article_id}, 
+																-uid=>$uid);
                 $$i{attach} = $xb->get_attachset(-article_id=>$$i{article_id})
                     if ($$i{has_attach});
                 $$i{pollset} = $xb->get_pollset(-article_id=>$$i{article_id}, 
@@ -356,9 +389,9 @@ if ($allow_read) {
         $t->param(notice_list=> $xb->get_notice_articlelist);
     }
     if ($bm && exists $bm->{article_no}) {
-        # reload bookmark if bookmark has been reset 
-        $bm = $xb->get_bookmark(-board_id=>$bid, -uid=>$uid)
-            if ($a && $a eq 'rb');
+        # reload bookmark if bookmark has been reset (comment out already done up)
+        #$bm = $xb->get_bookmark(-board_id=>$bid, -uid=>$uid)
+        #    if ($a && $a eq 'rb');
 
         # mark new articles
         foreach my $i (@$al) {
@@ -388,11 +421,11 @@ $t->param(%{ $xb->get_bookmark_nav(-uid=>$uid) });
 my $t1 = new Benchmark;
 my $runtime = timestr(timediff($t1, $t0));
 $t->param(runtime=>$runtime);
-if (-e "/proc/loadavg") {
-  open(FH, "< /proc/loadavg");
-  my $loadavg = <FH>;
-  close FH;
-  $t->param(loadavg=>$loadavg);
+if (-e "/proc/loading") {
+    open(FH, "< /proc/loadavg");
+    my $loadavg = <FH>;
+    close FH;
+    $t->param(loadavg->$loadavg);
 }
 
 print $ui->output;

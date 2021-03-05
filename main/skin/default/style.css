@@ -80,14 +80,17 @@ a.button    { cursor: pointer; }
 a.attach span.error,
 a.auto span.error { color: black; background: #fcc; }
 a.auto img  { vertical-align: baseline; outline: 0; }
-a.auto { overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+a.auto { overflow: hidden; text-overflow: ellipsis; word-wrap: break-all; word-break: break-all; }
 embed.auto { width: 480px; height: 385px; }
 @media screen and (max-width: 320px) {
-  a.auto { max-width: 300px; white-space: nowrap;}
+  a.auto { max-width: 300px; }
   embed.auto { width: 300px; height: 250px; }
   object.auto { width: 300px; height: 250px; }
   iframe.auto { width: 300px; height: 250px; }
 }
+/* YouTube and Vimeo. http://embedresponsively.com */
+.video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; }
+.video-container > iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .opt.hidden { display: none; }
 .toggle.hidden { display: none; }
 /**************************************************************************************/
@@ -161,7 +164,7 @@ body.board.read form#login fieldset a:hover  { background: #eee; }
 body.board.read form#login fieldset a:active { background: #ddd; color: #111; }
 
 @media screen and (max-width: 480px) {
-  body.board.read 
+  body.board.read
   form#login {
     overflow: visible;
     width: 260px;
@@ -169,11 +172,11 @@ body.board.read form#login fieldset a:active { background: #ddd; color: #111; }
   }
   body.board.read table.login-form td.label { padding-left: 20px; }
 }
-	
+
 /**************************************************************************************/
 /** index.tmpl - notice to update personal information **/
 div.notice
-{	
+{
 	width: 680px;
 	margin: 40px auto 0 auto;
 	padding: 0 0 2em 0;
@@ -385,7 +388,7 @@ div.top-head:after { content: "clearing float"; clear: both; display: block; hei
   div.top-head h1       { font-size: 100%; }
   div.top-head span     { font-size:  80%; }
 }
-/* 
+/*
 div.top-head     { outline: 1px dotted blue; }
 div.top-head > * { outline: 1px dotted red; }
 */
@@ -401,10 +404,14 @@ ul.article > li.created { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.count   { xxpadding-left: 8px; white-space: nowrap; }
 ul.article > li.visualClear { clear: left; width: 100%; border-bottom: 1px solid #C5CDD8; height: 0; padding: 0; }
 ul.article > li.body        { float: none; clear: both; overflow: visible; width: 100%; padding: 6px 0 5px 0; border-bottom: 1px solid #C5CDD8; }
-ul.article > li.body.text   { line-height: 170%; white-space: pre-wrap; text-align: justify; padding: 20px 0 10px 0;  }
+ul.article > li.body        { max-width: 600px; margin: 0 auto; }
+ul.article > li.body.text   { line-height: 170%; text-align: justify; padding: 20px 0 10px 0;  }
 ul.article > li.body.text   { border-bottom: 0; }
-ul.article > li.body.text   { max-width: 600px; margin: 0 auto 0 auto; }
 ul.article > li.body.text table.safety.wrapper { position: relative; width: 100%; }
+ul.article > li.attach ol   { list-style: decimal; padding: 0; overflow: hidden; }
+ul.article > li.attach li   { padding: 0; margin: 0; line-height: 170%; vertical-align: top; list-style-position: inside; }
+ul.article > li.attach a    { display: inline; }
+ul.article > li.attach img  { max-width: 100%; }
 
 ul.article > li.button   { color: white; background: #8B98B1; white-space: nowrap; max-width: 10em; padding: 0; }
 ul.article > li.button a { color: white; background: #8B98B1; display: block; padding: 0px 8px 0px 8px;  }
@@ -433,7 +440,7 @@ ul.article.head li.button.right { max-width: 20em; }
 
 div.article.head        { border-bottom: 1px solid #C5CDD8; }
 ul.comment              { display: table-row; width: 100%; line-height: 170%; }
-ul.comment li         { display: table-cell; padding: 3px 3px 3px 3px; text-overflow: ellipsis; overflow: hidden; vertical-align: top; border-bottom: 1px solid #C5CDD8;}
+ul.comment li         { display: table-cell; padding: 3px 3px 3px 3px; vertical-align: top; border-bottom: 1px solid #C5CDD8;}
 ul.comment li a       { color: black; cursor: pointer; }
 ul.comment li.no      { width: 35px; white-space: nowrap; font-size: 0.8em; padding-left: 0; }
 ul.comment li.no:before { content: "#"; }
@@ -468,6 +475,7 @@ ul.comment      { outline: 1px dotted red;  }
 ul.comment > li { outline: 1px dotted green; }
  */
 
+
 ul.comment-form           { display: table; width: 100%; margin-bottom: 20px; }
 ul.comment-form li        { display: table-cell; padding: 3px; }
 ul.comment-form li.head   { width:  70px; text-align: right; }
@@ -484,20 +492,10 @@ ul.comment-form input.submit { font-size: 100%; width: 100%; }
   ul.comment-form input.text  { width:  95%; }
 }
 /**********************************************************************************/
-ul.article > li.attach { }
-ol.attach             { list-style: decimal; padding: 0px; overflow: hidden; }
-ol.attach li        { width: 675px; margin: 10px 0px 10px 40px; line-height: 170%; vertical-align: top; }
-ol.attach li a      { display: inline; }
-@media screen and (max-width: 480px) { ol.attach li { width: 435px; } }
-@media screen and (max-width: 320px) { ol.attach li { width: 275px; } }
 @media screen and (max-width: 480px) { ul.article img { max-width: 100%; } }
 @media screen and (max-width: 480px) { ul.comment img { max-width: 100%; } }
 ul.article img:hover { outline: 3px solid #C5CDD8; }
 ul.comment img:hover { outline: 3px solid #C5CDD8; }
-/*
-ol.attach     { outline: 1px dotted red; }
-ol.attach li  { outline: 1px dotted green; }
-*/
 
 
 
@@ -530,6 +528,9 @@ ul.article-list li { display: table-cell; padding: 3px 3px 3px 3px; border-top: 
 ul.article-list li a { color: black; }
 ul.article-list li.board { width: 445px; outline: 1px dotted red; }
 ul.article-list li.no    { width:  10px; text-align: left; }
+ul.article-list li.board2{ width: 300px; }
+ul.article-list li.article{width: 300px; }
+ul.article-list li.comment{width: 300px; display: block;}
 ul.article-list li.title { width: 445px; }
 ul.article-list li.title a { display: block; }
 ul.article-list li.name  { width: 125px; white-space: nowrap; text-align: left; } /* name */
@@ -605,6 +606,7 @@ form.article-write textarea   { font-size: 100%; width: 95%; height: 20em; paddi
 /* IE8 bug: scroll when typing */
 /* http://www.ozzu.com/website-design-forum/ie8-textarea-scrolling-bug-t99866.html */
 form.article-write textarea   { width: 37em; max-width: 95%; min-width: 95%; }
+form.article-write textarea.body { line-height: 170% }
 form.article-write label.checkbox { width: inherit; text-align: left; }
 form.article-write label.inline   { width: inherit; text-align: left; }
 form.article-write div.text { width: 85%; text-align: right; }
@@ -642,7 +644,7 @@ form.article-write fieldset.gray-round {
     display: none;
   }
 }
-/* 
+/*
 form.article-write    { outline: 1px dotted grey; padding: 2px; }
 form.article-write fieldset table  { outline: 1px dotted grey; }
 form.article-write fieldset table tr td { outline: 1px dotted blue; }
@@ -659,7 +661,7 @@ div.msg h2 {
   padding: 6px; line-height: 100%;
   display: block; width: 60%;
   margin: 0 auto 7px auto;
-  background: #cb8; 
+  background: #cb8;
   -webkit-border-radius: 6px;
   -moz-border-radius: 6px;
 }
@@ -675,13 +677,14 @@ a[accesskey].accesskey:after {
 /**********************************************************************************/
 /* note.cgi */
 body.note h1 { text-align: center; background-color: #CEDAF3; }
-body.note #content { width: 400px; margin: 0 auto; }
+body.note #content { max-width:100%; width: 400px; margin: 0 auto; padding: 0 5px; box-sizing: border-box; }
 @media print { body.note #content { width: inherit; } }
 body.note div.msg { color: #047; }
 div.note { white-space: pre-wrap; }
 div.sender { text-align: right; }
 form.note label { color: #047; display: block; }
-form.note textarea { width: 100%; xxdisplay: block; }
+form.note input[type="text"] { width: 100%; box-sizing: border-box; }
+form.note textarea { width: 100%; box-sizing: border-box; }
 form.note { margin: 1.5em 0; }
 
 /**********************************************************************************/
@@ -715,5 +718,3 @@ div.debug span.user_agent   { background: #fdf; }
 	border: 0px dotted blue;
 	width: 20px; height: 20px;
 }
-
-

@@ -61,6 +61,18 @@
     <td class="iteml"><a href="http://<tmpl_var homepage>" target="_blank">http://<tmpl_var homepage></a></td>
 </tr>
         </tmpl_if>
+        <tmpl_if facebook>
+<tr>
+    <td class="lhead">facebook</td>
+    <td class="iteml"><tmpl_var facebook></td>
+</tr>
+        </tmpl_if>
+        <tmpl_if twitter>
+<tr>
+    <td class="lhead">twitter</td>
+    <td class="iteml"><tmpl_var twitter></td>
+</tr>
+        </tmpl_if>
         <tmpl_if im_google>
 <tr>
     <td class="lhead">Google 메신저</td>
@@ -68,10 +80,10 @@
 </tr>
         </tmpl_if>
         <tmpl_if im_msn>
-<tr>
+<!--<tr>
     <td class="lhead">MSN 메신저</td>
     <td class="iteml"><tmpl_if has_im_msn><tmpl_var im_msn><tmpl_else><tmpl_include _reciprocal.tmpl></tmpl_if></td>
-</tr>
+</tr>-->
         </tmpl_if>
         <tmpl_if im_nate>
 <tr>
@@ -159,7 +171,7 @@
         </tmpl_if>
         <tmpl_if degree>
 <tr>
-    <td class="lhead" nowrap>학위</td>
+    <td class="lhead" nowrap>학위/경력</td>
     <td class="iteml">
             <tmpl_if has_degree>
                 <tmpl_loop degree>
@@ -171,6 +183,24 @@
     </td>
 </tr>
         </tmpl_if>
+<tmpl_if orcid>
+<tr>
+    <td class="lhead" nowrap>ORCID</td>
+    <td class="iteml"><a href="<tmpl_var orcid>" target="_blank"><tmpl_var orcid></a></td>
+</tr>
+</tmpl_if>
+<tmpl_if gscholar>
+<tr>
+    <td class="lhead" nowrap>google scholar</td>
+    <td class="iteml"><a href="<tmpl_var gscholar>" target="_blank"><tmpl_var gscholar></a></td>
+</tr>
+</tmpl_if>
+<tmpl_if linkedin>
+<tr>
+    <td class="lhead" nowrap>linkedin</td>
+    <td class="iteml"><a href="<tmpl_var linkedin>" target="_blank"><tmpl_var linkedin></a></td>
+</tr>
+</tmpl_if>
         <tmpl_if class>
 <tr>
     <td class="lhead" nowrap>반</td>

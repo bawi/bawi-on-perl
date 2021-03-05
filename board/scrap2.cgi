@@ -13,7 +13,7 @@ my $session_key = $q->param('s') || '';
 my ($error, $msg, $type, $article_id) = (0, '', 'scrap', 0);
 if ($session_key && $auth->auth(-session_key=>$session_key)) {
     my $uid = $auth->uid;
-    my ($bid, $aid) = map { $q->param($_) || undef } qw( bid aid);
+    my ($bid, $aid, $lc) = map { $q->param($_) || undef } qw( bid aid lc);
 
     my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
 
@@ -30,7 +30,7 @@ if ($session_key && $auth->auth(-session_key=>$session_key)) {
             $msg = "Already scrapped.";
 #        } elsif ($article_uid ne $uid && $xb->allow_scrap && ! $xb->is_anonboard) {
          } elsif ($xb->allow_scrap && ! $xb->is_anonboard) {
-            my $rv1 = $xb->add_scrap(-article_id=>$aid, -uid=>$uid);
+            my $rv1 = $xb->add_scrap(-article_id=>$aid, -uid=>$uid, -last_comment_no=>0 || $lc);
             if ($rv1) {
                 $msg = "Scrapped.";
                 $article_id = $aid;

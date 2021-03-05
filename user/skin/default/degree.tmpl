@@ -47,6 +47,9 @@
         <option value="Bachelor"<tmpl_if bachelor> selected</tmpl_if>>학사
         <option value="Master"<tmpl_if master> selected</tmpl_if>>석사
         <option value="Doctor"<tmpl_if doctor> selected</tmpl_if>>박사
+        <option value="Postdoc"<tmpl_if postdoc> selected</tmpl_if>>포닥
+        <option value="Resident"<tmpl_if resident> selected</tmpl_if>>레지던트
+        <option value="Fellow"<tmpl_if fellow> selected</tmpl_if>>펠로우
     </select>
     </td>
 </tr>
@@ -107,7 +110,7 @@
     </select>
     <select name="status" class="text" style="width: 80px; height:20px">
         <option value="">Status...
-        <option value="attending"<tmpl_if attending> selected</tmpl_if>>재학
+        <option value="attending"<tmpl_if attending> selected</tmpl_if>>재학/근무/수련중
         <option value="graduated"<tmpl_if graduated> selected</tmpl_if>>졸업
         <option value="course_completed"<tmpl_if course_completed> selected</tmpl_if>>수료
         <option value="admitted"<tmpl_if admitted> selected</tmpl_if>>입학예정

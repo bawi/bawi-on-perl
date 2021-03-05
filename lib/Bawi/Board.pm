@@ -11,6 +11,7 @@ $TBL{head}      = 'bw_xboard_header';
 $TBL{body}      = 'bw_xboard_body';
 $TBL{board}     = 'bw_xboard_board';
 $TBL{comment}   = 'bw_xboard_comment';
+$TBL{commentref}= 'bw_xboard_commentref';
 $TBL{recom}     = 'bw_xboard_recom';
 $TBL{scrap}     = 'bw_xboard_scrap';
 $TBL{bookmark}  = 'bw_xboard_bookmark';
@@ -125,6 +126,12 @@ sub skin {
     my $self = shift;
     if (@_) { $self->{skin} = shift }
     return $self->{skin};
+}
+
+sub expire_days {
+    my $self = shift;
+    if (@_) { $self->{expire_days} = shift }
+    return $self->{expire_days};
 }
 
 sub article_per_page {
@@ -349,7 +356,8 @@ sub save_instance {
                      a_write=?,
                      g_comment=?,
                      m_comment=?,
-                     a_comment=?
+                     a_comment=?,
+                     expire_days=?
                  where board_id=?
                 );
     my $rv = $DBH->do($sql, undef, $self->title,
@@ -379,6 +387,7 @@ sub save_instance {
                                    $self->g_comment,
                                    $self->m_comment,
                                    $self->a_comment,
+                                   $self->expire_days,
                                    $self->board_id);
     return $rv;
 }
@@ -646,13 +655,48 @@ sub get_scrap_articlelist {
                         DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                         a.count, a.recom, a.scrap, a.comments, a.has_attach, 
                         a.has_poll, $page as page,
-                        c.title as board_title
+                        c.title as board_title, b.scrapped as scrapped 
                  FROM $TBL{head} as a, $TBL{scrap} as b, $TBL{board} as c
                  WHERE a.article_id=b.article_id && a.board_id=c.board_id && 
                        b.uid=?
-                 ORDER BY a.article_id DESC limit $start, $article_per_page);
+                 ORDER BY b.scrapped DESC, a.article_id DESC limit $start, $article_per_page);
     my $rv = $DBH->selectall_hashref($sql, 'article_id', undef, $arg{-uid});
-    my @rv = map { $rv->{$_} } sort {$b <=> $a} keys %$rv;
+	my @rv = sort { ($b->{scrapped} || 0) cmp ($a->{scrapped} || 0) ||
+					$b->{article_id} cmp $a->{article_id} }
+			 map { $$rv{$_} }
+			 keys %$rv;
+    return \@rv; 
+    
+}
+
+sub get_scrap_articlelist_by_board {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-uid});
+	return unless (exists $arg{-bid});
+
+    my $tot_page = $self->{tot_page} || 1;
+    my $page = $self->page || $tot_page || 1; 
+    my $article_per_page = $self->{article_per_page} || 16;
+    my $start = &get_start($page, $tot_page, $article_per_page);
+    my $sql = qq(SELECT a.board_id, a.article_id, 
+                        REPLACE(a.title, '<', '&lt;') as title, a.uid, 
+                        a.id, a.name,
+                        IF( a.created + INTERVAL 180 DAY > now(), 
+                          DATE_FORMAT(a.created, '%m/%d'),
+                          DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
+                        DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        a.count, a.recom, a.scrap, a.comments, a.has_attach, 
+                        a.has_poll, $page as page,
+                        c.title as board_title, b.scrapped as scrapped
+                 FROM $TBL{head} as a, $TBL{scrap} as b, $TBL{board} as c
+                 WHERE a.article_id=b.article_id && a.board_id=c.board_id && 
+                       b.uid=? && a.board_id=?
+                 ORDER BY b.scrapped DESC, a.article_id DESC limit $start, $article_per_page);
+    my $rv = $DBH->selectall_hashref($sql, 'article_id', undef, $arg{-uid}, $arg{-bid});
+	my @rv = sort { ($b->{scrapped} || 0) cmp ($a->{scrapped} || 0) ||
+					$b->{article_id} cmp $a->{article_id} }
+			 map { $$rv{$_} }
+			 keys %$rv;
     return \@rv; 
 }
 
@@ -669,6 +713,7 @@ sub get_article {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
                         a.title, a.uid, a.id, a.name,
@@ -677,6 +722,7 @@ sub get_article {
                           DATE_FORMAT(a.created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                         a.count, a.recom, a.scrap, a.has_attach, a.has_poll, a.comments,
+                        a.created + INTERVAL $expired DAY < now() as expired,
                         b.body, $page as page, $img as img,
                         $is_anonboard as is_anonboard,
                         '$session_key' as session_key,
@@ -687,6 +733,7 @@ sub get_article {
                  WHERE a.article_id=b.article_id && a.board_id=? && 
                        a.article_id=?);
     my $rv = $DBH->selectrow_hashref($sql, undef, $bid, $aid);
+
     return $rv;
 }
 
@@ -713,6 +760,7 @@ sub get_thread {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(UPDATE $TBL{head} SET count=count+1 
                  WHERE board_id=? && thread_no=? && uid != ?);
@@ -725,6 +773,7 @@ sub get_thread {
                      DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                      a.count, a.recom, a.scrap, a.has_attach, a.has_poll, a.comments,
                      b.body, $page as page, $img as img, 
+                     a.created + INTERVAL $expired DAY < now() as expired,
                      $is_anonboard as is_anonboard,
                      '$session_key' as session_key,
                      $allow_recom as allow_recom, $allow_scrap as allow_scrap,
@@ -750,6 +799,7 @@ sub get_new_articles {
     my $allow_scrap = $self->allow_scrap || 0;
     my $allow_recom_user_list = $self->cfg->AllowRecomUserList || 0;
     my $session_key = $self->session_key || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql2 = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
                      a.title, a.uid, a.id, a.name,
@@ -759,6 +809,7 @@ sub get_new_articles {
                      DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                      a.count, a.recom, 
                      a.scrap, a.has_attach, a.has_poll, a.comments, 
+                     a.created + INTERVAL $expired DAY < now() as expired,
                      b.body, $page as page, $img as img,
                      $is_anonboard as is_anonboard,
                      '$session_key' as session_key,
@@ -892,10 +943,14 @@ sub del_article {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-article_id});
 
+    # as for comments, only remove comments from the same user as the
+    # article in question
+    my $article_uid = $self->get_article_uid(-article_id=>$arg{-article_id});
+
     # $TBL{head}, $TBL{body}, $TBL{comment}, $TBL{attach}, ($TBL{notice})
     # update $TBL{board}: articles
     my $del = 0;
-    foreach my $i ( qw( head body comment attach notice) ) {
+    foreach my $i ( qw( head body attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
         my $rv = $DBH->do($sql, undef, $arg{-article_id});
         if ($rv == 1) {
@@ -903,6 +958,31 @@ sub del_article {
             $self->del_attachset(-article_id=>$arg{-article_id});
         }
     }
+
+    # Delete comments from the user of the article
+    my $sql = qq(DELETE FROM $TBL{comment} 
+                 WHERE uid=? && article_id=?);
+    my $rv = $DBH->do($sql, undef, $article_uid, $arg{-article_id});
+    if ($rv == 1) {
+        ++$del;
+        # If comments are deleted, possibly references should be cleaned up as well.
+        # In general, only need to SQL select ref_ids that no longer exists in comment
+#        $sql = qq(DELETE FROM $TBL{commentref}
+#                  WHERE NOT EXISTS (SELECT 1 FROM $TBL{comment} as b WHERE ref_id = b.comment_id)
+#                );
+#        $rv = $DBH->do($sql);
+#
+#        # also the actual comments that are dangling
+#        $sql = qq(DELETE FROM $TBL{commentref}
+#                  WHERE NOT EXISTS (SELECT 1 FROM $TBL{comment} as b WHERE $TBL{commentref}.comment_id = b.comment_id) );
+#        $rv = $DBH->do($sql);
+                    
+    }
+
+    # Update the dangling comments that have the article_id
+    $sql = qq(UPDATE $TBL{comment} SET article_id=0 WHERE article_id=?);
+    $rv = $DBH->do($sql, undef, $arg{-article_id});
+
     if ($del) {
         &dec_article_count($arg{-board_id});
         &update_max_article_no($arg{-board_id});
@@ -917,7 +997,7 @@ sub add_recommender {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id} && exists $arg{-uid});
 
-    my $sql = qq(INSERT INTO $TBL{recom} (uid, article_id) VALUES (?, ?) );
+    my $sql = qq(INSERT INTO $TBL{recom} (uid, article_id, rectime) VALUES (?, ?, NOW()) );
     my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
 
     &add_recom_count($arg{-article_id}) if ($rv and $self->{allow_recom} == 1);
@@ -927,7 +1007,7 @@ sub add_recommender {
 sub add_recom {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id} && exists $arg{-uid});
-    my $sql = qq(REPLACE INTO $TBL{recom} (uid, article_id) VALUES (?, ?));
+    my $sql = qq(REPLACE INTO $TBL{recom} (uid, article_id, rectime) VALUES (?, ?, NOW()));
     my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
     return $rv;
 }
@@ -944,10 +1024,10 @@ sub get_scrap {
 
 sub add_scrap { 
     my ($self, %arg) = @_;
-    return unless (exists $arg{-article_id} && exists $arg{-uid});
+    return unless (exists $arg{-article_id} && exists $arg{-uid} && exists $arg{-last_comment_no});
 
-    my $sql = qq(INSERT INTO $TBL{scrap} (uid, article_id) VALUES(?, ?) );
-    my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
+    my $sql = qq(INSERT INTO $TBL{scrap} (uid, article_id, last_comment_no, scrapped) VALUES(?, ?, ?, NOW()) );
+    my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id}, $arg{-last_comment_no});
 
     &add_scrap_count($arg{-article_id}) if ($rv and $self->{allow_scrap} == 1);
     return $rv;
@@ -962,7 +1042,7 @@ sub delete_scrap {
     
     &dec_scrap_count($arg{-article_id}) if ($rv and $self->{allow_scrap} == 1);
 
-    return $rv;
+	return $rv;
 }
 
 sub get_recommender { 
@@ -1020,7 +1100,7 @@ sub format_article {
     }
 
     #$body = join("\n", @body);
-    $body = join("<br />", @body);
+    $body = join("<br />\n", @body);
     
     return $body;
 }
@@ -1083,6 +1163,49 @@ sub add_comment {
                                    $arg{-id},
                                    $arg{-name},
                      );
+
+    # parse the body to find out potential comment_no to insert
+    # this needs to be concurrent with the previous sql
+    # always contains self
+
+    $sql = qq(INSERT INTO $TBL{commentref}
+              (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
+              SELECT 
+                board_id, 
+                article_id, 
+                comment_id, 
+                comment_no, 
+                comment_id as ref_id, 
+                comment_no as ref_no
+              FROM $TBL{comment}
+              WHERE board_id=? && comment_no=? );
+    my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $comment_no);
+
+    # split all and iterate
+    # my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
+    my %reference_comment_no;
+    map { $reference_comment_no{$_} = 1 if ($_ > 0); } ($arg{-body} =~ m/#([0-9]+)($|\s)/g);
+    foreach my $cn (keys %reference_comment_no) {
+        $sql = qq(INSERT INTO $TBL{commentref}
+                  (board_id, article_id, comment_id, comment_no, ref_id, ref_no)
+                  SELECT
+                     a.board_id,
+                     a.article_id,
+                     a.comment_id,
+                     a.comment_no,
+                     b.comment_id as ref_id,
+                     b.comment_no as ref_no
+                  FROM $TBL{comment} a, $TBL{comment} b
+                  WHERE a.board_id=? && b.board_id=? && a.comment_no=? && b.comment_no=? && b.article_id=a.article_id limit 1);
+
+         my $rv2 = $DBH->do($sql, undef, 
+                                 $arg{-board_id},
+                                 $arg{-board_id},
+                                 $comment_no,
+                                 $cn
+                        );
+    }
+
     &add_comment_count($arg{-article_id}, $arg{-board_id}) if $rv;
     my $bm = $self->get_bookmark(-board_id=>$arg{-board_id}, 
                                  -uid=>$arg{-uid});
@@ -1091,10 +1214,12 @@ sub add_comment {
         $self->set_comment_bookmark(-board_id=>$arg{-board_id}, 
                                     -uid=>$arg{-uid});
     }
+
     return $comment_no;
 }
 
 sub edit_comment {
+    # deprecated. If this is to be used, need to consider ref comments
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && 
                          exists $arg{-body} &&
@@ -1109,12 +1234,14 @@ sub edit_comment {
 sub get_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id});
+    my $expired = $self->expire_days || 36500; # 100 years
     
     my $sql = qq(SELECT comment_id, board_id, article_id, body, uid, id, name, 
                         IF( created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(created, '%m/%d %H:%i'),
                           DATE_FORMAT(created, '%y/%m/%d %H:%i') ) as created,
-                        DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str
+                        DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        created + INTERVAL $expired DAY < now() as comment_expired
                  FROM $TBL{comment} WHERE comment_id=?);
     my $rv = $DBH->selectrow_hashref($sql, undef, $arg{-comment_id});
     if ($rv) {
@@ -1133,12 +1260,14 @@ sub get_commentset {
     my $uid = $arg{-uid} || -1;
     my $page = $self->page || $self->tot_page || 1;
     my $is_anonboard = $self->is_anonboard || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
 
     my $sql = qq(SELECT comment_id, board_id, article_id, body, uid, id, name, 
                         IF( created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(created, '%m/%d %H:%i'),
                           DATE_FORMAT(created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        created + INTERVAL $expired DAY < now() as comment_expired,
                         $page as page, comment_no,
                         $is_anonboard as is_anonboard
                  FROM $TBL{comment} WHERE board_id=? && article_id=? 
@@ -1161,12 +1290,17 @@ sub get_new_comments {
     my $last_article_no = $arg{-last_article_no} || $self->{max_article_no};
     my $img = $self->img || 0;
     my $is_anonboard = $self->is_anonboard || 0;
+    my $expired = $self->expire_days || 36500; # 100 years
+
+    # Note that this SQL is super slow compared to the original one. Need optimization
+    # probably because of the two join operations?
     my $sql = qq(SELECT c.comment_id, c.board_id, c.article_id, c.body, c.uid, 
                         c.id, c.name,
                         IF( c.created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(c.created, '%m/%d %H:%i'),
                           DATE_FORMAT(c.created, '%y/%m/%d %H:%i') ) as created,
                         DATE_FORMAT(c.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
+                        c.created + INTERVAL $expired DAY < now() as comment_expired,
                         h.article_id, h.article_no, h.title,
                         h.id as artcl_id, 
                         h.name as artcl_name,
@@ -1176,10 +1310,10 @@ sub get_new_comments {
                         $page as page, 
                         c.comment_no as comment_no, $img as img,
                         $is_anonboard as is_anonboard
-                 FROM $TBL{comment} as c, $TBL{head} as h 
-                 WHERE c.board_id=? && c.comment_no > ? && 
-                       c.article_id=h.article_id && c.board_id=h.board_id  &&
-                       h.article_no <= ?
+                 FROM $TBL{commentref} as r
+                 INNER JOIN $TBL{comment} as c ON r.ref_id = c.comment_id
+                 INNER JOIN $TBL{head} as h ON r.board_id=h.board_id && r.article_id=h.article_id
+                 WHERE r.board_id=? && r.comment_no > ? && h.article_no <= ?
                  ORDER BY c.comment_id);
     my $rv = $DBH->selectall_hashref($sql, 'comment_id', undef, $bid,
                                                                 $arg{-comment_no}, 
@@ -1202,6 +1336,13 @@ sub del_comment {
         &dec_comment_count($arg{-article_id});
         &update_max_comment_no( $arg{-board_id} );
         &update_bookmark( $arg{-board_id} );
+
+        # remove also for the commentref
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
+        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
+        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
     }
     return $rv;
 }
@@ -1210,10 +1351,25 @@ sub del_commentset {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-article_id} && exists $arg{-board_id});
 
+    # this is deprecated because deletes only user id generated comments
+    # so be careful in using this!
+
     my $sql = qq(DELETE FROM $TBL{comment} WHERE board_id=? && article_id=?);
     my $rv = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
-    &update_max_comment_no( $arg{-board_id} ) if ($rv);
-    &update_bookmark( $arg{-board_id} ) if ($rv);
+
+    if ($rv) {
+        &update_max_comment_no( $arg{-board_id} );
+        &update_bookmark( $arg{-board_id} );
+
+        # if the entire thing is removed, also removed commentref
+        $sql = qq(DELETE FROM $TBL{commentref} WHERE board_id=? && article_id?);
+        my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
+
+        # Clean up commentref as well
+        # Now need to remove all commentref that does not have corresponding
+        # comment_id in comment table as well.
+        # This is innucous if the SELECT operation is done well, so TODO
+    }
     return $rv;
 }
 
@@ -1226,6 +1382,20 @@ sub format_commentset {
         $c->{body} = &make_hyperlink($self, $c->{body}, $c);
     }
     return $comments;
+}
+
+sub get_last_comment_no {
+    # for scrapbook extension
+    # by wwolf
+
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-uid});
+	return unless (exists $arg{-article_id});
+
+	my $sql = qq(SELECT MAX(comment_no) FROM $TBL{comment} WHERE article_id=?);
+    
+	my $rv = $DBH->selectrow_array($sql, undef, $arg{-article_id});
+    return 0 || $rv;
 }
 
 ################################################################################
@@ -1246,8 +1416,8 @@ sub get_bookmarkset {
     return unless (exists $arg{-uid});
 
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq
@@ -1271,7 +1441,7 @@ sub get_totalnewarticles {
     my ($self, %arg) = @_;
     return unless (exists $arg{-uid});
 
-    my $sql = qq(SELECT SUM(GREATEST(a.max_article_no - CAST(b.article_no as signed), 0))
+    my $sql = qq(SELECT SUM(GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0))
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE b.uid=? && b.board_id=a.board_id);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-uid});
@@ -1285,7 +1455,7 @@ sub get_totalnewcomments {
     my ($self, %arg) = @_;
     return unless (exists $arg{-uid});
 
-    my $sql = qq(SELECT SUM(GREATEST(a.max_comment_no- CAST(b.comment_no as signed), 0))
+    my $sql = qq(SELECT SUM(GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0))
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE b.uid=? && b.board_id=a.board_id);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-uid});
@@ -1297,8 +1467,8 @@ sub get_bookmarkset_by_group {
     return unless (exists $arg{-uid});
 
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq, c.gid, c.title as group_title
@@ -1380,8 +1550,8 @@ sub get_bookmark_nav {
     
     my $bid = $self->board_id || $arg{-board_id} || 0;
     my $sql = qq(SELECT a.board_id, a.title, a.id, a.name, a.is_imgboard,
-                        GREATEST(a.max_article_no - CAST(b.article_no as signed), 0) as new_articles,
-                        GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0) as new_comments,
+                        GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0) as new_articles,
+                        GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0) as new_comments,
                         b.article_no,
                         b.comment_no,
                         b.seq
@@ -1431,7 +1601,7 @@ sub set_bookmark {
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
     my $a_no = $arg{-article_no} || $self->{max_article_no}; 
-    my $c_no = $self->{max_comment_no}; 
+    my $c_no = $arg{-comment_no} || $self->{max_comment_no}; 
     my $sql = qq(UPDATE $TBL{bookmark} SET article_no=?, comment_no=? 
                  WHERE board_id=? && uid=?);
     my $rv = $DBH->do($sql, undef, $a_no, $c_no, $arg{-board_id}, $arg{-uid});
@@ -1499,7 +1669,7 @@ sub get_new_articles_count {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
-    my $sql = qq(SELECT GREATEST(a.max_article_no - CAST(b.article_no as signed), 0)
+    my $sql = qq(SELECT GREATEST(CAST(a.max_article_no as signed) - CAST(b.article_no as signed), 0)
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE a.board_id=? && b.board_id=a.board_id && b.uid=?);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-board_id}, $arg{-uid});
@@ -1510,7 +1680,7 @@ sub get_new_comments_count {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
-    my $sql = qq(SELECT GREATEST(a.max_comment_no - CAST(b.comment_no as signed), 0)
+    my $sql = qq(SELECT GREATEST(CAST(a.max_comment_no as signed) - CAST(b.comment_no as signed), 0)
                  FROM $TBL{board} as a, $TBL{bookmark} as b
                  WHERE a.board_id=? && b.board_id=a.board_id && b.uid=?);
     my $rv = $DBH->selectrow_array($sql, undef, $arg{-board_id}, $arg{-uid});
@@ -1729,6 +1899,7 @@ sub img_resize {
     $height = int( $height * $ratio );
     $width = int( $width * $ratio );
     $im->Resize(width=>$width, height=>$height) if ($ratio < 1);
+    $im->AutoOrient();
     my $rv = $im->ImageToBlob();
     return $rv;
 }
@@ -1975,11 +2146,12 @@ sub get_optset {
                 $_->{tot} = $tot;
                 $_->{allow_vote} = $allow_vote;
                 #####TEMP CODE#####
-                if ($pid == 1427) {
-                    $_->{pct} = '';
-                    $_->{width} = '';
-                    $_->{count} = '';
-                }
+                #if ($pid == 1427) {
+                #if ($pid == 9696 || $pid == 9698) {
+                #    $_->{pct} = '';
+                #    $_->{width} = '';
+                #    $_->{count} = '';
+                #}
                 #####TEMP CODE#####
                 $_; } @rv;
     return \@rv;
@@ -2153,7 +2325,7 @@ sub init_scrap_board {
     my $uid = $arg{-uid}; 
     my $rv = &init_board(%arg);
     $$rv{board_id} = 0;
-    $$rv{title} = 'Scrap';
+    $$rv{title} = 'Scrapbook';
     $$rv{articles} = &get_tot_scrap_by_uid($uid);
     $$rv{tot_page} = &get_tot_page($$rv{articles}, $$rv{article_per_page});
     $$rv{page} = $$rv{tot_page} unless $$rv{page} && $$rv{page} <= $$rv{tot_page};
@@ -2462,10 +2634,13 @@ sub make_hyperlink {
         return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><object class="auto" width="480" height="385" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"><param name="movie" value="/main/jwplayer/player.swf"></param><param name="allowfullscreen" value="true"></param><param name="allowscriptaccess" value="always"></param><param name="quality" value="best"></param><param name="play" value="false"></param><param name="flashvars" value="file=$src_escaped"></param><embed class="auto" src="/main/jwplayer/player.swf" allowfullscreen="true" allowscriptaccess="always" quality="best" play="false" flashvars="file=$src_escaped" width="480" height="385"></embed></object>);
 
       m#( [^/]+ youtube\.com/watch\?v=([^&\s]+) )#iogx and
-        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><object class="auto" width="480" height="385"><param name="movie" value="http://www.youtube.com/v/$2?fs=1&amp;hl=en_US&rel=0"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed class="auto" src="http://www.youtube.com/v/$2?fs=1&amp;hl=en_US&rel=0" type="application/x-shockwave-flash" allowscriptaccess="always" allowfullscreen="true" ></embed></object>);
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe id="ytplayer" type="text/html" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0" allowfullscreen></iframe></div>);
+
+      m#( youtu\.be/([^&\s]+) )#iogx and
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe id="ytplayer" type="text/html" src="https://www.youtube.com/embed/$2?fs=1&hl=en_US&rel=0&origin=http://bawi.org" frameborder="0" allowfullscreen></iframe></div>);
 
       m#( vimeo\.com/(\d+) )#iogx and
-        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><br><iframe class="auto" src="http://player.vimeo.com/video/$2" width="480" height="360" frameborder="0"></iframe>);
+        return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a><div class="video-container"><iframe class="auto" src="http://player.vimeo.com/video/$2" frameborder="0" allowfullscreen></iframe></div>);
       return qq(<a href="$src" target="_blank" title="$src" class="auto">$shorten</a>);
     };
     # http://daringfireball.net/2010/07/improved_regex_for_matching_urls

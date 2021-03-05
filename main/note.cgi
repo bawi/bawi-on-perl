@@ -44,6 +44,7 @@ my $body = "";
 my $onload = "";
 my $id = $auth->{id};
 my $name = $auth->{name};
+my $correspondent = $form{'correspondent'} || $id;
 
 # send any message
 if ( $to_id ne "" and $msg ne "" ) {
@@ -79,18 +80,23 @@ if ( $r_msg_id ne "" && $action eq "Save" || $action eq "Save+Reply") {
 }
 
 # check messages and print
-my $count = $n->check_messages(-mbox=>$mbox, -id=>$id);
+my $count = $n->check_messages(-mbox=>$mbox, -id=>$id, -correspondent=>$correspondent);
 #warn("count=$count,mbox=$mbox,id=$id,wait=$wait");
-my $rv = $n->get_messages(-mbox=>$mbox, -id=>$id, -page=>$page);
+
+my $rv = $n->get_messages(-mbox=>$mbox, -id=>$id, -page=>$page, -correspondent=>$correspondent);
+
+
    $rv = $n->format_notes($rv);
 my $page_nav = $n->get_pagenav(-page=>$page);
 
 $ui->tparam(to_default=>$to_default);
 $ui->tparam(mbox=>$mbox);
 $ui->tparam('wait'=>$wait);
+$ui->tparam(correspondent=>$correspondent);
 $ui->tparam(msg_count=>$count);
 $ui->tparam(is_inbox=>($mbox eq "inbox" ? 1 : 0));
 $ui->tparam(is_sent =>($mbox eq "sent"  ? 1 : 0));
+$ui->tparam(is_conversation => ($mbox eq "conversation" ? 1 : 0));
 $ui->tparam(notes=>$rv);
 $ui->tparam(%{$page_nav});
 

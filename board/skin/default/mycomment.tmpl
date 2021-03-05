@@ -1,0 +1,59 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<div class="top-head">
+<h1><a href="mycomment.cgi">내가 쓴 짧은 답글 보기</a></h1>
+<span class="owner">: <tmpl_include _name_id.tmpl></span>
+<span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
+</div>
+
+<!-- LIST -->
+<div class="visualClear" style="height: 20px;"></div>
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi" accesskey="b">즐겨찾기</a></li>
+<tmpl_loop prev_board>
+<li class="button opt"><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="p">이전:<tmpl_var title></a></li>
+</tmpl_loop>
+<tmpl_loop next_board>
+<li class="button opt"><a href="read.cgi?bid=<tmpl_var board_id><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="n">다음:<tmpl_var title></a></li>
+</tmpl_loop>
+<tmpl_loop next_new_board>
+<li class="button right"><a href="read.cgi?bid=<tmpl_var board_id>;la=<tmpl_var article_no>;lc=<tmpl_var comment_no><tmpl_if is_imgboard>;img=1</tmpl_if>" title="<tmpl_var name> (<tmpl_var id>)" accesskey="k"><span class="title"><tmpl_var title></span><span>:<tmpl_if new_articles> <tmpl_var new_articles> </tmpl_if><tmpl_if new_comments> [<tmpl_var new_comments>]</tmpl_if></span></a></li>
+</tmpl_loop>
+<li class="button separator" id="article-<tmpl_var article_id>"><a>&nbsp;</a></li>
+</ul>
+
+<div class="article-list wrapper">
+<ul class="article-list head">
+  <li class="board2">board</li>
+  <li class="article">article</li>
+  <li class="comment">comment</li>
+  <li class="date">date</li>
+</ul>
+
+<tmpl_loop list>
+<ul class="article-list">
+  <li class="board2"><a href="mycomment.cgi?bid=<tmpl_var board_id>"><tmpl_var board_title></a></li>
+  <li class="article"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>"><tmpl_var article_title></a></li>
+  <li class="comment"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page>#c<tmpl_var comment_no>"><tmpl_var comment></a></li>
+  <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
+  <li class="delete">
+  <a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>&redirect=mycomment" onclick="return window.confirm('Delete this comment?');">x</a></li>
+</ul>
+</tmpl_loop>
+</div><!-- article-list wrapper -->
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi">즐겨찾기</a></li>
+<li class="button"><tmpl_if prev_board><a href="read.cgi?bid=<tmpl_var board_id>;a=db<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_DELBOOKMARK></a><tmpl_else><a href="read.cgi?bid=<tmpl_var board_id>;a=ab<tmpl_if img>;img=1</tmpl_if>"><tmpl_var T_ADDBOOKMARK></a></tmpl_if></li>
+
+<li class="button right"><tmpl_if img><a href="read.cgi?bid=<tmpl_var board_id>"><tmpl_var T_ARTICLELIST></a><tmpl_else><a href="read.cgi?bid=<tmpl_var board_id>;img=1"><tmpl_var T_IMGLIST></a></tmpl_if></li>
+
+<li class="button separator"><a>&nbsp;</a></li>
+</ul>
+
+<tmpl_include _page_nav_special.tmpl>
+
+<tmpl_include _footer.tmpl>

@@ -5,16 +5,15 @@ use strict;
 use warnings;
 use CGI qw(:standard);
 
-use lib "../lib";
-use Bawi::Auth; 
-use Bawi::Main::UI;
-use Bawi::Main::Note;
-use Bawi::Main::RecentAccess;
+require Bawi::Auth; 
+require Bawi::Main::UI;
+require Bawi::Main::Note;
+require Bawi::Main::RecentAccess;
 
 my $q = new CGI;
 $q->charset('utf-8'); # for proper escapeHTML.
 
-my $ui = new Bawi::Main::UI;
+our $ui = new Bawi::Main::UI;
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg); 
 my $n = new Bawi::Main::Note(-dbh=>$ui->dbh);
 my $ra = new Bawi::Main::RecentAccess(-dbh=>$ui->dbh);
@@ -39,7 +38,7 @@ if ($auth->auth && $auth->{id}) {
     my $notes = $n->check_new_msg($id);
     my $has_messages = ( $notes ? @{$notes} : $notes );
 
-    print $q->header( -charset=>'utf-8', -type=>'text/html' );
+    print $q->header( -charset=>'utf-8', -type=>'text/html', -bawiuser => $id );
     if( $has_messages > 0 ) {
         print div({class=>"note alert"}, alert_message($has_messages, $notes));
     } else {

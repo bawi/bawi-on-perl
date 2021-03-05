@@ -32,7 +32,7 @@
 
 <tr>
   <td class="label"><label for="body"><tmpl_var T_BODY></label></td>
-  <td><textarea class="body" name="body"><tmpl_var body></textarea></td>
+  <td><textarea id="body" class="body" name="body"><tmpl_var body></textarea></td>
 </tr>
 
 <!--tr>
@@ -80,4 +80,58 @@
 </table>
 </fieldset>
 </form>
+
+<script type="text/javascript">
+(function () {
+	localStorage.setItem('signature', document.getElementById('body').value);
+	if (localStorage.getItem('autosave') != 'off') {
+		if (localStorage.getItem('draft') != null) {
+			if (localStorage.getItem('draft') != localStorage.getItem('signature') ) {
+				if (confirm('임시 저장된 글이 있습니다. 불러오시겠습니까?')) {
+					draft_load();
+				} else {
+					draft_clear();
+				}
+			}
+		}
+		startDraftSave = setInterval(function() {
+			draft_save();
+		}, 10000);
+	}
+}());
+function draft_save() {
+	if (document.getElementById('body').value != localStorage.getItem('signature') ) {	
+		localStorage.setItem('draft', document.getElementById('body').value);
+	}
+	if (document.getElementById('title').value != "") {
+                localStorage.setItem('title', document.getElementById('title').value);
+	}
+}
+function draft_load() {
+	document.getElementById("body").value = localStorage.getItem("draft");
+	document.getElementById("title").value = localStorage.getItem("title");
+	//localStorage.removeItem("draft");
+}
+function draft_clear() {
+	localStorage.removeItem("draft");
+	localStorage.removeItem("title");
+}
+</script>
+
+<div id="toggle_autosave" class="debug">
+<a id="toggle_autosave_button" onclick="javascript:toggle_autosave();">toggle autosave</a>
+<script type="text/javascript">
+function toggle_autosave() {
+        var onoff = localStorage.getItem("autosave");
+        if (onoff == "off") {
+                localStorage.setItem("autosave", "on");
+                document.getElementById("toggle_autosave_button").innerHTML="autosave function is enabled";
+        } else {
+                localStorage.setItem("autosave", "off");
+                document.getElementById("toggle_autosave_button").innerHTML="autosave function is disabled";
+        }
+}
+</script>
+</div>
+
 </tmpl_if>

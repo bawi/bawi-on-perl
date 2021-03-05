@@ -53,10 +53,14 @@ ul.article li.count   { float: left; padding-left: 8px; white-space: nowrap; }
 ul.article li.visualClear { clear: left; width: 100%; height: 0; border-bottom: 1px solid #C5CDD8; }
 ul.article li.visualClear { font-size: 0px; }
 ul.article li.body        { float: none; clear: both; overflow: visible; width: 100%; padding: 6px 0 5px 0; border-bottom: 1px solid #C5CDD8; }
+ul.article li.body        { width: expression(this.clientWidth > 600 ? '600px' : 'auto'); margin: 0 auto 0 auto; }
 ul.article li.body.text   { line-height: 170%; white-space: pre-wrap; text-align: justify; padding: 20px 0 10px 0;  }
 ul.article li.body.text   { border-bottom: 0; }
-ul.article li.body.text   { width: expression(this.clientWidth > 600 ? '600px' : 'auto'); margin: 0 auto 0 auto; }
 ul.article li.body.text table.safety.wrapper { width: 100%; }
+ul.article li.attach ol   { list-style: decimal; padding: 0; overflow: hidden; }
+ul.article li.attach li   { padding: 0; margin: 0; line-height: 170%; vertical-align: top; list-style-position: inside; }
+ul.article li.attach a    { display: inline; }
+ul.article li.attach img  { max-width: 100%; }
 
 ul.article li.button   { float: left; text-overflow: ellipsis; padding: 4px 8px 4px 8px; line-height: 170%; }
 ul.article li.button   { color: white; background: #8B98B1; white-space: nowrap; max-width: 10em; padding: 0; }
@@ -65,7 +69,6 @@ ul.article li.button a { color: white; background: #8B98B1; display: block; padd
 ul.article li.button.separator { float: none; width: auto; max-width: 100%; }
 ul.article li.button.separator a { visibility: hidden; }
 ul.article li.button.right { float: right; }
-ul.article li.body.text table.safety.wrapper { width: 100%; }
 
 
 ul.comment            { display: block; border-bottom: 1px solid #C5CDD8; }
@@ -87,7 +90,7 @@ ul.article-list li.rec   { width:  30px; }
 ul.article-list li.scrp  { width:  30px; }
 
 ul.page-nav li { display: inline; padding: 1px 3px 1px 3px; }
-/* 
+/*
 ul.article-subject { border: 1px dotted blue; }
 ul.comment-form      { border: 1px dotted red;  }
 ul.comment-form > li { border: 1px dotted green; }
@@ -96,4 +99,3 @@ ul.comment-form > li { border: 1px dotted green; }
 ul.user-list li { display: inline; zoom: 1; }
 
 ul.bottom-menu li   { display: inline; zoom: 1; }
-
