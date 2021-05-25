@@ -1059,14 +1059,16 @@ sub get_recom_user_list {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id});
 
-    my $sql = qq(SELECT a.uid, a.id, a.name 
+    my $sql = qq(SELECT a.uid, a.id, a.name, b.rectime 
                  FROM $TBL{passwd} as a, $TBL{recom} as b 
-                 WHERE a.uid=b.uid && b.article_id=?);
+                 WHERE a.uid=b.uid && b.article_id=? ORDER BY b.rectime);
     my $rv = $DBH->selectall_hashref($sql, 'uid', undef, $arg{-article_id});
-    my @rv = sort { $a->{name} cmp $b->{name} ||
-                    $a->{id} cmp $b->{id} }
-             map { $$rv{$_} }
+    my @rv = sort { $a->{rectime} cmp $b->{rectime} }
+#    my @rv = sort { $a->{name} cmp $b->{name} ||
+#                    $a->{id} cmp $b->{id} }
+              map { $$rv{$_} }
              keys %$rv;
+
     return \@rv;
 }
 
