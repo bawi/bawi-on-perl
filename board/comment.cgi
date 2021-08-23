@@ -18,7 +18,7 @@ my $q = $ui->cgi;
 
 my ($action, $bid, $aid, $p, $img) = map {$q->param($_) || ''} qw(action bid aid p img);
 
-my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh) 
+my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh)
     if ($bid);
 
 my $grp = new Bawi::Board::Group(-gid=>$xb->gid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
@@ -38,7 +38,7 @@ if ($auth->auth) {
     ($uid, $id, $name) = (0, 'guest', 'guest');
 }
 
-my $allow_comment = $grp->authz(-uid=>$uid, 
+my $allow_comment = $grp->authz(-uid=>$uid,
                                 -ouid=>$xb->uid,
                                 -gperm=>$xb->g_comment,
                                 -mperm=>$xb->m_comment,
@@ -58,12 +58,12 @@ if ($xb->board_id && $allow_comment) {
                 if ($body !~ m#class="twitter-tweet"#) {
                     use JSON;
                     use HTTP::Tiny;
-                    my $url = "https://publish.twitter.com/oembed?url=$tweet_url";
+                    use Encode qw/encode/;
+                    my $url = "https://publish.twitter.com/oembed?omit_script=1&url=$tweet_url";
                     my $response = HTTP::Tiny->new->get($url);
                     if ($response->{success} and length $response->{content}) {
-                        my $embed_tweet = JSON->new->utf8->decode($response->{content});
-                        $body =~ s/https:\/\/twitter.com\/[A-Za-z0-9_]{1,15}\/status\/[^\s]+/$$embed_tweet{html}/g;
-                        $body =~ s/<script async src="https:\/\/platform.twitter.com\/widgets.js" charset="utf-8"><\/script>//g;
+                        my $embed_tweet = encode('UTF-8', JSON->new->utf8->decode($response->{content})->{html});
+                        $body =~ s/https:\/\/twitter.com\/[A-Za-z0-9_]{1,15}\/status\/[^\s]+/$embed_tweet/g;
                     }
                 }
             }
