@@ -35,7 +35,10 @@
 <li class="visualClear"></li>
 
 <tmpl_if attach>
+<tmpl_if expired>
+<tmpl_else>
 <li class="body attach"><tmpl_include _attach.tmpl></li>
+</tmpl_if>
 </tmpl_if>
 
 <li class="body text"><table class="safety wrapper"><tr><td><tmpl_if expired><img src="../user/photo.cgi?id=root" border="1" width="105" height="140" alt="photo"/>게시판 설정 읽기 유효기간이 지났습니다.</div><tmpl_else><tmpl_var body></tmpl_if></td></tr></table></li>
