@@ -1,0 +1,161 @@
+/* palette 
+#222 background
+#bbb text
+#ddd brighter text
+#666 border
+#555 header
+#444 darker items
+*/
+#globalWrapper {
+  background-color: #222 !important;
+}
+body {
+  color: #bbb !important;
+  background-color: #222 !important;
+}
+.body.text a    { 
+  background: #333 !important; 
+}
+a {
+  color: #bbb !important;
+}
+a.auto {
+  background-color: transparent !important;
+}
+input.text {
+  background-color: #ccc !important;
+  color: #333 !important;
+  border: none !important;
+}
+table.login-form input  {
+  color: #bbb !important;
+  background-color:#555 !important;
+}
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
+  color: #ddd !important;
+}
+h1, h2, h3, h4, h5, h6 {
+  color: #ddd !important;
+}
+span.quoted1 {
+  color: #789 !important;
+}
+/* top menu and front page */
+#top-menu {
+  background: #222 !important;  
+}
+#top-menu ul.contents-menu
+{
+  background: #444 !important;
+}
+body.news #wp #s1 { 
+  background:transparent !important; 
+}
+body.news #wp #s2 { 
+  background:transparent !important; 
+}
+body.news #wp #s3 { 
+  background: transparent !important; 
+}
+div.recent-articles {
+  border: 1px dotted #666 !important;
+  background: #555 !important;
+}
+.spotlight.orange { 
+  background: #000 !important;  
+  border: 1px dotted #773 !important; 
+}
+.spotlight.cyan   { 
+  background: #000 !important; 
+  border: 1px dotted #38b !important; 
+}
+ul.focus {
+  background: #331 !important;
+}
+ul.article > li.button.right > a > span {
+  color: #ca1 !important;
+  font-weight: bold !important;
+}
+/* list items for 
+article, comment, bookmark */
+ul.article-list.head { 
+  background: #444 !important; 
+}
+ul.article > li.button   { 
+  color: #bbb !important; 
+  background: #555 !important;  
+}
+ul.article > li.button a { 
+  color: #bbb !important; 
+  background: #555 !important; 
+}
+ul.article-list li {
+  border-top: 1px dotted #666 !important;
+}
+ul.comment li {
+  border-top: 0.5px dotted #666 !important;
+  border-bottom: 0.5px dotted #666 !important;
+}
+@media screen and (max-width: 480px) {
+  ul.comment { 
+    border-bottom: 1px dotted #666 !important;
+  }
+  ul.comment li {
+    border: 0px !important;
+  }
+  ul.article-list {
+    border-top: 1px dotted #666 !important;  
+  }
+  ul.article-list li {
+    border: none !important;
+  }
+}
+
+ul.bookmark li.item.head ul li   {
+   background: #555 !important; 
+   color: #bbb !important; 
+}
+ul.comment-form input li.submit input{   
+  color: #777 !important; 
+}
+ul.comment-form li.body input {   
+  color: #333 !important; 
+}
+form.article-write textarea {
+  color: #333 !important;
+  background-color: #bbb !important;
+}
+form.article-write input  {
+  background-color: #bbb !important;
+  color: #333 !important;
+}
+form.config input {
+  color: #777 !important;
+}
+ul.bookmark li ul {
+  border-top: 0.5px dotted #666 !important;
+  border-bottom: 0.5px dotted #666 !important;
+}
+ul.image-list li {
+  background: #333 !important;
+}
+
+/* profile */
+td.iteml {
+    border-bottom: #666 1px dotted !important;
+    color: #999 !important;
+}
+
+/* note */
+body.note h1 {
+    background-color: #222 !important;
+}
+form.note label, input {
+    color: #bbb !important;
+}
+body.note div.msg { 
+  color: #bbb !important; 
+}
+div.note.alert a {
+  color: #333;
+}
