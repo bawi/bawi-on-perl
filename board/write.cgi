@@ -96,11 +96,13 @@ if ($allow_write && $bid) {
         # read original title & body & set these for default form values
         my ($original_name, $title, $body) = @{$article}{'name', 'title', 'body'};
         $original_name = '' if ($xb->is_anonboard);
+        $body = ""; # TODO fix for expiration check
         $body =~ s/\n/\n> /g;
         $body =~ s/&/&amp;/g;
         $body = "$original_name 님께서 쓰시길,\n> " . $body . "\n";
         $body .= "\n\n--\n" . $signature if $signature;
         $title = "Re: $title" unless ($title =~ /^Re: /);
+        $title = substr($title, 0, 64) if (length $title > 64);
         #$t->param(title=> $q->escapeHTML($title));
         #$t->param(body => $q->escapeHTML($body ));
         $t->param(title=>$title, body=>$body);
