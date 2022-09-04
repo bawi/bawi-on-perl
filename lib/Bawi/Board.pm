@@ -959,10 +959,19 @@ sub del_article {
         }
     }
 
-    # Delete comments from the user of the article
-    my $sql = qq(DELETE FROM $TBL{comment} 
-                 WHERE uid=? && article_id=?);
-    my $rv = $DBH->do($sql, undef, $article_uid, $arg{-article_id});
+    my $sql = qq(UPDATE $TBL{head} SET recom=0 WHERE article_id=?);
+    my $rv = $DBH->do($sql, undef, $arg{-article_id});
+
+    $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
+
+    $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
+
+    # Update the comments from the user of the article
+    $sql = qq(UPDATE $TBL{comment} SET body=? WHERE uid=? && article_id=?);
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $article_uid, $arg{-article_id});
+
     if ($rv == 1) {
         ++$del;
         # If comments are deleted, possibly references should be cleaned up as well.
@@ -979,16 +988,16 @@ sub del_article {
                     
     }
 
-    # Update the dangling comments that have the article_id
-    $sql = qq(UPDATE $TBL{comment} SET article_id=0 WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, $arg{-article_id});
+#    # Update the dangling comments that have the article_id
+#    $sql = qq(UPDATE $TBL{comment} SET article_id=0 WHERE article_id=?);
+#    $rv = $DBH->do($sql, undef, $arg{-article_id});
 
-    if ($del) {
-        &dec_article_count($arg{-board_id});
-        &update_max_article_no($arg{-board_id});
-        &update_max_comment_no($arg{-board_id});
-        &update_bookmark($arg{-board_id});
-    }
+#    if ($del) {
+#        &dec_article_count($arg{-board_id});
+#        &update_max_article_no($arg{-board_id});
+#        &update_max_comment_no($arg{-board_id});
+#        &update_bookmark($arg{-board_id});
+#    }
     return $del;
 }
 
@@ -1332,20 +1341,20 @@ sub del_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
-    my $sql = qq(DELETE FROM $TBL{comment} WHERE comment_id = ?);
-    my $rv = $DBH->do($sql, undef, $arg{-comment_id});
-    if ($rv) {
-        &dec_comment_count($arg{-article_id});
-        &update_max_comment_no( $arg{-board_id} );
-        &update_bookmark( $arg{-board_id} );
-
-        # remove also for the commentref
-        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
-        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-
-        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
-        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-    }
+    my $sql = qq(UPDATE $TBL{comment} SET body= ?  WHERE comment_id = ?);
+    my $rv = $DBH->do($sql, undef, "** Deleted by author **", $arg{-comment_id}); 
+#    if ($rv) {
+#        &dec_comment_count($arg{-article_id});
+#        &update_max_comment_no( $arg{-board_id} );
+#        &update_bookmark( $arg{-board_id} );
+#
+##        # remove also for the commentref
+##        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
+##        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+##
+##        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
+##        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+#    }
     return $rv;
 }
 
