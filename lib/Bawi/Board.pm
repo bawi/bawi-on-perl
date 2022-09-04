@@ -962,7 +962,7 @@ sub del_article {
     }
 
     my $sql = qq(UPDATE $TBL{head} SET recom=0 WHERE article_id=?);
-    mv $rv = $DBH->do($sql, undef, $arg{-article_id});
+    $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
     $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
