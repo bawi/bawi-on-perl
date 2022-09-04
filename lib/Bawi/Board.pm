@@ -1013,6 +1013,17 @@ sub add_recommender {
     return $rv;
 }
 
+sub retract_recommender {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-article_id} && exists $arg{-uid});
+
+    my $sql = qq(UPDATE $TBL{recom} SET retracttime=NOW() WHERE uid=? && article_id=? LIMIT 1);
+    my $rv = $DBH->do($sql, undef, $arg{-uid}, $arg{-article_id});
+
+    &dec_recom_count($arg{-article_id}) if ($rv and $self->{allow_recom} == 1);
+    return $rv;
+}
+
 sub add_recom {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id} && exists $arg{-uid});
@@ -1068,7 +1079,7 @@ sub get_recom_user_list {
     my ($self, %arg) = @_;
     return unless (exists $arg{-article_id});
 
-    my $sql = qq(SELECT a.uid, a.id, a.name, b.rectime 
+    my $sql = qq(SELECT a.uid, a.id, a.name, b.rectime, b.retracttime
                  FROM $TBL{passwd} as a, $TBL{recom} as b 
                  WHERE a.uid=b.uid && b.article_id=? ORDER BY b.rectime);
     my $rv = $DBH->selectall_hashref($sql, 'uid', undef, $arg{-article_id});
@@ -2401,6 +2412,14 @@ sub add_recom_count {
     my ($aid) = shift;
 
     my $sql = qq(UPDATE $TBL{head} set recom=recom+1 WHERE article_id=?);
+    my $rv = $DBH->do($sql, undef, $aid);
+    return $rv;
+}
+
+sub dec_comment_count {
+    my ($aid) = shift;
+
+    my $sql = qq(UPDATE $TBL{head} set recom=recom-1 WHERE article_id=?);
     my $rv = $DBH->do($sql, undef, $aid);
     return $rv;
 }

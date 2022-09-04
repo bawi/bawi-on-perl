@@ -6,7 +6,7 @@
 
 <ul class="user-list">
 <tmpl_loop recom_user_list>
-  <li><tmpl_include _name_id.tmpl></li>
+  <li><tmpl_if retracttime><s></tmpl_if><tmpl_include _name_id.tmpl><tmpl_if retracttime></s></tmpl_if></li>
 </tmpl_loop>
 </ul>
 
