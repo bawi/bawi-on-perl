@@ -2416,7 +2416,7 @@ sub add_recom_count {
     return $rv;
 }
 
-sub dec_comment_count {
+sub dec_recom_count {
     my ($aid) = shift;
 
     my $sql = qq(UPDATE $TBL{head} set recom=recom-1 WHERE article_id=?);

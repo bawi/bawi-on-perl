@@ -58,6 +58,10 @@
 <li class="button"><a class="button recom" href="recom.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onclick="if (window.confirm('Recommend this article?')) { tag_article('recom','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_RECOMMEND></a></li>
 </tmpl_if></tmpl_if></tmpl_unless>
 
+<tmpl_unless is_owner><tmpl_if allow_recom><tmpl_if session_key>
+<li class="button"><a class="button retract" href="retract.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onclick="if (window.confirm('Retract recommendation?')) { tag_article_retract('retract','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_RECOMMEND></a></li>
+</tmpl_if></tmpl_if></tmpl_unless>
+
 <tmpl_if allow_scrap><tmpl_if session_key>
 <!--td class="thead" nowrap><a href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page><tmpl_if img>;img=1</tmpl_if><tmpl_if session_key>;s=<tmpl_var session_key></tmpl_if>" onClick="return window.confirm('Scrap this article?');">스크랩</a></td-->
 <li class="button"><a class="button scrap" href="scrap.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;lc=<tmpl_var last_comment_no>" onClick="if (window.confirm('Scrap this article?')) { tag_article_scrap('scrap','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var last_comment_no>','<tmpl_var session_key>');} return false;"><tmpl_var T_SCRAP></a></li>

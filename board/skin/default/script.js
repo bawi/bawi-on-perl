@@ -361,6 +361,32 @@ function tag_article(action, bid, aid, s) {
     }
 }
 
+function tag_article_retract(action, bid, aid, s) {
+    var url = action + "2.cgi";
+    var param = "bid=" + escape(bid) + ";aid=" + escape(aid) + ";s=" + s;
+    var c = new XHConn();
+    if (!c) alert("XMLHTTP not available. Try a newer/better browser.");
+    c.connect(url, "GET", param, handleHttpResponse);
+
+    function handleHttpResponse(c) {
+        var xml = c.responseXML;
+        var error = xml.getElementsByTagName('error').item(0).firstChild.data;
+        var msg = xml.getElementsByTagName('msg').item(0).firstChild.data;
+        var type = xml.getElementsByTagName('type').item(0).firstChild.data;
+        var aid = xml.getElementsByTagName('aid').item(0).firstChild.data;
+        var id = type + '-' + aid;
+        if (error == 0 && type != 'notice') {
+            var article = document.getElementById(id);
+            var list = document.getElementById(id + "-list");
+            var acount = eval(article.innerHTML) - 1;
+            var lcount = eval(list.innerHTML) - 1;
+            article.innerHTML = acount;
+            list.innerHTML = lcount;
+        }
+        alert(msg);
+    }
+}
+
 function tag_article_scrap(action, bid, aid, lc, s) {
     var url = action + "2.cgi";
     var param = "bid=" + escape(bid) + ";aid=" + escape(aid) + ";lc=" + escape(lc) + ";s=" + s;
