@@ -59,7 +59,7 @@
 </tmpl_if></tmpl_if></tmpl_unless>
 
 <tmpl_unless is_owner><tmpl_if allow_recom><tmpl_if session_key>
-<li class="button"><a class="button retract" href="retract.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onclick="if (window.confirm('Retract recommendation?')) { tag_article_retract('retract','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_RECOMMEND></a></li>
+<li class="button"><a class="button retract" href="retract.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>" onclick="if (window.confirm('Retract recommendation?')) { tag_article_retract('retract','<tmpl_var board_id>','<tmpl_var article_id>','<tmpl_var session_key>');} return false;"><tmpl_var T_RETRACT></a></li>
 </tmpl_if></tmpl_if></tmpl_unless>
 
 <tmpl_if allow_scrap><tmpl_if session_key>
