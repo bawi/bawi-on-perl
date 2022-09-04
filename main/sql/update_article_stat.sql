@@ -7,4 +7,8 @@ insert into bw_xboard_stat_article (board_id, article_id, title, id, name, count
          && a.recom > 2 
          && a.count > 20 && a.count < 4000 
          && a.article_id != 1364142
+         && c.retracttime IS NULL
     group by a.article_id order by a.recom desc, a.count desc, a.comments desc;
+
+insert into bw_xboard_stat_article (board_id, article_id, title, id, name, count, recom, comments, created, ki) select board_id, article_id, title, id, name, count, recom, comments, created, 3 from bw_xboard_header where article_id=1740660;
+
