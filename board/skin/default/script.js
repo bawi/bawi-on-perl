@@ -127,6 +127,44 @@ document.observe("dom:loaded", function() {
   if ( $('attach-more') ) $('attach-more').observe('click', add_attach_form);
 });
 
+function paste_to_next_empty_files(e) {
+    if (e.clipboardData.files.length > 0) {
+        var attach_count = $('attach-count').value;
+
+        function maybe_add_to(i) {
+            var input_field = document.getElementById("attach" + i);
+
+            if (input_field != null) {
+                if (input_field.files.length == 0) {
+                    const dt = new DataTransfer();
+                    for(var j = 0; j < e.clipboardData.files.length; ++j) {
+                        var file = e.clipboardData.files[j]; 
+                        /* Hack to avoid duplicated filenames from pasting clipboard */
+                        if (file.name == 'image.png') {
+                            const newfile = new File([file], 'image_' + i + '_' + j + '.png', {type: file.type});
+                            file = newfile;
+                        }
+                        dt.items.add(file);
+                    }
+                    input_field.files = dt.files;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        for(var i = 1; i <= attach_count; ++i) {
+            if (maybe_add_to(i)) return; 
+        }
+
+        add_attach_form(e);
+        maybe_add_to($('attach-count').value);
+
+        return false;
+    }
+}
+
 function add_attach_form(e) {
     e.stop(); /* prevent default action */
 
@@ -160,7 +198,7 @@ function new_attach_form(name)
     td1.insert({bottom: new Element("label", {'for':name}).update(name.capitalize())});
 
     var td2 = new Element("td");
-    td2.insert({bottom: new Element("input", {type:"file", 'class':"file", name:name})});
+    td2.insert({bottom: new Element("input", {type:"file", 'class':"file", name:name, id:name})});
     td2.insert({bottom: new Element("a",{'class':"button"}).update("x").observe('click',remove_attach_form)});
 
     return new Element("tr").insert({bottom: td1}).insert({bottom: td2});
