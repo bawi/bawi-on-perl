@@ -24,6 +24,8 @@ use vars qw( %Lexicon );
     'T_READ' => '읽음',
     'T_RECOMMEND' => '추천',
     'T_RECOMMENDED' => '추천',
+    'T_RETRACT' => '철회',
+    'T_RETRACTED' => '철회',
     'T_SCRAP' => '스크랩',
     'T_SCRAPPED' => '스크랩',
     'T_SCRAPBOOK' => '스크랩북',
