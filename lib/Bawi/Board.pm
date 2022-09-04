@@ -952,9 +952,10 @@ sub del_article {
     # $TBL{head}, $TBL{body}, $TBL{comment}, $TBL{attach}, ($TBL{notice})
     # update $TBL{board}: articles
     my $del = 0;
-    foreach my $i ( qw(attach notice) ) {
+    my $rv;
+    foreach my $i ( qw( attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
-        my $rv = $DBH->do($sql, undef, $arg{-article_id});
+        $rv = $DBH->do($sql, undef, $arg{-article_id});
         if ($rv == 1) {
             ++$del;
             $self->del_attachset(-article_id=>$arg{-article_id});
@@ -962,22 +963,22 @@ sub del_article {
     }
 
     my $sql = qq(UPDATE $TBL{head} SET recom=0 WHERE article_id=?);
-    mv $rv1 = $DBH->do($sql, undef, $arg{-article_id});
+    $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
-    my $rv2 = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
-    my $rv3 = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
 
     # Update the comments from the user of the article
     $sql = qq(UPDATE $TBL{comment} SET body=? WHERE uid=? && article_id=?);
-    my $rv4 = $DBH->do($sql, undef, "Deleted by author", $article_uid, $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "Deleted by author", $article_uid, $arg{-article_id});
 
     # Given that the comments are NEVER removed, 
     # article count, max article_no, max_comment_no problem becomes obsolete.
 
-    if ($rv2 == 1) {
+    if ($rv == 1) {
         ++$del;
         # If comments are deleted, possibly references should be cleaned up as well.
         # In general, only need to SQL select ref_ids that no longer exists in comment
