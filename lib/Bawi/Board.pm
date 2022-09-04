@@ -950,7 +950,7 @@ sub del_article {
     # $TBL{head}, $TBL{body}, $TBL{comment}, $TBL{attach}, ($TBL{notice})
     # update $TBL{board}: articles
     my $del = 0;
-    foreach my $i ( qw( head body attach notice) ) {
+    foreach my $i ( qw( attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
         my $rv = $DBH->do($sql, undef, $arg{-article_id});
         if ($rv == 1) {
