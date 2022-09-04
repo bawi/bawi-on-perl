@@ -952,7 +952,6 @@ sub del_article {
     # $TBL{head}, $TBL{body}, $TBL{comment}, $TBL{attach}, ($TBL{notice})
     # update $TBL{board}: articles
     my $del = 0;
-    my $rv;
     foreach my $i ( qw( attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
         $rv = $DBH->do($sql, undef, $arg{-article_id});
@@ -963,7 +962,7 @@ sub del_article {
     }
 
     my $sql = qq(UPDATE $TBL{head} SET recom=0 WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, $arg{-article_id});
+    my $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
     $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
