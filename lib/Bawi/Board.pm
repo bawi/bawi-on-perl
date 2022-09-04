@@ -954,7 +954,7 @@ sub del_article {
     my $del = 0;
     foreach my $i ( qw( attach notice) ) {
         my $sql = qq(DELETE FROM $TBL{$i} WHERE article_id=?);
-        $rv = $DBH->do($sql, undef, $arg{-article_id});
+        my $rv = $DBH->do($sql, undef, $arg{-article_id});
         if ($rv == 1) {
             ++$del;
             $self->del_attachset(-article_id=>$arg{-article_id});
