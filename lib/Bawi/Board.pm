@@ -940,8 +940,6 @@ sub edit_article {
 }
 
 sub del_article { 
-    # 2022-09-03. Instead of removing from the DB, now this updates the body & title
-    # all comments will also be updated rather than removed.
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-article_id});
 
@@ -965,17 +963,14 @@ sub del_article {
     my $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
 
     # Update the comments from the user of the article
     $sql = qq(UPDATE $TBL{comment} SET body=? WHERE uid=? && article_id=?);
-    $rv = $DBH->do($sql, undef, "Deleted by author", $article_uid, $arg{-article_id});
-
-    # Given that the comments are NEVER removed, 
-    # article count, max article_no, max_comment_no problem becomes obsolete.
+    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $article_uid, $arg{-article_id});
 
     if ($rv == 1) {
         ++$del;
@@ -996,7 +991,7 @@ sub del_article {
 #    # Update the dangling comments that have the article_id
 #    $sql = qq(UPDATE $TBL{comment} SET article_id=0 WHERE article_id=?);
 #    $rv = $DBH->do($sql, undef, $arg{-article_id});
-#
+
 #    if ($del) {
 #        &dec_article_count($arg{-board_id});
 #        &update_max_article_no($arg{-board_id});
@@ -1343,25 +1338,23 @@ sub get_new_comments {
 }
 
 sub del_comment {
-    # instead of deleting comment, will update the body
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
-    my $sql = qq(UPDATE $TBL{comment} SET body=? WHERE comment_id = ? LIMIT 1);
-    my $rv = $DBH->do($sql, undef, "Deleted by author", $arg{-comment_id}); 
-
-    if ($rv) {
+    my $sql = qq(UPDATE $TBL{comment} SET body= ?  WHERE comment_id = ?);
+    my $rv = $DBH->do($sql, undef, "** Deleted by author **", $arg{-comment_id}); 
+#    if ($rv) {
 #        &dec_comment_count($arg{-article_id});
 #        &update_max_comment_no( $arg{-board_id} );
 #        &update_bookmark( $arg{-board_id} );
-
-        # remove also for the commentref
-#        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
-#        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-
-#        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
-#        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-    }
+#
+##        # remove also for the commentref
+##        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
+##        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+##
+##        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
+##        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+#    }
     return $rv;
 }
 
@@ -1369,7 +1362,7 @@ sub del_commentset {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-article_id} && exists $arg{-board_id});
 
-    # this is deprecated because now deletes only user id generated comments
+    # this is deprecated because deletes only user id generated comments
     # so be careful in using this!
 
     my $sql = qq(DELETE FROM $TBL{comment} WHERE board_id=? && article_id=?);
@@ -2409,14 +2402,6 @@ sub add_recom_count {
 
     my $sql = qq(UPDATE $TBL{head} set recom=recom+1 WHERE article_id=?);
     my $rv = $DBH->do($sql, undef, $aid);
-    return $rv;
-}
-
-sub dec_recom_count {
-    my ($aid) = shift;
-
-    my $sql = qq(UPDATE $TBL{head} set recom=recom-1 WHERE article_id=?);
-    my $rv = $DBH->do($sql, under, $aid);
     return $rv;
 }
 
