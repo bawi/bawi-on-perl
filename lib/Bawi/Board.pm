@@ -963,14 +963,14 @@ sub del_article {
     my $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $arg{-article_id});
 
     # Update the comments from the user of the article
     $sql = qq(UPDATE $TBL{comment} SET body=? WHERE uid=? && article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by author ***", $article_uid, $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $article_uid, $arg{-article_id});
 
     if ($rv == 1) {
         ++$del;
@@ -1353,7 +1353,7 @@ sub del_comment {
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
     my $sql = qq(UPDATE $TBL{comment} SET body= ?  WHERE comment_id = ?);
-    my $rv = $DBH->do($sql, undef, "** Deleted by author **", $arg{-comment_id}); 
+    my $rv = $DBH->do($sql, undef, "** Deleted by the author **", $arg{-comment_id}); 
 #    if ($rv) {
 #        &dec_comment_count($arg{-article_id});
 #        &update_max_comment_no( $arg{-board_id} );
