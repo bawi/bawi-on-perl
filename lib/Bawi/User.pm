@@ -310,6 +310,15 @@ sub has_facebook {
     my $has_facebook = $rv ? 1 : 0;
     return $has_facebook;
 }
+
+sub has_affiliation {
+    my ($self, $uid, $type) = @_;
+    my $sql = qq(select affiliation from bw_user_basic where affiliation != '' && uid=?);
+    my $rv = $DBH->selectrow_array($sql, undef, $uid);
+    my $has_affiliation = $rv ? 1 : 0;
+    return $has_affiliation;
+}
+
 sub has_circle {
     my ($self, $uid) = @_;
     my $sql = qq(select count(*) from bw_user_circle where uid=?);

@@ -43,7 +43,7 @@
     <td class="iteml"><tmpl_var ename></td>
 <tr>
     <td class="lhead" nowrap>소속</td>
-    <td class="iteml"><tmpl_var affiliation></td>
+    <td class="iteml"><tmpl_if has_affiliation><tmpl_var affiliation></tmpl_if></td>
 </tr>
     <tmpl_if title>
 <tr>

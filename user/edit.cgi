@@ -72,7 +72,7 @@ if ($uid) {
                  ($i eq 'email' && ($len < 10 || $value !~ /@/ ) ) ) {
                  ++$error;
             }
-            if ($i =~ /_map/ && $value !~ /^http:\/\/maps.google.com\/.+q=.+ll=/) {
+            if ($i =~ /_map/ && ($value !~ /^https:\/\/maps.google.com\/.+q=.+ll=/) and ($value !~ /^https:\/\/www.google.com\/maps\/place\//)) {
                 $value = '';
             }
             push @update, [$uid, $field, $value] unless ($error);

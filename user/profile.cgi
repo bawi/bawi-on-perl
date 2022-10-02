@@ -65,6 +65,7 @@ if ($id) {
     $$p{has_degree} = $user->has_degree($auth->uid);
     $$p{has_circle} = $user->has_circle($auth->uid);
     $$p{has_class} = $user->has_class($auth->uid);
+    $$p{has_affiliation} = $user->has_affiliation($auth->uid);
     foreach my $i (qw(google msn nate yahoo)) {
         $$p{"has_im_$i"} = $user->has_im($auth->uid, $i);
     }
