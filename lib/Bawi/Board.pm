@@ -881,6 +881,32 @@ sub add_article {
                    exists $arg{-name}
                   );
 
+    # Check whether the title and the article body is the same for the last one
+    my $query_sql1 = qq(SELECT article_id FROM $TBL{head}
+                 WHERE board_id=? && id=? && title=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
+
+    my $query_rv1 = $DBH->selectrow_hashref($query_sql1, undef, $arg{-board_id}, 
+                                               $arg{-id}, 
+                                               $arg{-title},
+                          );
+    if ($query_rv1) {
+        # duplicate title exist for the particular board_id, id
+        # now need to check whether that article has the same body
+        
+        my $query_sql2 = qq(SELECT body FROM $TBL{body}
+                                WHERE board_id=? && article_id=? && body LIKE ?);
+        my $query_rv2 = $DBH->selectrow_hashref($query_sql2, undef, $arg{-board_id},
+                                                  $query_rv1->{article_id},
+                                                  $arg{-body},
+                            );
+
+        if ($query_rv2) {
+          # most recent article with the same title and same body exists for the particular id
+          # pass
+          return $query_rv1->{article_id};
+        }
+    }
+
     # 1. lock table: $TBL{head}, $TBL{body}
     # 2. get article_no
     # 3. get parent_no if no parent_no
@@ -963,14 +989,14 @@ sub del_article {
     my $rv = $DBH->do($sql, undef, $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "[[ 작성자가 삭제하였습니다. ]]", $arg{-article_id});
 
     $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "[[ 작성자가 삭제하였습니다. ]]", $arg{-article_id});
 
     # Update the comments from the user of the article
     $sql = qq(UPDATE $TBL{comment} SET body=? WHERE uid=? && article_id=?);
-    $rv = $DBH->do($sql, undef, "*** Deleted by the author ***", $article_uid, $arg{-article_id});
+    $rv = $DBH->do($sql, undef, "[[ 작성자가 삭제하였습니다. ]]", $article_uid, $arg{-article_id});
 
     if ($rv == 1) {
         ++$del;
@@ -1173,6 +1199,21 @@ sub add_comment {
                          exists $arg{-name}
                         );
 
+    # Check whether the comment body is the same for the last one
+    my $query_sql = qq(SELECT body FROM $TBL{comment}
+                 WHERE board_id=? && article_id=? && id=? && body=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
+
+    my $query_rv = $DBH->selectrow_hashref($query_sql, undef, $arg{-board_id}, 
+                                               $arg{-article_id}, 
+                                               $arg{-id}, 
+                                               $arg{-body},
+                          );
+    if ($query_rv) {
+        # duplicate record exist for the particular board_id, article_id, id
+        # do not insert duplicate
+        return $self->{max_comment_no};
+    }
+
     my $comment_no = $self->{max_comment_no} + 1;
     my $sql = qq(INSERT INTO $TBL{comment} 
                  (comment_no, board_id, article_id, body, uid, id, name, created)
@@ -1353,7 +1394,7 @@ sub del_comment {
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
     my $sql = qq(UPDATE $TBL{comment} SET body= ?  WHERE comment_id = ?);
-    my $rv = $DBH->do($sql, undef, "** Deleted by the author **", $arg{-comment_id}); 
+    my $rv = $DBH->do($sql, undef, "[[ 작성자가 삭제하였습니다. ]]", $arg{-comment_id}); 
 #    if ($rv) {
 #        &dec_comment_count($arg{-article_id});
 #        &update_max_comment_no( $arg{-board_id} );
