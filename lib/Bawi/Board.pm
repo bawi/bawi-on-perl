@@ -1393,20 +1393,37 @@ sub del_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
+    # Check whether the comment is created within 1 minute
+    my $query_sql = qq(SELECT comment_id FROM $TBL{comment}
+                 WHERE comment_id=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
+
+    my $query_rv = $DBH->selectrow_hashref($query_sql, undef, $arg{-comment_id}, 
+                          );
+    if ($query_rv) {
+        # the deletion request came within 1 minute, in which case really delete
+        my $sql = qq(DELETE FROM $TBL{comment} WHERE comment_id=? LIMIT 1);
+        my $rv = $DBH->do($sql, undef, $arg{-comment_id});
+
+        if ($rv) {
+            &dec_comment_count($arg{-article_id});
+            &update_max_comment_no( $arg{-board_id} );
+            &update_bookmark( $arg{-board_id} );
+
+            # remove also for the commentref
+            $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
+            my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+    
+            $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
+            $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+        }
+        return $rv;
+    }
+
+    # The comment is past 1 minute window
+
     my $sql = qq(UPDATE $TBL{comment} SET body= ?  WHERE comment_id = ?);
     my $rv = $DBH->do($sql, undef, "[[ 작성자가 삭제하였습니다. ]]", $arg{-comment_id}); 
-#    if ($rv) {
-#        &dec_comment_count($arg{-article_id});
-#        &update_max_comment_no( $arg{-board_id} );
-#        &update_bookmark( $arg{-board_id} );
-#
-##        # remove also for the commentref
-##        $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
-##        my $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-##
-##        $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
-##        $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
-#    }
+    
     return $rv;
 }
 
