@@ -14,7 +14,7 @@ my $auth = new Bawi::Auth(-cfg=>$cfg, -dbh=>$dbh);
 my @field = qw(id ki name affiliation email birth_year birth_month birth_day recom_id recom passwd1 passwd2 submit);
 my %f = $ui->form(@field);
 
-my $recom_ki = 29;
+my $recom_ki = 34;
 $ui->tparam(recom_ki=>$recom_ki);
 my $check = 0;
 foreach my $i (@field) {
@@ -60,15 +60,15 @@ if ($check) {
     ++$check;
     $ui->tparam(recom_id=>undef);
     $ui->tparam(msg=>qq($recom_ki 기 이상만 추천할 수 있습니다.));
-} elsif (&is_sshs($f{ki}, $f{name}, $dbh) == 0) {
+} elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) == 0) {
     ++$check;
     $ui->tparam(ki=>undef);
     $ui->tparam(name=>undef);
     $ui->tparam(msg=>qq($f{name}님은 동창회원 명단에 등록되어있지 않습니다.));
-} elsif (&is_sshs($f{ki}, $f{name}, $dbh) <= &is_registered($f{ki}, $f{name}, $dbh) ) {
+} elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) <= &is_registered($f{ki}, $f{name}, $dbh) ) {
     ++$check;
     $ui->tparam(msg=>qq($f{name}님은 이미 가입되어 있습니다.<br>webmaster\@bawi.org로 비밀번호를 문의해 주세요.));
-} elsif (&is_sshs($f{ki}, $f{name}, $dbh) <= &is_applied($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) ) {
+} elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) <= &is_applied($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) ) {
     ++$check;
     $ui->tparam(msg=>qq($f{name}님은 이미 가입신청을 하셨습니다.<br>추천인이 회원추천을 하도록 말씀해주세요.));
 }
@@ -91,6 +91,7 @@ if ($check == 0) {
 
 print $ui->output;
 
+# This code is deprecated and is replaced to is_sshs2 for additional verification
 sub is_sshs {
     my ($ki, $name, $dbh) =@_;
     my $sql = qq(select ki, name from registers where ki=? && name=?);
@@ -101,6 +102,20 @@ sub is_sshs {
         return 0;
     }
 }
+
+# Code update to check birth date alongside with the ki and name.
+sub is_sshs2 {
+    my ($ki, $name, $birth_year, $birth_month, $birth_day, $dbh) =@_;
+    my $birth = sprintf("%4d-%02d-%02d", $birth_year, $birth_month, $birth_day);
+    my $sql = qq(select ki, name, born_on from registers where ki=? && name=? && born_on=?);
+    my $rv = $dbh->selectall_arrayref($sql, undef, $ki, $name, $birth);
+    if ($rv) {
+        return scalar(@$rv);
+    } else {
+        return 0;
+    }
+}
+
 
 sub is_registered {
     my ($ki, $name, $dbh) =@_;
