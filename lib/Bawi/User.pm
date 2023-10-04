@@ -59,6 +59,9 @@ sub update_user {
     my ($self, $uid, $field, $value) = @_;
     $value = $self->ui->cgi->escapeHTML($value);
     my $table = $field eq 'email' ? 'bw_xauth_passwd' : 'bw_user_basic';
+
+    return 0 if ($field eq 'affiliation' and not $self->has_affiliation);  # if the affiliation is set to NULL, deny edit
+
     my $sql = qq(update $table set modified=now(), $field=? where uid=?);
     my $rv = $DBH->do($sql, undef, $value, $uid);
     return $rv;

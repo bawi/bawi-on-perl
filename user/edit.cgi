@@ -111,6 +111,7 @@ if ($uid) {
         }
     }
     $ui->tparam(profile=>[$user->get_user($uid)]);
+    $ui->tparam(has_affiliation=>$user->has_affiliation($auth->uid));
 }
 
 print $ui->output;

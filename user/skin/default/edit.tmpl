@@ -35,7 +35,10 @@
     <td class="iteml"><input type="text" name="ename" value="<tmpl_var ename>" maxlength="128" class="text" style="width:450px"></td>
 <tr>
     <td class="lhead" nowrap>소속 *</td>
-    <td class="iteml"><input type="text" name="affiliation" value="<tmpl_var affiliation>" maxlength="128" class="text" style="width:450px"></td>
+    <td class="iteml"><input type="text" name="affiliation" value="<tmpl_var affiliation>" maxlength="128" class="text" style="width:450px">
+    <tmpl_if has_affiliation><tmpl_else><br/>
+    소속이 지워진 경우 <a href='https://bawi.org/board/read.cgi?bid=328'>[바위에게 부탁해]</a>에 문의해주세요.</tmpl_if>
+    </td>
 </tr>
 <tr>
     <td class="lhead" nowrap>직함</td>

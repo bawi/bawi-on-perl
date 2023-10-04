@@ -43,7 +43,12 @@
     <td class="iteml"><tmpl_var ename></td>
 <tr>
     <td class="lhead" nowrap>소속</td>
-    <td class="iteml"><tmpl_if has_affiliation><tmpl_var affiliation></tmpl_if></td>
+    <td class="iteml">
+        <tmpl_if has_affiliation><tmpl_var affiliation>
+        <tmpl_else>
+        <div style="border: 1px dotted #333; padding: 0px; margin: 0px">상호주의 원칙에 따라 소속을 등록해야 다른 사람의 소속을 볼 수 있습니다.</div>
+        </tmpl_if>
+    </td>
 </tr>
     <tmpl_if title>
 <tr>
