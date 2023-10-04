@@ -2,11 +2,13 @@
 use strict;
 use lib '../lib';
 use Bawi::Auth;
+use Bawi::User;
 use Bawi::Main::UI;
 use CGI qw(escape escapeHTML);
 
 my $ui = new Bawi::Main::UI(-template=>'search.tmpl');
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
+my $user = new Bawi::User(-ui=>$ui);
 
 unless ($auth->auth) {
     print $auth->login_page($ui->cgiurl);
@@ -26,6 +28,8 @@ if ($type && $type =~ /article|people|board/ && $keyword) {
         exit(1);
     } elsif ($type eq 'people') {
         $ui->tparam(result_people=>&search_people($keyword, $ui));
+        $ui->tparam(has_phone=>$user->has_phone($auth->uid));
+        $ui->tparam(has_affiliation=>$user->has_affiliation($auth->uid));
     } elsif ($type eq 'board') {
         $ui->tparam(result_board=>&search_board($keyword, $ui));
     }
