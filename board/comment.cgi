@@ -53,8 +53,9 @@ if ($xb->board_id && $allow_comment) {
 
             # check whether it is a tweet link
             # and retrieve from JSON API
-            if ($body =~ m#(https://twitter.com/[A-Za-z0-9_]{1,15}/status/[^\s]+)#g) {
+            if ($body =~ m#(https://(twitter|x).com/[A-Za-z0-9_]{1,15}/status/[^\s]+)#g) {
                 my $tweet_url = $1;
+                $tweet_url =~ s/https:\/\/x.com/https:\/\/twitter.com/g;
                 if ($body !~ m#class="twitter-tweet"#) {
                     use JSON;
                     use HTTP::Tiny;
@@ -63,7 +64,7 @@ if ($xb->board_id && $allow_comment) {
                     my $response = HTTP::Tiny->new->get($url);
                     if ($response->{success} and length $response->{content}) {
                         my $embed_tweet = encode('UTF-8', JSON->new->utf8->decode($response->{content})->{html});
-                        $body =~ s/https:\/\/twitter.com\/[A-Za-z0-9_]{1,15}\/status\/[^\s]+/$embed_tweet/g;
+                        $body =~ s/https:\/\/(twitter|x).com\/[A-Za-z0-9_]{1,15}\/status\/[^\s]+/$embed_tweet/g;
                     }
                 }
             }
