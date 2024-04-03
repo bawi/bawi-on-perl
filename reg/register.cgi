@@ -14,7 +14,7 @@ my $auth = new Bawi::Auth(-cfg=>$cfg, -dbh=>$dbh);
 my @field = qw(id ki name affiliation email birth_year birth_month birth_day recom_id recom passwd1 passwd2 submit);
 my %f = $ui->form(@field);
 
-my $recom_ki = 34;
+my $recom_ki = 35;
 $ui->tparam(recom_ki=>$recom_ki);
 my $check = 0;
 foreach my $i (@field) {
@@ -65,7 +65,7 @@ if ($check) {
     $ui->tparam(ki=>undef);
     $ui->tparam(name=>undef);
     $ui->tparam(msg=>qq($f{name}님은 동창회원 명단에 등록되어있지 않습니다.));
-} elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) <= &is_registered($f{ki}, $f{name}, $dbh) ) {
+} elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) <= &is_registered2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) ) {
     ++$check;
     $ui->tparam(msg=>qq($f{name}님은 이미 가입되어 있습니다.<br>webmaster\@bawi.org로 비밀번호를 문의해 주세요.));
 } elsif (&is_sshs2($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) <= &is_applied($f{ki}, $f{name}, $f{birth_year}, $f{birth_month}, $f{birth_day}, $dbh) ) {
@@ -116,11 +116,23 @@ sub is_sshs2 {
     }
 }
 
-
+# This has to be also deprecated!
 sub is_registered {
     my ($ki, $name, $dbh) =@_;
     my $sql = qq(select a.ki, b.name, b.id from bw_user_ki as a, bw_xauth_passwd as b where a.uid=b.uid && a.ki=? && b.name=?);
     my $rv = $dbh->selectall_arrayref($sql, undef, $ki, $name);
+    if ($rv) {
+        return scalar(@$rv);
+    } else {
+        return 0;
+    }
+}
+
+sub is_registered2 {
+    my ($ki, $name, $birth_year, $birth_month, $birth_day, $dbh) =@_;
+    my $birth = sprintf("%4d-%02d-%02d", $birth_year, $birth_month, $birth_day);
+    my $sql = qq(select a.ki, b.name, b.id, c.birth from bw_user_ki as a, bw_xauth_passwd as b, bw_user_basic as c where a.uid=b.uid && a.uid=c.uid && a.ki=? && b.name=? && birth=?);
+    my $rv = $dbh->selectall_arrayref($sql, undef, $ki, $name, $birth);
     if ($rv) {
         return scalar(@$rv);
     } else {
