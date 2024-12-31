@@ -60,7 +60,7 @@ sub update_user {
     $value = $self->ui->cgi->escapeHTML($value);
     my $table = $field eq 'email' ? 'bw_xauth_passwd' : 'bw_user_basic';
 
-    return 0 if ($field eq 'affiliation' and not $self->has_affiliation);  # if the affiliation is set to NULL, deny edit
+    # return 0 if ($field eq 'affiliation' and not $self->has_affiliation($uid));  # if the affiliation is set to NULL, deny edit
 
     my $sql = qq(update $table set modified=now(), $field=? where uid=?);
     my $rv = $DBH->do($sql, undef, $value, $uid);
@@ -144,7 +144,8 @@ sub has_address {
     my ($self, $uid) = @_;
     my $sql = qq(select length(concat(home_address, office_address)) as has_address from bw_user_basic where uid=?);
     my $rv = $DBH->selectrow_array($sql, undef, $uid);
-    my $has_address = $rv && $rv > 25 ? 1 : 0;
+    # my $has_address = $rv && $rv > 25 ? 1 : 0;
+    my $has_address = $rv && $rv > 5 ? 1 : 0;
     return $has_address;
 }
 
