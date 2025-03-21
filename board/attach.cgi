@@ -2,6 +2,7 @@
 use strict;
 use lib '../lib';
 use Text::Iconv;
+use Image::Magick;
 
 use Bawi::Auth;
 use Bawi::Board;
@@ -23,43 +24,99 @@ my $thumb = $ui->cparam('thumb') || 0;
 my $xb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 my $attach = $xb->get_attach(-attach_id=>$atid, -thumb=>$thumb);
 
-#warn("type=$$attach{content_type},filename=$$attach{filename},is_img=$$attach{is_img}");
-# Content-Disposition: attachment; filename="foobar.txt"
-# ~~~~~ abandon attachment type~~~
-#if ($attach and $$attach{file} and $$attach{is_img} eq 'n') {
-if ( 0 ) {
-    # IE6.0 tend to fail to parse utf-8 hangul file names.
-    my $converter = Text::Iconv->new("utf8", "euckr");
-    my $euckr_filename = $converter->convert($$attach{filename});
-
-    print $ui->cgi->header(-type=>$$attach{content_type},
-                           -attachment=>$euckr_filename,
-                           -Content_length=>$$attach{filesize},
-                           -charset=>'euc-kr',
-                           -expires=>'+3M');
-    print $$attach{file};
-
-} elsif ($attach and $$attach{filehandle} ) {
-    print $ui->cgi->header(-type=>$$attach{content_type},
-                           -Content_Disposition=>qq(inline; filename="$$attach{filename}"),
-                           -Content_length=>$$attach{filesize},
-                           -expires=>'+3M');
+if ($attach and $$attach{filehandle}) {
     my $fh = $$attach{filehandle};
-    my $buffer;
-    while (my $len = read($fh, $buffer, 1024_000)) {
-        print $buffer;
+    
+    # Check if this is an image type that could contain EXIF data
+    if ($$attach{is_img} eq 'y' && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
+        # Read the entire file content
+        my $file_content = '';
+        my $buffer;
+        while (my $len = read($fh, $buffer, 1024_000)) {
+            $file_content .= $buffer;
+        }
+        close $fh;
+        
+        # Process with ImageMagick to strip metadata
+        my $im = new Image::Magick;
+        $im->BlobToImage($file_content);
+        
+        # Strip all metadata including EXIF/geotags
+        $im->Strip();
+        
+        # Maintain quality for JPEG images
+        $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
+        
+        # Get processed image data
+        my $cleaned_image = $im->ImageToBlob();
+        
+        # Update filesize
+        my $new_size = length($cleaned_image);
+        
+        # Output the cleaned image
+        print $ui->cgi->header(
+            -type => $$attach{content_type},
+            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+            -Content_length => $new_size,
+            -expires => '+3M'
+        );
+        print $cleaned_image;
+    } else {
+        # For non-image files or image types unlikely to have EXIF, serve normally
+        print $ui->cgi->header(
+            -type => $$attach{content_type},
+            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+            -Content_length => $$attach{filesize},
+            -expires => '+3M'
+        );
+        
+        # Reset file handle to beginning (just in case)
+        seek($fh, 0, 0);
+        
+        # Output file content
+        my $buffer;
+        while (my $len = read($fh, $buffer, 1024_000)) {
+            print $buffer;
+        }
+        close $fh;
     }
-    close $fh;
-
-} elsif ($attach and $$attach{file} ) {
-    print $ui->cgi->header(-type=>$$attach{content_type},
-                           -Content_Disposition=>qq(inline; filename="$$attach{filename}"),
-                           -Content_length=>$$attach{filesize},
-                           -expires=>'+3M');
-    print $$attach{file};
-
+} elsif ($attach and $$attach{file}) {
+    # Handle case where file content is directly in $$attach{file}
+    if ($$attach{is_img} eq 'y' && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
+        # Process with ImageMagick to strip metadata
+        my $im = new Image::Magick;
+        $im->BlobToImage($$attach{file});
+        
+        # Strip all metadata including EXIF/geotags
+        $im->Strip();
+        
+        # Maintain quality for JPEG images
+        $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
+        
+        # Get processed image data
+        my $cleaned_image = $im->ImageToBlob();
+        
+        # Update filesize
+        my $new_size = length($cleaned_image);
+        
+        print $ui->cgi->header(
+            -type => $$attach{content_type},
+            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+            -Content_length => $new_size,
+            -expires => '+3M'
+        );
+        print $cleaned_image;
+    } else {
+        print $ui->cgi->header(
+            -type => $$attach{content_type},
+            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+            -Content_length => $$attach{filesize},
+            -expires => '+3M'
+        );
+        print $$attach{file};
+    }
 } elsif ($ui->cgi->server_name ne "www.bawi.org") {
-    print $ui->cgi->redirect("http://www.bawi.org/board/attach.cgi?".$ui->cgi->query_string );
+    print $ui->cgi->redirect("http://www.bawi.org/board/attach.cgi?".$ui->cgi->query_string);
 } else {
     $ui->init(-template=>'error.tmpl');
     $ui->tparam(error=>"Cannot find the attach file. ID=[$atid] filename=[$$attach{filename}]");

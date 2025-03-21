@@ -1820,14 +1820,38 @@ sub add_attach {
     my $file = File::Spec->catfile(@path);
     $file =~ m/^([\w.-\\\/]+)$/;
     $file = $1;
+
+    # If it's an image, strip metadata using ImageMagick before saving
+    if ($arg{-is_img} =~ /[yY]/ && $arg{-content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
+        use Image::Magick;
+        my $im = new Image::Magick;
+        $im->BlobToImage($arg{-file});
+        
+        # Strip all metadata including EXIF/geotags
+        $im->Strip();
+        
+        # Save quality for JPEG images
+        $im->Set(quality=>90) if $arg{-content_type} =~ /jpeg|jpg/i;
+        
+        # Get the processed image data
+        my $cleaned_image = $im->ImageToBlob();
+        
+        # Save to file
+        open(FH, "> $file") or die("Can't open $file for save: $!\n");
+        print FH $cleaned_image;
+        close FH;
+    } else {
+        # For non-image files, save normally
+        open(FH, "> $file") or die("Can't open $file for save: $!\n");
+        print FH $arg{-file};
+        close FH;
+    }
     
-    open(FH, "> $file") or die("Can't open $file for save: $!\n");
-    print FH $arg{-file};
-    close FH;
     if ($arg{-is_img} =~ /[yY]/) {
         &add_image_count($bid);
         $self->save_thumbnail($file);
     }
+    
     return $rv;
 }
 
@@ -2225,13 +2249,15 @@ sub get_optset {
                 $_->{width} = int($bar_width * $_->{pct} / 100);
                 $_->{tot} = $tot;
                 $_->{allow_vote} = $allow_vote;
+
                 #####TEMP CODE#####
                 #if ($pid == 1427) {
                 #if ($pid == 9696 || $pid == 9698) {
-                #    $_->{pct} = '';
-                #    $_->{width} = '';
-                #    $_->{count} = '';
-                #}
+                if ($pid == 9857) {  ## 13대 동창회장 선거
+                    $_->{pct} = '';
+                    $_->{width} = '';
+                    $_->{count} = '';
+                }
                 #####TEMP CODE#####
                 $_; } @rv;
     return \@rv;

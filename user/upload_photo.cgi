@@ -36,14 +36,32 @@ if($q->param('image')) {
 
 	if( ($type eq 'image/jpeg') || ($type eq 'image/pjpeg') ) {
 		my $out = "$UPDIR/$uid.jpg";
-		my($bytesread, $buffer);
-		open(OUTFILE,"> $out") or die("Can't open file $out: $!\n");
-		while($bytesread=read($fh,$buffer,1024)) {
-			print OUTFILE $buffer;
-		}
-		close OUTFILE;
+
+    # Create temporary file for initial upload
+    my $temp_file = "$UPDIR/temp_$uid.jpg";
+    my($bytesread, $buffer);
+    open(TEMPFILE, "> $temp_file") or die("Can't open file $temp_file: $!\n");
+    while($bytesread=read($fh,$buffer,1024)) {
+      print TEMPFILE $buffer;
+    }
+
+    # Process with ImageMagick to strip metadata
+    use Image::Magick;
+    my $im = new Image::Magick;
+    $im->Read($temp_file);
+
+    # Sterip all metadata including EXIF/geotags
+    $im->Strip();
+
+    # Write the cleaned image
+    $im->Set(quality=>90) if $im->Get('magick') eq 'JPEG';
+    $im->Write(filename=>$out);
+
+    # Remove the temporary file
+    unlink($temp_file);
+
     $ui->tparam(upload_success=>1);
-    $ui->tparam(uid=>$uid);
+    $ui->tparam(uid=>%uid);
 	} else {
 		print "<CENTER><H5>JPEG 형식만 지원합니다.</H5></CENTER>";
 		print &uploadform;
