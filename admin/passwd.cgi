@@ -109,7 +109,7 @@ sub reset_bawimail {
 
 sub reset_infodate {
     my ($uid) = @_;
-    my $sql = qq(update bw_user_basic set modified='1001-01-01 00:00:00' where uid=?);
+    my $sql = qq(update bw_user_basic set modified='1971-01-01 00:00:00' where uid=?);
     my $rv = $dbh->do($sql, undef, $uid);
     if ($rv) { return 1; }
     else { return 0; }

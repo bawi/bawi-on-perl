@@ -78,26 +78,33 @@
 </tr>
 <tr>
     <td class="lhead" nowrap>휴대전화 *</td>
-    <td class="iteml">(+<input type="text" name="mobile_tel1" value="<tmpl_var mobile_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
+    <td class="iteml"><tmpl_if has_phone>
+  (+<input type="text" name="mobile_tel1" value="<tmpl_var mobile_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
     <input type="text" name="mobile_tel2" value="<tmpl_var mobile_tel2>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
     <input type="text" name="mobile_tel3" value="<tmpl_var mobile_tel3>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
     <input type="text" name="mobile_tel4" value="<tmpl_var mobile_tel4>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">
-    휴대/거주지/직장 전화 중 최소 1개 필수
+    휴대/거주지/직장 전화 중 최소 1개 필수<tmpl_else>
+    번호가 전부 지워진 경우 <a href='https://bawi.org/board/read.cgi?bid=328'>[바위에게 부탁해]</a>에 문의해주세요.
+    </tmpl_if>
     </td>
 </tr>
 <tr>
     <td class="lhead" nowrap>거주지전화 *</td>
-    <td class="iteml">(+<input type="text" name="home_tel1" value="<tmpl_var home_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
+    <td class="iteml"><tmpl_if has_phone>
+  (+<input type="text" name="home_tel1" value="<tmpl_var home_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
     <input type="text" name="home_tel2" value="<tmpl_var home_tel2>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
     <input type="text" name="home_tel3" value="<tmpl_var home_tel3>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
-    <input type="text" name="home_tel4" value="<tmpl_var home_tel4>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();"></td>
+    <input type="text" name="home_tel4" value="<tmpl_var home_tel4>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();"><tmpl_else></tmpl_if>
+    </td>
 </tr>
 <tr>
     <td class="lhead" nowrap>직장전화 *</td>
-    <td class="iteml">(+<input type="text" name="office_tel1" value="<tmpl_var office_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
+    <td class="iteml"><tmpl_if has_phone>
+  (+<input type="text" name="office_tel1" value="<tmpl_var office_tel1>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">)
     <input type="text" name="office_tel2" value="<tmpl_var office_tel2>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
     <input type="text" name="office_tel3" value="<tmpl_var office_tel3>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();">-
-    <input type="text" name="office_tel4" value="<tmpl_var office_tel4>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();"></td>
+    <input type="text" name="office_tel4" value="<tmpl_var office_tel4>" size="4" maxlength="4" class="text" style="width:40px" onClick="select();"><tmpl_else></tmpl_if>
+  </td>
 </tr>
 <tr>
     <td class="lhead" nowrap>임시전화</td>

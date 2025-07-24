@@ -14,7 +14,7 @@ my ($id, $passwd, $permanent, $simultaneous,
                     qw(id passwd permanent simultaneous url);
 $url = $auth->success_url unless ($url);
 $simultaneous = "" unless $auth->is_admin($id);
-warn("id=$id,simul=$simultaneous");
+#warn("id=$id,simul=$simultaneous");
 
 if ($auth->auth) {
     print $ui->cgi->redirect($url);
@@ -23,7 +23,8 @@ if ($auth->auth) {
         my $login = $auth->login(-id=>$id, -passwd=>$passwd,
                                  -permanent=>$permanent,
                                  -simultaneous=>$simultaneous);
-warn("id=$id,simul=$simultaneous");
+
+#warn("id=$id,simul=$simultaneous");
         if ($login > 0) {
             my %cookie = %{ $auth->session_cookie };
             $cookie{-value} = $auth->session_key;

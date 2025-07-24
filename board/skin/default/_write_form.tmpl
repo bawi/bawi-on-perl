@@ -83,6 +83,9 @@
 
 <script type="text/javascript">
 (function () {
+  $('content').addEventListener('paste', e => {paste_to_next_empty_files(e)});
+}());
+(function () {
 	localStorage.setItem('signature', document.getElementById('body').value);
 	if (localStorage.getItem('autosave') != 'off') {
 		if (localStorage.getItem('draft') != null) {
