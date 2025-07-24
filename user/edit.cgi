@@ -88,12 +88,26 @@ if ($uid) {
                 push @value, $v if ($v);
             }
             my $value = join("-", @value);
-            ++$phone if (length($value) > 5);
+            # Reject obvious invalid phone patterns
+            if ($value eq '000-0000-0000' ||                    # Default value
+                $value =~ /^(\d)\1+-\1+-\1+$/ ||               # Same digit repeated (111-111-1111)
+                $value =~ /^0+-0+-0+$/ ||                      # All zeros
+                $value =~ /^0123-4567/ ||                      # Sequential pattern
+                $value =~ /^1234-5678/) {                      # Sequential pattern
+                # Don't count as valid phone
+            } else {
+                ++$phone if (length($value) > 5);
+            }
             push @phone, [$uid, $i, $value];
         }
         # update only if there is at least one tel number
         @update = (@update, @phone) if ($phone);
         ++$error unless $phone;
+        
+        # Display error message if no valid phone number
+        if (!$phone) {
+            $ui->tparam(msg => '전화번호를 입력해주세요. 휴대전화, 거주지전화, 직장전화 중 최소 하나는 반드시 입력하셔야 합니다.');
+        }
         
         my ($y, $m, $d) = map { $ui->cparam($_) || '' } qw(wedding_y wedding_m wedding_d);
         if ($y && $m && $d && $y =~ /\d{4}/ && $m =~ /\d{1,2}/ && $d =~ /\d{1,2}/) {
