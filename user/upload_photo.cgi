@@ -61,7 +61,7 @@ if($q->param('image')) {
     unlink($temp_file);
 
     $ui->tparam(upload_success=>1);
-    $ui->tparam(uid=>%uid);
+    $ui->tparam(uid=>$uid);
 	} else {
 		print "<CENTER><H5>JPEG 형식만 지원합니다.</H5></CENTER>";
 		print &uploadform;
