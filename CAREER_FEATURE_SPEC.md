@@ -24,7 +24,7 @@ This document specifies a separate career-tracking feature for the Bawi BBS, spl
 Design notes — light, matching the 학력 grain, with three cheap correctness wins:
 
 - **MyISAM, flat, no foreign keys** — mirroring `bw_user_degree`/`schools`. The whole schema is MyISAM with zero FKs, and the codebase uses no transactions or `RaiseError` (`lib/Bawi/DBI.pm`), so InnoDB's benefits would be unreachable — and an FK rejection combined with the house's unchecked write pattern (`user/degree.cgi` assigns `add_degree(...)` and never checks the return) would render a "saved" page that saved nothing, a silent-failure class the no-FK degree system doesn't have. The no-FK tradeoff (a hand-deleted org hides its careers via the inner join, exactly as a deleted school hides degrees today) is one the degree system has lived with for years — admins simply don't hard-delete referenced rows. If a v2 merge tool ever ships, `ALTER TABLE … ENGINE=InnoDB` on two small tables is a cheap migration *at that point*.
-- **`utf8mb4`** — matching the house's most recent migration (`db/20201031_create_commentref.sql` is itself MyISAM + `utf8mb4`/`utf8mb4_bin`). Free-text `position`/`description`/org names need 4-byte support.
+- **`utf8` (default `utf8_general_ci`)** — matching `schools`/`bw_user_degree`/`bw_user_basic` (all `DEFAULT CHARSET=utf8`) **and** the app's actual DB connection, which negotiates plain `utf8` (there is no `mysql_enable_utf8mb4` in `lib/Bawi/DBI.pm`). This keeps org/position `LIKE` search **case-insensitive** — the same behavior as the existing `search_affiliation` on `bw_user_basic.affiliation`. (An earlier draft used `utf8mb4`/`utf8mb4_bin` copied from `bw_xboard_commentref`, but that table has only integer columns, so its binary collation never exercised text search: `_bin` would have made org/name search case-*sensitive*, and true 4-byte storage would additionally need a system-wide connection-charset change. Both fight the grain. If 4-byte support is ever wanted — emoji, astral-plane Hanja — do it system-wide as a schema + `DBI` connection change, not piecemeal on this one feature.)
 - **`org_type` as an `enum`**, mirroring `bw_user_degree.type` — the house style (11 enums in the schema; extending one is a one-line `ALTER`, done once in a decade). A lookup table would save nothing (type labels are hardcoded in the template either way) and only adds a JOIN to every stats query.
 - **`end_date IS NULL` = ongoing** — a single source of truth: no `is_current` flag to desync, and no `'0000-00-00'` sentinel. (The reason to avoid the zero-date is that it sorts *before* every real date and would invert a most-recent-first timeline — not strict mode, which MariaDB 10.6's default `sql_mode` doesn't enforce on MyISAM anyway.) This is even lighter than the degree system's `'1001-01-01'` sentinel, which needs special-case code in four places.
 
@@ -45,7 +45,7 @@ CREATE TABLE `organizations` (
   PRIMARY KEY (`id`),
   KEY `full_name` (`full_name`),
   KEY `brief_name` (`brief_name`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 -- mirrors `schools` (bawi_20180410.sql:1094) + the minimal self-service columns
 -- (verified / created_by / created_date) for the one genuinely new workflow:
 -- user-suggested organizations with admin approval.
@@ -65,13 +65,13 @@ CREATE TABLE `bw_user_career` (
   PRIMARY KEY (`career_id`),
   KEY `uid` (`uid`),
   KEY `organization_id` (`organization_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 -- mirrors bw_user_degree (bawi_20180410.sql:359): same key set and shape, minus the date sentinels.
 ```
 
 Most-recent-first, ongoing on top: `ORDER BY (end_date IS NULL) DESC, end_date DESC`.
 
-This is ~2 tables + ~7 small methods + 4 CGI/template files — the same footprint 학력 occupies.
+This is ~2 tables + ~7 small methods + 6 files (4 user-facing, matching 학력; + 2 admin for the org-approval workflow 학력 has no parallel for).
 
 ## Development & Deployment
 
@@ -115,7 +115,6 @@ sub add_organization(@)  # user-suggested org, verified=0 until an admin approve
 - **Career Types**: Employment, Internship, Volunteer, Research, Military, Other
 - **Organization Management**: users can suggest a new organization (created `verified=0`)
 - **Timeline View**: chronological career progression (`end_date IS NULL` = current)
-- **Privacy Controls**: show/hide specific career entries
 
 #### Admin
 - **Organization Approval**: review user-submitted organizations (`verified` flag)
@@ -128,6 +127,7 @@ Scoped before the flat model was validated; add only when v1 demonstrably needs 
 - **Bulk import/export** of organization data.
 - **Name synonyms** (alternate names → one canonical org). Deferred because there is no natural write path in v1 and `schools` has served the shared-list need with `full_name`+`brief_name` alone. Add in v2 *with* a write path — the natural one: an admin rejecting a suggested org as a duplicate of X folds its name into X's synonyms.
 - **Org-type lookup table** — only if the `enum` ever proves too limiting (a one-line `ALTER` has sufficed for the degree enum for a decade).
+- **Per-entry privacy** (show/hide specific career entries) — needs a `visible tinyint(1) NOT NULL DEFAULT 1` column threaded through `career_set` / `search_career`'s WHERE / the profile-display path. 학력 has no equivalent, so it's deferred until actually wanted rather than shipped as a toggle with nothing to persist to.
 
 ### Data Migration Strategy
 
@@ -136,6 +136,8 @@ Scoped before the flat model was validated; add only when v1 demonstrably needs 
 --   * identify career-like entries in bw_user_degree
 --   * move non-academic entries into bw_user_career (+ organizations)
 --   * preserve academic degrees in bw_user_degree
+-- Type crosswalk for the degree-enum values this feature unwinds (confirm with the
+-- domain owner before running): Postdoc -> research, Resident -> employment, Fellow -> employment.
 -- Run and verify on the test-env DB before prod.
 ```
 
@@ -192,7 +194,8 @@ sub search_career {
 # Organization statistics (parallel to degree_stat in school.cgi, which filters
 # directly on the enum: `b.type=?`). Keyed by org id, unique in a GROUP BY o.id.
 sub organization_stats {
-    my ($self, $type) = @_;   # '' = all types
+    my ($self, $type) = @_;
+    $type //= '';   # normalize undef -> '' so the "all types" sentinel below can't bind NULL
     my $sql = qq(
         select o.full_name as organization, o.id, count(*) as cnt
         from organizations o
@@ -221,6 +224,7 @@ Indexes match the degree grain: `bw_user_career` has `KEY uid` (a user has <10 r
 ```sql
 ALTER TABLE organizations ADD FULLTEXT INDEX ft_names (full_name, brief_name);
 ```
+Before adding it, check the server's `ft_min_word_len` — MyISAM's default of 4 silently drops short `brief_name`s like LG/SK/KT/CJ; use boolean-mode with truncation, or lower the threshold, if those must match.
 
 Caching: organization-name autocomplete and organization/position statistics are the obvious targets if profiled as hot.
 
@@ -242,7 +246,7 @@ Caching: organization-name autocomplete and organization/position statistics are
 
 ---
 
-**Document Version**: 3.0
+**Document Version**: 3.1
 **Created**: 2025-07-24
-**Revised**: 2026-07-06 — v2 removed the obsolete production-only "stealth" rollout (a local `test-env` now exists) and fixed real bugs (id-width mismatch, `selectall_hashref` row-clobbering, sentinel sort inversion); v3 pulled the design back to the lightweight 학력 grain (flat MyISAM, no FKs, `enum` org type; dropped the org-type lookup, synonym table, `status` column, and composite indexes) while keeping the correctness wins (`utf8mb4`, `end_date IS NULL`).
+**Revised**: 2026-07-06 — v2 removed the obsolete production-only "stealth" rollout (a local `test-env` now exists) and fixed real bugs (id-width mismatch, `selectall_hashref` row-clobbering, sentinel sort inversion); v3 pulled the design back to the lightweight 학력 grain (flat MyISAM, no FKs, `enum` org type; dropped the org-type lookup, synonym table, `status` column, composite indexes) while keeping `end_date IS NULL`; v3.1 reverted the charset to plain `utf8`/`utf8_general_ci` to match `schools` and the actual utf8 DB connection (fixes case-sensitive search + sidesteps a connection-charset change), guarded `organization_stats` against an `undef`→zero-rows sentinel, and deferred the unbacked per-entry-privacy toggle to v2.
 **Status**: Specification Phase
