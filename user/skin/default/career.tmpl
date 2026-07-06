@@ -1,0 +1,95 @@
+<tmpl_include _html_header.tmpl>
+<tmpl_include _menu.tmpl><div style="clear: both">
+
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="105">
+        <img src="photo.cgi?id=<tmpl_var id>" border="1" width="105" height="140" alt="photo">
+    </td>
+    <td class="iteml">
+        <h2><tmpl_if ki><a href="ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a> </tmpl_if><tmpl_include _name_id.tmpl></h2>
+            [
+            <a href="edit.cgi">개인정보 변경</a> | 
+            <a href="passwd.cgi">비밀번호 변경</a> | 
+            <a href="edsig.cgi">시그너쳐 변경</a> | 
+            <a href="upload_photo.cgi">사진 변경</a> 
+            ]
+    </td>
+</tr>
+        <tmpl_if careers>
+<tr>
+    <td class="lhead" nowrap>입력된 경력</td>
+    <td class="iteml">
+            <tmpl_loop careers>
+        <tmpl_var company>, <tmpl_var position> [<tmpl_var start_date>~<tmpl_var end_date>] <a href="career.cgi?action=del&cid=<tmpl_var career_id>">[삭제]</a><tmpl_unless __last__><br></tmpl_unless>
+            </tmpl_loop>
+    </td>
+</tr>
+        </tmpl_if>
+</table>
+<tmpl_loop career_set>
+<form method="post" action="career.cgi">
+<tmpl_if career_id>
+<input type="hidden" name="cid" value="<tmpl_var career_id>">
+</tmpl_if>
+<input type="hidden" name="action" value="save">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="iteml" width="107"></td>
+    <td class="iteml"></td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>회사명</td>
+    <td class="iteml">
+    <input type="text" name="company" value="<tmpl_var company>" size="57" maxlength="255" class="text" style="width:446px">
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>직위/직책</td>
+    <td class="iteml">
+    <input type="text" name="position" value="<tmpl_var position>" size="57" maxlength="255" class="text" style="width:446px">
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>업무 내용</td>
+    <td class="iteml">
+    <input type="text" name="content" value="<tmpl_var content>" size="57" maxlength="255" class="text" style="width:446px">
+    </td>
+</tr>
+<tr>
+    <td class="lhead">기간</td>
+    <td class="iteml">
+    <select name="start_year">
+    <tmpl_loop start_year>
+        <option value="<tmpl_var year>"<tmpl_if current> selected</tmpl_if>><tmpl_var year2>
+    </tmpl_loop>
+    </select>
+    <select name="start_month">
+    <tmpl_loop start_month>
+        <option value="<tmpl_var month>"<tmpl_if current> selected</tmpl_if>><tmpl_var month2>
+    </tmpl_loop>
+    </select>
+    ~
+    <select name="end_year">
+    <tmpl_loop end_year>
+        <option value="<tmpl_var year>"<tmpl_if current> selected</tmpl_if>><tmpl_var year2>
+    </tmpl_loop>
+    </select>
+    <select name="end_month">
+    <tmpl_loop end_month>
+        <option value="<tmpl_var month>"<tmpl_if current> selected</tmpl_if>><tmpl_var month2>
+    </tmpl_loop>
+    </select>
+    </td>
+</tr>
+<tr>
+    <td></td>
+    <td><input type="submit" value="<tmpl_if __first__>추가<tmpl_else>변경</tmpl_if>" class="button" style="width:450px"></td>
+</tr>
+</table>
+</form>
+</tmpl_loop>
+
+</div>
+<tmpl_include _html_footer.tmpl>

@@ -171,7 +171,7 @@
     </td>
 </tr>
 <tr>
-    <td class="lhead" nowrap>학위/경력</td>
+    <td class="lhead" nowrap>학위</td>
     <td class="iteml">
         <tmpl_if degree>
             <tmpl_loop degree>
@@ -179,6 +179,17 @@
             </tmpl_loop>
         </tmpl_if>
     [<a href="degree.cgi">추가/변경</a>]
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>경력</td>
+    <td class="iteml">
+        <tmpl_if career>
+            <tmpl_loop career>
+        <tmpl_var company>, <tmpl_var position> [<tmpl_var start_date>~<tmpl_var end_date>]<tmpl_unless __last__><br></tmpl_unless>
+            </tmpl_loop>
+        </tmpl_if>
+    [<a href="career.cgi">추가/변경</a>]
     </td>
 </tr>
 <tr>

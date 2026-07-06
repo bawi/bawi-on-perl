@@ -171,11 +171,25 @@
         </tmpl_if>
         <tmpl_if degree>
 <tr>
-    <td class="lhead" nowrap>학위/경력</td>
+    <td class="lhead" nowrap>학위</td>
     <td class="iteml">
             <tmpl_if has_degree>
                 <tmpl_loop degree>
         (<tmpl_var type_brief>) <a href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var school_short></a>, <tmpl_var department><tmpl_if advisors> (지도교수: <a  href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var advisors></a>)</tmpl_if> [<tmpl_var start_date>~<tmpl_var end_date><tmpl_if status>/<tmpl_var status_brief></tmpl_if>]<tmpl_unless __last__><br></tmpl_unless>
+                </tmpl_loop>
+            <tmpl_else>
+            <tmpl_include _reciprocal.tmpl>
+            </tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if career>
+<tr>
+    <td class="lhead" nowrap>경력</td>
+    <td class="iteml">
+            <tmpl_if has_career>
+                <tmpl_loop career>
+        <tmpl_var company>, <tmpl_var position> [<tmpl_var start_date>~<tmpl_var end_date>]<tmpl_unless __last__><br></tmpl_unless>
                 </tmpl_loop>
             <tmpl_else>
             <tmpl_include _reciprocal.tmpl>

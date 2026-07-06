@@ -125,6 +125,7 @@ sub get_user {
         delete $$p{"class$c"} unless $$p{"class$c"};
     }
     $$p{degree} = $self->get_degree($uid);
+    $$p{career} = $self->get_career($uid);
     $$p{major} = $self->get_major($uid);
     $$p{circle} = $self->get_circle($uid);
     return $p;
@@ -270,6 +271,26 @@ sub get_degree {
 
 }
 
+sub get_career {
+    my ($self, $uid) = @_;
+
+    my $sql = qq(select career_id, company, position, content, date_format(start_date,"%Y-%m") as start_date, date_format(end_date, "%Y-%m") as end_date from bw_user_career where uid=?);
+    my $d = $DBH->selectall_hashref($sql, 'career_id', undef, $uid);
+    if ($d) {
+        my @career = 
+            map {
+                $$d{$_}->{end_date} =~ s/1001-01/현재/g;
+                $$d{$_}
+            } sort {
+                if ($$d{$a}->{end_date} eq "1001-01") { return 1; }
+                elsif ($$d{$b}->{end_date} eq "1001-01") { return -1; }
+                else { return $$d{$a}->{end_date} cmp $$d{$b}->{end_date} };
+            } keys %$d;
+        return \@career;
+    }
+
+}
+
 sub get_major {
     my ($self, $uid) = @_;
 
@@ -338,6 +359,16 @@ sub has_degree {
     return $has_degree;
 }
 
+sub has_career {
+    my ($self, $uid) = @_;
+    my $ki = $self->ki($uid);
+    my $max_ki = $self->max_ki;
+    my $sql = qq(select count(*) from bw_user_career where uid=?);
+    my $rv = $DBH->selectrow_array($sql, undef, $uid);
+    my $has_career = $rv || $max_ki - $ki < 5 ? 1 : 0;
+    return $has_career;
+}
+
 sub max_ki {
     my ($self) = @_;
     my $sql = qq(select max(ki) from bw_user_ki);
@@ -380,6 +411,36 @@ sub degree_set {
             start_month => $self->month_list(-current=>$s[1]),
             end_month   => $self->month_list(-current=>$e[1]),
             "$d{status}"  => 1,
+        );
+        push @rv, \%rv;
+    }
+    return \@rv;
+}
+
+sub career_set {
+    my ($self, $uid) = @_;
+    my $sql = qq(select * from bw_user_career where uid=?);
+    my $rv = $DBH->selectall_hashref($sql, 'career_id', undef, $uid);
+    my @rv;
+    push @rv, { start_year  => $self->year_list,
+                end_year  => $self->year_list,
+                start_month  => $self->month_list,
+                end_month  => $self->month_list,
+              };
+    foreach my $i (sort { $$rv{$a}->{start_date} cmp $$rv{$b}->{start_date} } 
+                       keys %$rv) {
+        my %d = %{ $$rv{$i} };
+        my @s = split(/-/, $d{start_date});
+        my @e = split(/-/, $d{end_date});
+        my %rv = (
+            career_id   => $d{career_id},
+            company     => $d{company},
+            position    => $d{position},
+            content     => $d{content},
+            start_year  => $self->year_list(-current=>$s[0]),
+            end_year    => $self->year_list(-current=>$e[0]),
+            start_month => $self->month_list(-current=>$s[1]),
+            end_month   => $self->month_list(-current=>$e[1]),
         );
         push @rv, \%rv;
     }
@@ -450,6 +511,39 @@ sub del_degree {
     my ($self, $uid, $degree_id) = @_;
     my $sql = qq(delete from bw_user_degree where uid=? && degree_id=?);
     my $rv = $DBH->do($sql, undef, $uid, $degree_id);
+    return $rv;
+}
+
+sub career {
+    my ($self, $uid, $career_id) = @_;
+    my $sql = qq(select * from bw_user_career where uid=? && career_id=?);
+    my $rv = $DBH->selectrow_hashref($sql, undef, $uid, $career_id);
+    return $rv;
+}
+
+sub update_career {
+    my ($self, @field) = @_;
+    my $sql = qq(replace into bw_user_career
+                 (career_id, uid, company, position, content,start_date,end_date) 
+                 value (?, ?, ?, ?, ?, ?, ?));
+    my $rv = $DBH->do($sql, undef, @field);
+    return $rv;
+}
+
+sub add_career {
+    my ($self, @field) = @_;
+
+    my $sql = qq(insert into bw_user_career
+                 (uid, company, position, content,start_date,end_date) 
+                 value (?, ?, ?, ?, ?, ?));
+    my $rv = $DBH->do($sql, undef, @field);
+    return $rv;
+}
+
+sub del_career {
+    my ($self, $uid, $career_id) = @_;
+    my $sql = qq(delete from bw_user_career where uid=? && career_id=?);
+    my $rv = $DBH->do($sql, undef, $uid, $career_id);
     return $rv;
 }
 
