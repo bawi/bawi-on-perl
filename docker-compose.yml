@@ -1,0 +1,71 @@
+# =============================================================================
+# bawi-on-perl LOCAL test environment
+# =============================================================================
+# SECURITY / LOCAL-ONLY NETWORKING:
+#   Every published port below is explicitly bound to 127.0.0.1. This stack
+#   must only ever be reachable from this machine's localhost — never the LAN
+#   or the internet. Do NOT change "127.0.0.1:8080:80" to "8080:80" (a bare
+#   host port makes Docker publish on 0.0.0.0, i.e. all interfaces).
+#
+# All credentials in this file are throwaway local test values (no real
+# secrets anywhere in this branch).
+#
+# Usage: see README.md.  Compatible with `docker compose` (v2) and legacy
+# `docker-compose` (1.29+); no v2-only syntax is used.
+# =============================================================================
+version: "3.8"
+
+services:
+  db:
+    image: mariadb:10.6
+    container_name: bawi-test-db
+    environment:
+      MARIADB_ROOT_PASSWORD: bawi-local-root-pw
+      MARIADB_DATABASE: bawi            # production DB name is `bawi`
+      MARIADB_USER: bawi_test
+      MARIADB_PASSWORD: bawi-local-test-pw
+    volumes:
+      - bawi-db-data:/var/lib/mysql
+      # First-boot init: 10-schema.sql (prod schema, structure only) then
+      # 20-apply-migrations.sh (guarded db/*.sql migration runner).
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+      # Repo migrations, read-only, for the migration runner.
+      - ./db:/bawi-migrations:ro
+    ports:
+      # localhost-only, for host-side inspection (mysql client / GUI):
+      #   mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi
+      - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  web:
+    build:
+      context: docker/web
+    container_name: bawi-test-web
+    depends_on:
+      - db
+    environment:
+      # Used by the entrypoint wait-loop and seed/seed.pl (the app itself
+      # reads conf/*.conf, which point at the same DB).
+      BAWI_DB_HOST: db
+      BAWI_DB_NAME: bawi
+      BAWI_DB_USER: bawi_test
+      BAWI_DB_PASS: bawi-local-test-pw
+    volumes:
+      # Live-mount the working tree at the exact prod path so that
+      # apache2/startup.pl and all code run UNCHANGED. Edits on the host are
+      # picked up immediately (restart the web container to reset mod_perl's
+      # in-process caches when editing lib/*.pm).
+      - .:/home/bawi/bawi-spring
+      # BAWI_DATA_HOME (attachment uploads etc.) — kept out of the repo.
+      - bawi-data:/home/bawi/bawi-data
+    ports:
+      # localhost-only: http://localhost:8080/
+      - "127.0.0.1:8080:80"
+
+volumes:
+  bawi-db-data:
+  bawi-data:
