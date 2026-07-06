@@ -16,6 +16,28 @@ was **read-only**; nothing was written to production.
 - Production carried **27 paths of uncommitted drift** (hand-edits + un-integrated features) existing *only* on a single-disk box. **P0 (done this session)** captured the non-secret drift into branch **`resp2-live-snapshot`** (3 commits, pushed to GitHub). Credentials (`conf/*.tmp`) were left on prod and are now gitignored.
 - **Deferred:** P1 backups (DB dump, uploads) — *skipped this session by request*. P2 OS patch/reboot — flagged, not done.
 
+## 0b. Update — 2026-07-06 (later): promotion complete + deployed
+
+- **`main` is now the canonical/default branch** (promoted from `resp2`, which was code-identical). **PR #2 merged** (`main` @ `cfc414a`) — carried the `.gitignore` hardening, the 5 live hotfixes, `CLAUDE.md`, and the finalized career spec.
+- **Production cut over:** `/home/bawi/bawi-spring` now tracks **`main`** (was `resp2`). Byte-identical served code, **no Apache restart**, verified clean (`git diff origin/main` empty; site returns 200). Prod's pre-cutover untracked `CLAUDE.md`/`CAREER_FEATURE_SPEC.md` backed up to `~/*.pre-cutover.bak` on the host.
+- **Branches left in place (no deletions, by request):** `resp2`, `resp2-live-snapshot`, `promote/live-state`, and the `archive/{sync,resp,local,master}` tags. `feature/session-mgmt` (PR #3) remains open (WIP session feature).
+- **Career spec finalized** at v3.1 — pulled to the lightweight 학력 grain (flat MyISAM, `enum`, `utf8`); hierarchy / merge / synonyms / per-entry-privacy all deferred to v2.
+
+## 0c. Deferred code bugs (deep-review findings — fix on `test-env`, NOT in the promotion)
+
+Pre-existing **production behavior** the promotion enshrined verbatim. Each needs its own `test-env`-validated PR — not a blind prod edit.
+
+| # | Bug | Sev | Where / fix |
+|---|-----|-----|-------------|
+| 1 | Poll **`tot` turnout leak** — `get_optset` blanks `pct/width/count` for election polls but not `tot`, which `_pollset.tmpl:35` shows to anyone who has voted / after close | MED | `lib/Bawi/Board.pm` + `_pollset.tmpl` — blank `tot` too, or gate the total row |
+| 2 | Poll **fail-open hardcoded ID list** — hidden polls are a hand-typed, accumulate-forever `$pid==` allowlist; the next election leaks live until edited + redeployed | MED | replace with a `hide_results` column on `bw_xboard_poll` |
+| 3 | **Phone round-trip corruption** — save skips empty boxes (`edit.cgi:88`), read pop-aligns into `tel4..1` (`User.pm:121`); they agree only when the *sole* empty box is leftmost → a country-code + blank-middle case migrates digits, and a "correcting" re-save silently truncates | MED | pad to 4 fixed dash-joined segments on save, or reject non-4-segment on read |
+| 4 | **register.cgi message contradiction** — rejects when `get_ki(recom_id) > recom_ki` but the message says "`recom_ki`기 이상만 추천 가능" (opposite comparison); also in `register.tmpl:100` | MED | fix `이상`↔`이하` after confirming the intended 기 direction |
+| 5 | **`im_nate` silent wipe** — input commented out in `edit.tmpl` but `im_nate` still in `edit.cgi:33 @field`, so every profile save overwrites the stored value with `''` | MED | drop `im_nate` from `@field` (mirror how `im_msn` was retired) |
+| 6 | `board/test.cgi:23` commented-out crash line (dead — shadowed by `init()`); `has_phone` dead tparam in `edit.tmpl` | LOW | cleanup |
+
+The **career spec** (`CAREER_FEATURE_SPEC.md`, now on `main`) is the design for the next feature — build it on a branch off `test-env`.
+
 ---
 
 ## 1. Server situation (host `orange`)
