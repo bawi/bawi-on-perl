@@ -10,7 +10,7 @@ This is **Bawi** - a Korean community bulletin board system (BBS) written in Per
 
 - **Language**: Perl (CGI scripts and modules)
 - **Web Server**: Apache with mod_perl
-- **Database**: MySQL
+- **Database**: MariaDB 10.6 (MySQL wire-compatible; use the `mariadb` client)
 - **Template System**: Custom `.tmpl` files
 - **Character Encoding**: UTF-8
 - **Session Management**: Cookie-based authentication
@@ -26,6 +26,8 @@ This is **Bawi** - a Korean community bulletin board system (BBS) written in Per
 - `/conf/` - Configuration files (main.conf, board.conf, user.conf)
 - `/db/` - Database schema and migration scripts
 - `/apache2/` - Apache and mod_perl configuration
+- `/postman/` - Email inquiry system (`postman.pl`)
+- `/search/` - Legacy; `search/search.cgi` is a `Closed.` placeholder
 
 ## Common Development Tasks
 
@@ -35,12 +37,18 @@ This is a mod_perl application that runs directly through Apache. Key environmen
 - `BAWI_DATA_HOME`: /home/bawi/bawi-data/
 
 ### Database Migrations
-SQL migration files are located in `/db/`. Run them in chronological order:
+The live database is named **`bawi`** (the `bawi_on_perl` value in `conf/*.conf.sample` is a
+generic placeholder — the real name is in the gitignored `conf/*.conf` on the host). Apply
+every migration in `db/` in filename (chronological) order — don't hardcode a list here, it
+goes stale as new migrations land:
 ```bash
-mysql bawi_on_perl < db/20161225_add_career_enum.sql
-mysql bawi_on_perl < db/20201030_add_expiration_days.sql
-mysql bawi_on_perl < db/20201031_create_commentref.sql
-mysql bawi_on_perl < db/20220903_add_retraction.sql
+for f in db/2*.sql; do echo "applying $f"; mariadb bawi < "$f"; done
+# as of this writing, in order:
+#   20161225_add_career_enum.sql
+#   20201030_add_expiration_days.sql
+#   20201031_create_commentref.sql
+#   20220903_add_retraction.sql
+#   20221221_retroactive_change_delete_comment.sql
 ```
 
 ### System Monitoring
@@ -80,33 +88,23 @@ Each major section (board, user, admin) has its own set of CGI scripts and corre
 
 ## Git Branch Information
 
-**Current Branch**: `resp2` - This is an extended branch that accommodates production server requirements and builds upon the original codebase.
+The canonical branch is **`main`** (promoted from the former `resp2` line, which was the
+deployed branch). As captured from the production host on 2026-07-06, the deploy tree at
+`/home/bawi/bawi-spring` was checked out on `resp2`; the maintenance cutover repoints it at
+`main`. Always confirm with `git -C /home/bawi/bawi-spring branch --show-current` rather than
+trusting this note.
 
-**Git Configuration**:
-- User: bawi service account
-- Email: bawi@orange.bawi.org
+**Git identity on the host**: user "bawi service account", email `bawi@orange.bawi.org`.
 
-**Branch History**:
-- The `resp2` branch diverged from the main development to handle production-specific needs
+## Working-Tree Drift
 
-## Uncommitted Changes
-
-There are currently uncommitted changes that need review before committing:
-
-**Modified Files** (need scrutiny):
-- `board/test.cgi` - Test script changes
-
-**Untracked Files** (new additions):
-- Beta/experimental features in `/board/` (read_beta.cgi, dark theme CSS, etc.)
-- Session management tools (mysessions.cgi, remove_session.cgi)
-- Temporary configuration files (*.tmp in /conf/)
-- SEO verification files (Google, Bing auth files)
-- Database helper scripts (reg2.sql, regtemp.sql)
-
-When reviewing uncommitted changes, pay special attention to:
-1. Security implications in Auth.pm and login-related files
-2. Analytics template changes for privacy compliance
-3. Beta features that may not be production-ready
+Production has historically carried uncommitted changes edited in place. Do **not** trust a
+static list here — it goes stale the moment the box changes. Check live state directly:
+```bash
+git -C /home/bawi/bawi-spring status
+```
+The 2026-07 snapshot of that drift was preserved on branch `resp2-live-snapshot`. Credential
+files (`conf/*.tmp`) are gitignored and stay on the host only — never commit them.
 
 ## Code Management Guidelines
 

@@ -2,136 +2,104 @@
 
 ## Overview
 
-This document specifies the implementation of a separate career tracking feature for the Bawi BBS system, splitting the current combined 학위/경력 (degree/career) system into two distinct features: academic degrees and professional career experience.
+This document specifies a separate career-tracking feature for the Bawi BBS, splitting the current combined 학위/경력 (degree/career) system into two distinct features: academic degrees and professional career experience.
 
 ## Current System Limitations
 
 ### Database Schema Issues
 - `bw_user_degree.type` enum is hardcoded for academic degrees only
-- `schools` table contains only academic institutions (177 entries)
+- `schools` table contains only academic institutions (~170 rows as of the 2018 schema dump — needs a fresh `SELECT COUNT(*)` against the live DB before this is quoted as fact)
 - Fields like "advisors" and "research content" are academic-specific
 - Manual admin intervention required for adding new institutions
 
 ### User Experience Issues
 - Corporate career experience forced into academic degree framework
 - Limited career types (only academic positions)
-- No support for company hierarchies or job positions
+- No support for job positions / departments
 - Synonym management for organization names not supported
 
 ## Proposed Solution
 
 ### New Database Schema
 
+Design notes (addressing lessons already paid for in this codebase):
+- **InnoDB + real foreign keys.** These tables are relational (careers reference organizations) and one operation is destructive (see admin duplicate handling), so they need referential integrity and transactions — unlike the flat MyISAM lookup tables. MariaDB 10.6 mixes engines per-table freely.
+- **`utf8mb4`**, matching the codebase's own most recent migration (`db/20201031_create_commentref.sql` uses `utf8mb4`/`utf8mb4_bin`), not the superseded 3-byte `utf8` of the 2016/2018 dumps. Free-text `position`/`description`/org names must accept 4-byte input.
+- **Organization type via a lookup table**, not an `ENUM` — the spec's own top complaint is that `bw_user_degree.type`'s hardcoded enum needs an `ALTER TABLE` + code edit to extend. An admin-editable lookup (the pattern `schools`/`bw_data_major` already use) fixes that.
+- **`end_date IS NULL` is the single source of truth for "ongoing"** — no separate `is_current` flag to fall out of sync, and no `'0000-00-00'` sentinel (which sorts before every real date and inverts a most-recent-first timeline; the codebase's real "unset" sentinel is `'1001-01-01'`, but `NULL` is cleaner for a new table).
+
 ```sql
-CREATE TABLE `bw_user_career` (
-  `career_id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
-  `uid` mediumint(8) unsigned NOT NULL DEFAULT '0',
-  `type` enum('employment','internship','volunteer','research','military','other') NOT NULL DEFAULT 'employment',
-  `organization_id` smallint(5) unsigned NOT NULL DEFAULT '0',
-  `position` varchar(255) NOT NULL DEFAULT '',
-  `department` varchar(255) NOT NULL DEFAULT '',
-  `description` text NOT NULL,
-  `start_date` date NOT NULL DEFAULT '0000-00-00',
-  `end_date` date NOT NULL DEFAULT '0000-00-00',
-  `status` varchar(20) NOT NULL,
-  `is_current` tinyint(1) DEFAULT 0,
-  PRIMARY KEY (`career_id`),
-  KEY `uid` (`uid`),
-  KEY `organization_id` (`organization_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+-- Admin-extensible organization-type lookup (replaces a hardcoded ENUM)
+CREATE TABLE `bw_data_org_type` (
+  `id`    smallint unsigned NOT NULL AUTO_INCREMENT,
+  `code`  varchar(20)  NOT NULL,
+  `label` varchar(64)  NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+-- seed: company, government, nonprofit, academic, hospital, other
 
 CREATE TABLE `organizations` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `full_name` varchar(128) NOT NULL DEFAULT '',
-  `brief_name` varchar(32) NOT NULL DEFAULT '',
-  `type` enum('company','government','nonprofit','academic','hospital','other') NOT NULL DEFAULT 'company',
-  `url` varchar(64) DEFAULT NULL,
-  `country_code` varchar(2) NOT NULL DEFAULT 'KR',
-  `verified` tinyint(1) DEFAULT 0,
-  `parent_id` int(10) unsigned DEFAULT NULL,
-  `created_by` mediumint(8) unsigned DEFAULT NULL,
-  `created_date` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `id`           int unsigned NOT NULL AUTO_INCREMENT,
+  `full_name`    varchar(128) NOT NULL DEFAULT '',
+  `brief_name`   varchar(32)  NOT NULL DEFAULT '',
+  `org_type_id`  smallint unsigned NOT NULL,
+  `url`          varchar(64)  DEFAULT NULL,
+  `country_code` varchar(2)   NOT NULL DEFAULT 'KR',
+  `verified`     tinyint(1)   NOT NULL DEFAULT 0,
+  `created_by`   mediumint unsigned DEFAULT NULL,
+  `created_date` timestamp    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `full_name` (`full_name`),
   KEY `brief_name` (`brief_name`),
-  KEY `type` (`type`),
-  KEY `verified` (`verified`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+  KEY `verified` (`verified`),
+  CONSTRAINT `fk_org_type` FOREIGN KEY (`org_type_id`) REFERENCES `bw_data_org_type` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+-- NOTE: corporate parent/subsidiary hierarchy (parent_id) and a destructive merge
+-- tool are deferred to v2 — see "Deferred to v2". v1 is flat, matching `schools`.
+
+-- The actual stated need: many names -> one canonical organization
+CREATE TABLE `organization_synonym` (
+  `id`     int unsigned NOT NULL AUTO_INCREMENT,
+  `org_id` int unsigned NOT NULL,
+  `name`   varchar(128) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`),
+  CONSTRAINT `fk_synonym_org` FOREIGN KEY (`org_id`) REFERENCES `organizations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE `bw_user_career` (
+  `career_id`       mediumint unsigned NOT NULL AUTO_INCREMENT,
+  `uid`             mediumint unsigned NOT NULL DEFAULT 0,
+  `type`            enum('employment','internship','volunteer','research','military','other')
+                      NOT NULL DEFAULT 'employment',
+                      -- intentionally a CLOSED set (unlike org type / institutions);
+                      -- extending it is a rare, deliberate migration, so an enum is acceptable here.
+  `organization_id` int unsigned NOT NULL,   -- int, matching organizations.id (was smallint: type mismatch + 65k cap)
+  `position`        varchar(255) NOT NULL DEFAULT '',
+  `department`      varchar(255) NOT NULL DEFAULT '',
+  `description`     text NOT NULL,
+  `start_date`      date DEFAULT NULL,        -- NULL = unknown
+  `end_date`        date DEFAULT NULL,        -- NULL = ongoing (single source of truth)
+  `status`          varchar(20) NOT NULL DEFAULT 'active',
+  PRIMARY KEY (`career_id`),
+  KEY `uid` (`uid`),
+  KEY `idx_user_current` (`uid`, `end_date`),
+  KEY `idx_search` (`organization_id`, `position`),
+  CONSTRAINT `fk_career_org` FOREIGN KEY (`organization_id`) REFERENCES `organizations` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 ```
 
-## **CRITICAL: Stealth Implementation Strategy**
+Most-recent-first, ongoing on top: `ORDER BY (end_date IS NULL) DESC, end_date DESC`.
 
-### Production Safety Requirements
+## Development & Deployment
 
-**⚠️ NO TEST SERVER AVAILABLE - PRODUCTION-ONLY DEPLOYMENT**
+**A local test environment now exists** (branch `test-env`): a Docker stack matching production (Apache 2.4 + mod_perl2 + Perl 5.34 + MariaDB 10.6), a structure-only copy of the prod schema, deterministic synthetic data, and an admin login. The earlier "no test server → production-only stealth rollout" premise no longer holds, so this feature is built and tested off production like any normal change:
 
-Since this is a live production system with no separate test environment, implementation must follow a **stealth rollout approach**:
-
-1. **Hidden URL Testing Phase**
-   - Create parallel files with `_beta` or `_v2` suffixes
-   - Example: `career_beta.cgi`, `profile_v2.cgi`
-   - Access only through direct URLs (not linked from main navigation)
-   - Test with limited known users only
-
-2. **Gradual Feature Exposure**
-   - Phase 1: Admin-only access via direct URLs
-   - Phase 2: Selected beta users via manual URL sharing
-   - Phase 3: Optional feature flag in user preferences
-   - Phase 4: Full rollout with navigation integration
-
-3. **Atomic Swap Strategy**
-   - Prepare all new files completely in parallel
-   - Test thoroughly in stealth mode
-   - Single deployment moment: rename files to replace originals
-   - Immediate rollback plan available
-
-### Implementation Phases
-
-#### Phase 1: Stealth Infrastructure (Week 1)
-**Files to create (hidden from navigation):**
-- `/user/career_beta.cgi` - Career management (clone of degree.cgi)
-- `/user/skin/default/career_beta.tmpl` - Career form template
-- `/user/organization_beta.cgi` - Organization browsing
-- `/user/skin/default/organization_beta.tmpl` - Organization listing
-- `/user/profile_v2.cgi` - Enhanced profile with both degrees and career
-- `/user/skin/default/profile_v2.tmpl` - New profile template
-
-**Database changes:**
-- Create new tables with `_beta` suffix initially
-- Test data migration scripts
-
-**Perl module extensions:**
-- Add career methods to `Bawi::User` with feature flags
-- Backward compatibility maintained
-
-#### Phase 2: Admin Tools (Week 2)
-**Stealth admin interface:**
-- `/admin/organizations_beta.cgi` - Organization management
-- `/admin/career_admin_beta.cgi` - Career data oversight
-- User-submitted organization approval workflow
-
-#### Phase 3: Beta Testing (Week 3)
-**Limited user testing:**
-- Direct URL access for selected users
-- Feedback collection mechanism
-- Bug fixes and refinements
-- Performance monitoring
-
-#### Phase 4: Production Swap (Week 4)
-**Atomic deployment:**
-```bash
-# Backup current files
-cp degree.cgi degree.cgi.backup
-cp profile.cgi profile.cgi.backup
-
-# Atomic swap
-mv career_beta.cgi career.cgi
-mv profile_v2.cgi profile.cgi
-mv organization_beta.cgi organization.cgi
-
-# Update navigation templates
-# Enable production database tables
-```
+1. **Develop** on a branch off `test-env` (or `main`). Add the tables to the local DB, build `career.cgi`/`organization.cgi`/templates and the `Bawi::User` methods, and exercise them against the seeded synthetic data + admin login.
+2. **No** parallel `_beta`/`_v2` files, **no** hidden-URL testing on the live box, **no** `_beta` tables in the production database, and **no** `mv`-based file swap. (On this stack `mv` is not even atomic: `ModPerl::Registry` caches `lib/Bawi/*.pm` per Apache child and does not reload on file change, so a swapped-in `profile.cgi` calling new `Bawi::User` methods 500s on still-running children until a full Apache restart.)
+3. **Deploy** via the normal git flow: PR into `main`, then the standard production cutover (`git pull` on the deploy tree) with a **graceful Apache restart** to load the new modules.
+4. **Schema migration:** apply to the local test DB first; on prod, run the migration during the deploy window **after a `mysqldump` backup** (see the maintenance plan). The migration is purely additive (new tables), so rollback is `git revert` + redeploy + `DROP TABLE` on the new tables — no data loss on existing tables.
 
 ## Technical Specifications
 
@@ -143,284 +111,166 @@ mv organization_beta.cgi organization.cgi
 | `/user/skin/default/career.tmpl` | Career form UI | `degree.tmpl` | ~150 |
 | `/user/organization.cgi` | Organization browsing | `school.cgi` | ~130 |
 | `/user/skin/default/organization.tmpl` | Organization listing | `school.tmpl` | ~100 |
-| `/admin/organizations.cgi` | Org management | New | ~200 |
-| `/admin/skin/default/organizations.tmpl` | Admin UI | New | ~150 |
+| `/admin/organizations.cgi` | Org approval/verify | New | ~150 |
+| `/admin/skin/default/organizations.tmpl` | Admin UI | New | ~120 |
 
 ### Perl Module Extensions (`/lib/Bawi/User.pm`)
 
 ```perl
-# Career management methods (add ~200 lines)
-sub get_career($)
+# Career management methods
+sub get_career($)        # all career rows for a uid (1-to-many), ordered current-first
 sub add_career(@)
 sub update_career($@)
 sub del_career($$)
 sub career_set($)
 sub organization_list(%)
-sub add_organization(@)
-sub merge_organizations($$)
+sub add_organization(@)  # user-suggested org, verified=0 until admin approves
 ```
+
+(`merge_organizations` is deferred to v2 — see below.)
 
 ### Key Features
 
-#### User-Facing Features
+#### User-Facing
 - **Career Types**: Employment, Internship, Volunteer, Research, Military, Other
-- **Organization Management**: User can suggest new organizations
-- **Timeline View**: Chronological career progression
-- **Current Position**: Flag for ongoing employment
-- **Privacy Controls**: Show/hide specific career entries
+- **Organization Management**: users can suggest a new organization (created `verified=0`)
+- **Synonyms**: alternate names resolve to one canonical organization (`organization_synonym`)
+- **Timeline View**: chronological career progression (`end_date IS NULL` = current)
+- **Privacy Controls**: show/hide specific career entries
 
-#### Admin Features
-- **Organization Approval**: Review user-submitted organizations
-- **Duplicate Detection**: Find potential organization duplicates
-- **Merge Tool**: Combine duplicate organization entries
-- **Verification Status**: Mark trusted organizations
-- **Bulk Operations**: Import/export organization data
+#### Admin
+- **Organization Approval**: review user-submitted organizations (`verified` flag)
+- **Duplicate Detection**: surface likely-duplicate organizations (read-only report)
+
+### Deferred to v2 (explicitly out of scope for v1)
+These were scoped before the flat model was validated; defer until v1 demonstrably needs them:
+- **Corporate hierarchy** (`organizations.parent_id`, parent/subsidiary).
+- **Destructive merge** (`merge_organizations`) — needs the InnoDB transaction it would run in; only worth building once duplicates are a demonstrated problem.
+- **Bulk import/export** of organization data.
+
+Rationale: the existing `schools` table has served the "shared, admin-curated institution list" need for years as a *flat* table with no hierarchy and no merge tool; v1 organizations should match that proven shape plus the one genuinely new need (synonyms).
 
 ### Data Migration Strategy
 
 ```sql
--- Create migration script to split existing degree data
--- Identify career-like entries in bw_user_degree
--- Move non-academic entries to new career system
--- Preserve academic degrees in original system
+-- Migration script to split existing degree data:
+--  * identify career-like entries in bw_user_degree
+--  * move non-academic entries into bw_user_career (+ organizations)
+--  * preserve academic degrees in bw_user_degree
+-- Run and verify on the test-env DB before prod.
 ```
 
-## Testing Checklist
+## Testing Checklist (on `test-env`, against synthetic data)
 
-### Stealth Phase Testing
-- [ ] Direct URL access works without navigation links
-- [ ] Database operations don't interfere with production data
-- [ ] Backward compatibility maintained
-- [ ] Error handling for missing organizations
-- [ ] User permission checks work correctly
+### Feature
+- [ ] Career CRUD (add / edit / delete) round-trips correctly
+- [ ] Organization suggest → admin approve (`verified` 0→1) flow works
+- [ ] Synonym lookup resolves alternate names to the canonical org
+- [ ] Timeline orders current (end_date NULL) first, then by end_date desc
+- [ ] User permission checks (only owner edits own career)
 
-### Integration Testing
+### Integration
 - [ ] Profile page shows both degrees and career correctly
-- [ ] Search functionality includes career data
-- [ ] User edit flow handles both systems
-- [ ] Admin tools work with new data structures
+- [ ] Search includes career data (see below)
+- [ ] Foreign keys reject orphan career rows / block org delete with dependents
 
-### Production Readiness
-- [ ] Performance impact assessment
-- [ ] Database migration tested with production data copy
-- [ ] Rollback procedures verified
-- [ ] User documentation prepared
-- [ ] Admin training completed
-
-## Risk Mitigation
-
-### Rollback Plan
-1. **Immediate rollback**: Rename files back to originals
-2. **Database rollback**: Disable new tables, restore original queries
-3. **User communication**: Prepare explanation for any disruption
-
-### Production Monitoring
-- **Database performance**: Monitor query times on new tables
-- **User feedback**: Track support requests related to new features
-- **Error logging**: Enhanced logging for new career functionality
-
-## Timeline Estimate
-
-| Phase | Duration | Key Deliverables |
-|-------|----------|------------------|
-| Phase 1: Infrastructure | 1 week | Stealth career system, database schema |
-| Phase 2: Admin Tools | 1 week | Organization management, approval workflow |
-| Phase 3: Beta Testing | 1 week | User testing, bug fixes, refinements |
-| Phase 4: Production Deploy | 3 days | Atomic swap, monitoring, support |
-
-**Total: 3-4 weeks with stealth approach**
+### Production readiness
+- [ ] Migration tested on the test-env DB (and on a prod-schema copy)
+- [ ] `mysqldump` backup taken before the prod migration
+- [ ] Graceful Apache restart verified to load new modules
+- [ ] Rollback (git revert + DROP new tables) rehearsed
 
 ## Search System Integration
 
-### Current Search Infrastructure Analysis
+### Current Search Infrastructure
 
-The Bawi system has multiple search interfaces that need career feature integration:
+- **Main search** (`/main/search.cgi`, `/main/search2.cgi`): people search over `bw_xauth_passwd`/`bw_user_ki`/`bw_user_basic` (id, name, affiliation, addresses, phones); article/board search in `search2.cgi`.
+- **User search** (`/user/search.cgi`): `search_affiliation()` in `Bawi::User`, with match highlighting.
+- **School browsing** (`/user/school.cgi`): user counts by degree/school, listing by school, advisor grouping.
 
-#### 1. Main Search (`/main/search.cgi` & `/main/search2.cgi`)
-**Current capabilities:**
-- **People search**: Searches `bw_xauth_passwd`, `bw_user_ki`, `bw_user_basic` tables
-- **Search fields**: id, name, affiliation, addresses, phone numbers
-- **Article search**: Full-text search on board posts (search2.cgi only)
-- **Board search**: Searches board titles and creators
+Integration adds organization name + position to people results, a career search mode, and an organization-browsing page parallel to `school.cgi`.
 
-**Integration requirements:**
-- Add organization name and position to people search results
-- Search career history data alongside academic data
-- Extend search fields to include `organizations.full_name`, `bw_user_career.position`
+### New search methods in `Bawi::User.pm`
 
-#### 2. User-Specific Search (`/user/search.cgi`)
-**Current capabilities:**
-- **Affiliation search**: Uses `search_affiliation()` method in `Bawi::User`
-- **Highlight matching text**: CSS highlighting for search terms
-- **Simple keyword-based search**: Basic pattern matching
-
-**Integration requirements:**
-- Extend to search organization names and career positions
-- Create parallel `search_career()` method
-- Add career-specific search UI with organization filtering
-
-#### 3. School/Organization Browsing (`/user/school.cgi`)
-**Current capabilities:**
-- **School statistics**: Counts users by degree type and school
-- **User listing by school**: Shows all users from specific institution
-- **Advisor search**: Groups users by advisor names
-
-**New parallel system needed:**
-- **`/user/organization.cgi`**: Browse users by organization
-- **Career statistics**: Show user counts by organization and position type
-- **Position/department search**: Similar to advisor grouping
-
-### Search Integration Implementation Plan
-
-#### Phase 1: Database Search Extensions (Stealth)
-
-**New search methods in `Bawi::User.pm`:**
 ```perl
-# Career-specific search (parallel to search_affiliation)
+# Career search. NOTE: bw_user_career is 1-to-many per user, so DO NOT use
+# selectall_hashref keyed by a.id (it silently overwrites all but one row per
+# user). Return every matching career row and aggregate per user in Perl.
 sub search_career {
     my ($self, $keyword) = @_;
-    my $sql = qq(select a.id, a.name, b.ki, c.position, d.full_name as organization
-                 from bw_xauth_passwd as a, bw_user_ki as b, 
-                      bw_user_career as c, organizations as d
-                 where a.uid=b.uid && a.uid=c.uid && c.organization_id=d.id &&
-                 (c.position like ? || d.full_name like ? || d.brief_name like ? ||
-                  a.id like ? || a.name like ?));
-    my $rv = $DBH->selectall_hashref($sql, 'id', undef, ("\%$keyword\%") x 5);
-    # Sort and return logic similar to existing search_affiliation
+    my $sql = qq(
+        select c.career_id, a.id, a.name, b.ki, c.position, o.full_name as organization
+        from bw_xauth_passwd a
+        join bw_user_ki      b on a.uid = b.uid
+        join bw_user_career  c on a.uid = c.uid
+        join organizations   o on c.organization_id = o.id
+        left join organization_synonym s on s.org_id = o.id
+        where c.position like ? or o.full_name like ? or o.brief_name like ?
+           or s.name like ? or a.id like ? or a.name like ?
+        order by b.ki, a.name, c.career_id);
+    my $rv = $DBH->selectall_arrayref($sql, { Slice => {} }, ("\%$keyword\%") x 6);
+    # group $rv by a.id in Perl so a user with multiple matching careers keeps them all
+    return $rv;
 }
 
-# Enhanced people search (combines academic + career)
-sub search_people_enhanced {
-    my ($self, $keyword) = @_;
-    # Union query combining degree/school data and career/organization data
-    # Returns unified profile with both academic and professional background
-}
-
-# Organization statistics (parallel to school statistics in school.cgi)
+# Organization statistics (parallel to school stats). Keyed by org id, which
+# IS unique in a GROUP BY o.id result, so a hashref key is safe here.
 sub organization_stats {
-    my ($self, $type) = @_;
-    my $sql = qq(select a.full_name as organization, a.id, count(*) as count
-                 from organizations as a, bw_user_career as b 
-                 where a.id=b.organization_id && b.type=? 
-                 group by a.id order by count desc, organization);
-    # Similar logic to degree_stat() in school.cgi
+    my ($self, $type_code) = @_;
+    my $sql = qq(
+        select o.full_name as organization, o.id, count(*) as cnt
+        from organizations o
+        join bw_user_career c on o.id = c.organization_id
+        join bw_data_org_type t on o.org_type_id = t.id
+        where (? = '' or t.code = ?)
+        group by o.id order by cnt desc, organization);
+    return $DBH->selectall_arrayref($sql, { Slice => {} }, $type_code, $type_code);
 }
 ```
 
-#### Phase 2: Search UI Extensions (Stealth)
+### Search UI
 
-**Enhanced search templates:**
-- **`/main/skin/default/search_beta.tmpl`**: Add career search option
-- **`/user/skin/default/search_beta.tmpl`**: Career-specific search interface
-- **`/user/skin/default/organization_beta.tmpl`**: Organization browsing (clone of school.tmpl)
+New search categories: People by Academic Background (current), People by Career Background (new), People by Organization, Combined. Templates extend the existing `search.tmpl` family (no parallel `_beta` files — developed and tested on `test-env`).
 
-**New search categories:**
-- **People by Academic Background**: Current functionality
-- **People by Career Background**: New career-based search
-- **People by Organization**: Browse by company/institution
-- **Combined Profile Search**: Search across both academic and career data
-
-#### Phase 3: Search Integration (Stealth)
-
-**Enhanced main search (`/main/search_beta.cgi`):**
-```perl
-# Add career search type
-if ($type eq 'career') {
-    $ui->tparam(result_career=>&search_career($keyword, $ui));
-} elsif ($type eq 'people_enhanced') {
-    $ui->tparam(result_people=>&search_people_enhanced($keyword, $ui));
-}
+**Enhanced people-result format:**
 ```
-
-**Enhanced user search (`/user/search_beta.cgi`):**
-```perl
-# Support multiple search modes
-my $search_type = $ui->cparam('search_type') || 'affiliation';
-if ($search_type eq 'career') {
-    my $rv = $user->search_career($keyword);
-    # Apply highlighting and formatting
-} elsif ($search_type eq 'organization') {
-    my $rv = $user->search_organization($keyword);
-}
-```
-
-#### Phase 4: Production Search Migration
-
-**Atomic search system upgrade:**
-1. **Backup existing search files**
-2. **Deploy enhanced search with backward compatibility**
-3. **Gradual rollout through feature flags**
-4. **Full search integration activation**
-
-### Search Feature Specifications
-
-#### Enhanced People Search Results
-**Current format:**
-```
-[기수] 이름(ID): 소속, 전화번호
-```
-
-**Enhanced format:**
-```
-[기수] 이름(ID): 
+[기수] 이름(ID):
   Academic: [학위] 학교명, 학과
-  Career: [직급] 회사명, 부서 [기간]
-  Contact: 전화번호
+  Career:   [직급] 회사명, 부서 [기간]
+  Contact:  전화번호
 ```
 
-#### Organization Search Interface
-**Search filters:**
-- **Organization type**: Company, Government, Academic, Hospital, etc.
-- **Position level**: Entry, Manager, Director, Executive
-- **Career period**: Current, Past, Date range
-- **Location**: By country/region
+## Performance Considerations
 
-**Search results:**
-- **Organization profile**: Name, type, verified status
-- **User count**: Number of users with experience
-- **Popular positions**: Most common job titles
-- **Related organizations**: Parent/subsidiary companies
-
-### Performance Considerations
-
-#### Database Indexing
 ```sql
--- Career search optimization
-ALTER TABLE bw_user_career ADD INDEX idx_search (organization_id, position, uid);
-ALTER TABLE organizations ADD INDEX idx_name_search (full_name, brief_name);
+-- Indexes are declared inline in the CREATE TABLEs above:
+--   bw_user_career: idx_user_current (uid, end_date), idx_search (organization_id, position)
+--   organizations:  full_name, brief_name, verified
+-- Add a FULLTEXT index only if LIKE-prefix search proves too slow at real volume:
 ALTER TABLE organizations ADD FULLTEXT INDEX ft_names (full_name, brief_name);
-
--- Combined search optimization  
-ALTER TABLE bw_user_career ADD INDEX idx_user_current (uid, is_current, end_date);
 ```
 
-#### Caching Strategy
-- **Organization autocomplete**: Cache popular organization names
-- **Search result caching**: Cache frequent search queries
-- **Statistics caching**: Cache organization/position statistics
+Caching: organization-name autocomplete and organization/position statistics are the obvious cache targets if profiled as hot.
 
-### Search Migration Timeline
+## Timeline Estimate
 
-| Week | Search Component | Status |
-|------|------------------|--------|
-| Week 1 | Database methods + basic career search | Stealth development |
-| Week 2 | Enhanced UI templates + organization browsing | Stealth testing |
-| Week 3 | Integration testing + performance optimization | Beta user testing |
-| Week 4 | Production search deployment | Atomic migration |
+| Phase | Deliverables |
+|-------|--------------|
+| 1 | Schema + `Bawi::User` career/org methods; local dev on `test-env` |
+| 2 | Career + organization UI (user); admin approval/verify UI |
+| 3 | Search integration (career + organization modes) |
+| 4 | Migration rehearsal, PR into `main`, prod cutover + graceful restart |
 
 ## Success Metrics
 
-- Zero production downtime during deployment
-- Successful data migration without loss
-- User adoption rate of new career features
-- Reduction in admin overhead for organization management
-- Improved user profile completeness
-- **Enhanced search functionality**: Career-based user discovery
-- **Organization network analysis**: Company/institution relationship mapping
+- Successful, backup-protected data migration without loss
+- User adoption of career features; improved profile completeness
+- Reduced admin overhead for organization management (self-service + synonyms)
+- Career-based user discovery via search
 
 ---
 
-**Document Version**: 1.1  
-**Created**: 2025-07-24  
-**Updated**: 2025-07-24 (Added Search Integration)  
+**Document Version**: 2.0
+**Created**: 2025-07-24
+**Revised**: 2026-07-06 (removed the obsolete production-only "stealth" rollout now that a local `test-env` exists; InnoDB + FKs; `utf8mb4`; org-type lookup table; `end_date IS NULL` as the sole "current" signal; synonym table; deferred hierarchy/merge/bulk to v2; fixed `search_career`'s multi-row drop)
 **Status**: Specification Phase
