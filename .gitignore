@@ -1,2 +1,8 @@
 conf/*.conf
+conf/*.tmp
 admin/process/dat/*.txt
+
+# Deploy-time artifacts present on production, not source (regenerable / per-deploy)
+/main/BingSiteAuth.xml
+/main/google*.html
+/maint

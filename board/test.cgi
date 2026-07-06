@@ -20,7 +20,7 @@ $ui->tparam(allow_attach=>1);
 my %cookies;
 %cookies = CGI::Cookie->fetch;
 
-$ui->tparam(mobile_device=>$cookies{'bawi_mobile'}->value);
+#$ui->tparam(mobile_device=>$cookies{'bawi_mobile'}->value);
 
 #my $sql = qq(select poll_id, board_id, article_id from bw_xboard_poll group by board_id, article_id order by poll_id desc);
 #my $rv = $ui->dbh->selectall_hashref($sql, 'poll_id');
