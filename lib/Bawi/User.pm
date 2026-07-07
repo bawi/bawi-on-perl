@@ -277,6 +277,9 @@ sub get_career {
     my $sql = qq(select career_id, company, position, date_format(start_date,"%Y-%m") as start_date, date_format(end_date, "%Y-%m") as end_date from bw_user_career where uid=?);
     my $d = $DBH->selectall_hashref($sql, 'career_id', undef, $uid);
     if ($d) {
+        # sort runs before map (right-to-left eval), so the comparator sees the
+        # raw "1001-01" sentinel — ongoing rows (end unset) sort last. The map
+        # then rewrites sentinels for display: start '' (date omitted) / end 현재.
         my @career =
             map {
                 $$d{$_}->{start_date} =~ s/1001-01//g;
@@ -433,6 +436,9 @@ sub career_set {
         my %d = %{ $$rv{$i} };
         my @s = split(/-/, $d{start_date});
         my @e = split(/-/, $d{end_date});
+        # A sentinel date means "no date" — show 현재/현재, not 현재/1월.
+        @s = ('1001', '00') if ($d{start_date} eq '1001-01-01');
+        @e = ('1001', '00') if ($d{end_date} eq '1001-01-01');
         my %rv = (
             career_id   => $d{career_id},
             company     => $d{company},
@@ -514,19 +520,15 @@ sub del_degree {
     return $rv;
 }
 
-sub career {
-    my ($self, $uid, $career_id) = @_;
-    my $sql = qq(select * from bw_user_career where uid=? && career_id=?);
-    my $rv = $DBH->selectrow_hashref($sql, undef, $uid, $career_id);
-    return $rv;
-}
-
 sub update_career {
     my ($self, @field) = @_;
-    my $sql = qq(replace into bw_user_career
-                 (career_id, uid, company, position, start_date,end_date)
-                 value (?, ?, ?, ?, ?, ?));
-    my $rv = $DBH->do($sql, undef, @field);
+    # @field = (career_id, uid, company, position, start_date, end_date).
+    # UPDATE ... WHERE uid enforces ownership: a forged career_id hits 0 rows
+    # instead of REPLACE hijacking (delete+reinsert) another user's row.
+    my $sql = qq(update bw_user_career
+                 set company=?, position=?, start_date=?, end_date=?
+                 where career_id=? && uid=?);
+    my $rv = $DBH->do($sql, undef, @field[2,3,4,5,0,1]);
     return $rv;
 }
 
