@@ -528,6 +528,8 @@ sub update_career {
     my $sql = qq(update bw_user_career
                  set company=?, position=?, start_date=?, end_date=?
                  where career_id=? && uid=?);
+    # slice reorders @field -> placeholder order (set cols, then where cols);
+    # keep in sync if you touch either the SET/WHERE list or the caller.
     my $rv = $DBH->do($sql, undef, @field[2,3,4,5,0,1]);
     return $rv;
 }
