@@ -274,11 +274,12 @@ sub get_degree {
 sub get_career {
     my ($self, $uid) = @_;
 
-    my $sql = qq(select career_id, company, position, content, date_format(start_date,"%Y-%m") as start_date, date_format(end_date, "%Y-%m") as end_date from bw_user_career where uid=?);
+    my $sql = qq(select career_id, company, position, date_format(start_date,"%Y-%m") as start_date, date_format(end_date, "%Y-%m") as end_date from bw_user_career where uid=?);
     my $d = $DBH->selectall_hashref($sql, 'career_id', undef, $uid);
     if ($d) {
-        my @career = 
+        my @career =
             map {
+                $$d{$_}->{start_date} =~ s/1001-01//g;
                 $$d{$_}->{end_date} =~ s/1001-01/현재/g;
                 $$d{$_}
             } sort {
@@ -436,7 +437,6 @@ sub career_set {
             career_id   => $d{career_id},
             company     => $d{company},
             position    => $d{position},
-            content     => $d{content},
             start_year  => $self->year_list(-current=>$s[0]),
             end_year    => $self->year_list(-current=>$e[0]),
             start_month => $self->month_list(-current=>$s[1]),
@@ -524,8 +524,8 @@ sub career {
 sub update_career {
     my ($self, @field) = @_;
     my $sql = qq(replace into bw_user_career
-                 (career_id, uid, company, position, content,start_date,end_date) 
-                 value (?, ?, ?, ?, ?, ?, ?));
+                 (career_id, uid, company, position, start_date,end_date)
+                 value (?, ?, ?, ?, ?, ?));
     my $rv = $DBH->do($sql, undef, @field);
     return $rv;
 }
@@ -534,8 +534,8 @@ sub add_career {
     my ($self, @field) = @_;
 
     my $sql = qq(insert into bw_user_career
-                 (uid, company, position, content,start_date,end_date) 
-                 value (?, ?, ?, ?, ?, ?));
+                 (uid, company, position, start_date,end_date)
+                 value (?, ?, ?, ?, ?));
     my $rv = $DBH->do($sql, undef, @field);
     return $rv;
 }

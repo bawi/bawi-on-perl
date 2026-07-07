@@ -10,6 +10,18 @@ deliberately lightweight and the diff must be too.
 
 Precedence: this spec > mirroring degree > anything else.
 
+## Revisions (2026-07-06, post-review — these supersede the prose below)
+
+1. **No `content` / 업무 내용 field.** Dropped as unnecessary (position already
+   conveys the role). Remove it from the table, all `Bawi::User` career subs,
+   `career.cgi` (params + escape), and `career.tmpl`.
+2. **Dates are optional; only company + position are required.** The save guard
+   is `if ($uid && $company && $position)`. `$s_date`/`$e_date` default to the
+   `'1001-01-01'` sentinel when a period is left at the "현재" default (the
+   dropdown's first option), so a company+position-only entry saves instead of
+   being silently discarded. `get_career` blanks the start-date sentinel
+   (`s/1001-01//`) so such rows render `[~현재]`.
+
 ## Data model
 
 New file `db/20260706_add_user_career.sql` (single statement, no trailing
@@ -21,7 +33,6 @@ CREATE TABLE `bw_user_career` (
   `uid` mediumint(8) unsigned NOT NULL DEFAULT 0,
   `company` varchar(255) NOT NULL DEFAULT '',
   `position` varchar(255) NOT NULL DEFAULT '',
-  `content` text NOT NULL,
   `start_date` date NOT NULL DEFAULT '1001-01-01',
   `end_date` date NOT NULL DEFAULT '1001-01-01',
   PRIMARY KEY (`career_id`),

@@ -27,14 +27,13 @@ action
 cid
 company
 position
-content
 start_year
 start_month
 end_year
 end_month
 );
 
-my ($action, $career_id, $company, $position, $content, $s_year, $s_month, $e_year, $e_month) = map { $ui->cparam($_) || '' } @field;
+my ($action, $career_id, $company, $position, $s_year, $s_month, $e_year, $e_month) = map { $ui->cparam($_) || '' } @field;
 
 if ($e_year && $s_year && 
     ( ($e_year ne '1001' && $e_year < $s_year) || 
@@ -49,16 +48,13 @@ $s_year = '' if ($s_year eq '1001');
 
 $e_month = '01' if ($e_year eq '1001');
 
-my $s_date = "$s_year-$s_month-01"
-    if ($s_year && $s_month);
-my $e_date = "$e_year-$e_month-01"
-    if ($e_year && $e_month);
+my $s_date = ($s_year && $s_month) ? "$s_year-$s_month-01" : '1001-01-01';
+my $e_date = ($e_year && $e_month) ? "$e_year-$e_month-01" : '1001-01-01';
 
-if ($uid && $company && $position && $s_date && $e_date) {
-    my @field = ($uid, $company, $position, $content, $s_date, $e_date);
+if ($uid && $company && $position) {
+    my @field = ($uid, $company, $position, $s_date, $e_date);
     $field[1] = $ui->cgi->escapeHTML($field[1]);
     $field[2] = $ui->cgi->escapeHTML($field[2]);
-    $field[3] = $ui->cgi->escapeHTML($field[3]);
     if ($career_id) {   # update existing record
         my $rv = $user->update_career($career_id, @field);
         $user->modified($uid);
