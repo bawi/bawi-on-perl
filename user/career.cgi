@@ -64,6 +64,13 @@ if ($uid && $company && $position) {
     }
 }
 
+if ($action && $action eq 'save' && !($company && $position)) {
+    my @missing;
+    push @missing, '회사명' unless $company;
+    push @missing, '직위/직책' unless $position;
+    $ui->msg(join(', ', @missing) . ' 항목을 입력해야 저장됩니다.');
+}
+
 if ($uid && $career_id && $action && $action eq 'del') {
     my $rv = $user->del_career($uid, $career_id);
     $user->modified($uid) if ($rv && $rv eq '1');

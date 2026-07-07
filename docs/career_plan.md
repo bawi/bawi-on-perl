@@ -21,6 +21,11 @@ Precedence: this spec > mirroring degree > anything else.
    dropdown's first option), so a company+position-only entry saves instead of
    being silently discarded. `get_career` blanks the start-date sentinel
    (`s/1001-01//`) so such rows render `[~현재]`.
+3. **Missing-field warning.** When a save is submitted (`action=save`) without
+   company or position, `career.cgi` calls `$ui->msg(...)` listing the missing
+   field(s) and `career.tmpl` shows it in the standard yellow `<tmpl_if msg>`
+   banner (same idiom as `edsig.tmpl` / `passwd.tmpl`) instead of failing
+   silently.
 
 ## Data model
 
