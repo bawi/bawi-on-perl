@@ -466,6 +466,131 @@ sub del_degree {
     return $rv;
 }
 
+sub get_career {
+    my ($self, $uid) = @_;
+    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, o.name AS organization, c.position, date_format(c.start_date,'%Y-%m') AS start_date, date_format(c.end_date,'%Y-%m') AS end_date FROM bw_user_career c JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
+    my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
+    my %type = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');
+    foreach my $r (@$rv) {
+        $r->{end_date} = $r->{end_date} ? $r->{end_date} : '현재';
+        $r->{start_date} = $r->{start_date} || '';
+        $r->{type_brief} = $type{$r->{type}} || $type{other};
+    }
+    return $rv;
+}
+
+sub add_career {
+    my ($self, $uid, $type, $org_id, $position, $s_date, $e_date) = @_;
+    my $sql = qq(INSERT INTO bw_user_career (uid,type,organization_id,position,start_date,end_date) VALUES (?,?,?,?,?,?));
+    my $rv = $DBH->do($sql, undef, $uid, $type, $org_id, $position, $s_date, $e_date);
+    return $rv;
+}
+
+sub update_career {
+    my ($self, $career_id, $uid, $type, $org_id, $position, $s_date, $e_date) = @_;
+    my $sql = qq(UPDATE bw_user_career SET type=?,organization_id=?,position=?,start_date=?,end_date=? WHERE career_id=? AND uid=?);
+    my $rv = $DBH->do($sql, undef, $type, $org_id, $position, $s_date, $e_date, $career_id, $uid);
+    return $rv;
+}
+
+sub del_career {
+    my ($self, $uid, $career_id) = @_;
+    my $sql = qq(DELETE FROM bw_user_career WHERE uid=? AND career_id=?);
+    my $rv = $DBH->do($sql, undef, $uid, $career_id);
+    return $rv;
+}
+
+sub career_set {
+    my ($self, $uid) = @_;
+    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, o.name AS organization, c.position, c.start_date, c.end_date FROM bw_user_career c JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
+    my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
+    my @rv;
+    push @rv, { start_year=>$self->year_list, end_year=>$self->year_list, start_month=>$self->month_list, end_month=>$self->month_list };
+    foreach my $d (@$rv) {
+        my @s = $d->{start_date} ? split(/-/, $d->{start_date}) : ('1001','00');
+        my @e = $d->{end_date} ? split(/-/, $d->{end_date}) : ('1001','00');
+        my %rv = (
+            career_id       => $d->{career_id},
+            "$d->{type}"    => 1,
+            organization    => $d->{organization},
+            organization_id => $d->{organization_id},
+            position        => $d->{position},
+            start_year      => $self->year_list(-current=>$s[0]),
+            end_year        => $self->year_list(-current=>$e[0]),
+            start_month     => $self->month_list(-current=>$s[1]),
+            end_month       => $self->month_list(-current=>$e[1]),
+        );
+        push @rv, \%rv;
+    }
+    return \@rv;
+}
+
+sub org_suggest {
+    my ($self, $q) = @_;
+    $q ||= '';
+    $q =~ s/^\s+//;
+    $q =~ s/\s+$//;
+    return [] unless length($q);
+    $q =~ s/([\\%_])/\\$1/g;
+    my $sql = qq(SELECT DISTINCT o.org_id, o.name FROM org_alias a JOIN organizations o ON a.org_id=o.org_id WHERE a.alias LIKE ? ORDER BY o.name LIMIT 10);
+    my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, "$q%") || [];
+    return $rv;
+}
+
+sub resolve_or_create_org {
+    my ($self, $name, $uid) = @_;
+    $name ||= '';
+    $name =~ s/^\s+//;
+    $name =~ s/\s+$//;
+    return 0 unless length($name);
+    my $id = $DBH->selectrow_array(qq(SELECT org_id FROM org_alias WHERE alias=? LIMIT 1), undef, $name);
+    return $id if $id;
+    my $rv = $DBH->do(qq(INSERT INTO organizations (name,created_by) VALUES (?,?)), undef, $name, $uid);
+    return 0 unless $rv;
+    $id = $DBH->selectrow_array(qq(SELECT LAST_INSERT_ID()));
+    $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $name, $id);
+    return $id;
+}
+
+sub org_list {
+    my ($self) = @_;
+    my $sql = qq(SELECT o.org_id,o.name, COUNT(DISTINCT c.career_id) AS usage_count, GROUP_CONCAT(DISTINCT a.alias ORDER BY a.alias SEPARATOR ', ') AS aliases FROM organizations o LEFT JOIN bw_user_career c ON c.organization_id=o.org_id LEFT JOIN org_alias a ON a.org_id=o.org_id GROUP BY o.org_id,o.name ORDER BY o.name);
+    my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}) || [];
+    return $rv;
+}
+
+sub org_merge {
+    my ($self, $from, $to) = @_;
+    return unless ($from && $to && $from =~ /^\d+$/ && $to =~ /^\d+$/ && $from != $to);
+    $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
+    $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
+    $DBH->do(qq(DELETE FROM org_alias WHERE org_id=?), undef, $from);
+    $DBH->do(qq(DELETE FROM organizations WHERE org_id=?), undef, $from);
+    return 1;
+}
+
+sub org_add_alias {
+    my ($self, $org, $alias) = @_;
+    $alias ||= '';
+    $alias =~ s/^\s+//;
+    $alias =~ s/\s+$//;
+    return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
+    my $rv = $DBH->do(qq(INSERT IGNORE INTO org_alias (alias,org_id) VALUES (?,?)), undef, $alias, $org);
+    return $rv;
+}
+
+sub org_del_alias {
+    my ($self, $org, $alias) = @_;
+    $alias ||= '';
+    $alias =~ s/^\s+//;
+    $alias =~ s/\s+$//;
+    return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
+    my $count = $DBH->selectrow_array(qq(SELECT COUNT(*) FROM org_alias WHERE org_id=?), undef, $org);
+    return if ($count && $count <= 1);
+    my $rv = $DBH->do(qq(DELETE FROM org_alias WHERE org_id=? AND alias=?), undef, $org, $alias);
+    return $rv;
+}
+
 sub is_circle_member {
     my ($self, $cid, $uid) = @_;
     my $sql = qq(select uid from bw_user_circle where circle_id=? && uid=?);
