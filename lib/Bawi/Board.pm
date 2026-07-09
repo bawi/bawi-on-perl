@@ -1968,18 +1968,33 @@ sub upload_attach {
             $attach{filename} = $q->param($name);
             $attach{filename} =~ s/.+[\\\/](.+)$/$1/g;
             $attach{content_type} = $q->uploadInfo($q->param($name))->{'Content-Type'};
-            $attach{is_img} = 
-                ($attach{content_type} =~ /image/gi and
-                 $attach{content_type} =~ /gif|jpeg|jpg|png/gi) ? 'y' : 'n';
             my $buffer;
             while (my $len = read($attach, $buffer, 1024)) {
                 $attach{file} .= $buffer;
                 $attach{filesize} += $len;
             }
+            # is_img is the single switch every ImageMagick path keys on (EXIF strip,
+            # thumbnail, resize). Trust the file's real signature, not the client-declared
+            # Content-Type: a file claiming image/* but carrying SVG/MVG/MSL bytes must
+            # never reach ImageMagick (ImageTragick RCE via delegates).
+            $attach{is_img} =
+                ($attach{content_type} =~ /image/gi and
+                 $attach{content_type} =~ /gif|jpeg|jpg|png/gi and
+                 &is_raster_image($attach{file})) ? 'y' : 'n';
             push @attach, \%attach;
         }
     }
     return \@attach;
+}
+
+# True only when $bytes starts with a real JPEG/PNG/GIF magic number. Keeps
+# forged-Content-Type uploads (e.g. SVG/MVG bytes labeled image/png) out of every
+# ImageMagick path. Deliberately a raw byte check, NOT Image::Magick->Ping, which
+# would itself parse the untrusted input we are trying to guard.
+sub is_raster_image {
+    my $bytes = shift;
+    return 0 unless defined $bytes;
+    return $bytes =~ /\A(?:\xFF\xD8\xFF|\x89PNG\r\n\x1A\n|GIF8[79]a)/ ? 1 : 0;
 }
 
 sub attach_file_path {
