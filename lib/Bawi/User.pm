@@ -531,6 +531,11 @@ sub org_suggest {
     $q =~ s/^\s+//;
     $q =~ s/\s+$//;
     return [] unless length($q);
+    # Names are stored HTML-escaped (house style, like degree department), so escape
+    # the query the same way BEFORE the prefix match — else a typed & / < / " never
+    # matches the stored &amp; / &lt; / &quot;. escapeHTML introduces no LIKE
+    # metachars, so the LIKE-escape below still covers a literal % / _ / \ in $q.
+    $q = $self->ui->cgi->escapeHTML($q);
     $q =~ s/([\\%_])/\\$1/g;
     my $sql = qq(SELECT DISTINCT o.org_id, o.name FROM org_alias a JOIN organizations o ON a.org_id=o.org_id WHERE a.alias LIKE ? ORDER BY o.name LIMIT 10);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, "$q%") || [];
@@ -562,6 +567,9 @@ sub org_list {
 sub org_merge {
     my ($self, $from, $to) = @_;
     return unless ($from && $to && $from =~ /^\d+$/ && $to =~ /^\d+$/ && $from != $to);
+    # target must exist, else careers repoint to a ghost org_id and vanish from
+    # every view via the inner join in get_career.
+    return unless $DBH->selectrow_array(qq(SELECT 1 FROM organizations WHERE org_id=?), undef, $to);
     $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
     $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
     $DBH->do(qq(DELETE FROM org_alias WHERE org_id=?), undef, $from);

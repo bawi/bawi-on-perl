@@ -21,9 +21,12 @@ my $q = $ui->cparam('q') || '';
 my $org = $q =~ /\S/ ? $user->org_suggest($q) : [];
 
 print $ui->cgi->header(-type=>'application/json', -charset=>'utf-8');
-# DBD::mysql returns UTF-8 *bytes* (no mysql_enable_utf8 on the handle, per house
-# style). encode_json re-encodes its input as UTF-8, so byte strings double-encode
-# into mojibake. Decode each name to Perl chars first → encode_json emits clean UTF-8.
-print encode_json([ map { my $n = $_->{name}; utf8::decode($n); +{id=>$_->{org_id}, name=>$n} } @$org ]);
+# Names are stored HTML-escaped (house style). unescapeHTML reverses that so the
+# JS type-ahead shows clean text AND a picked name round-trips: on save career.cgi
+# re-escapes it to the stored form and resolve_or_create_org matches the existing
+# org (no double-escaped duplicate). Then decode UTF-8 bytes -> Perl chars so
+# encode_json emits clean UTF-8 (DBD::mysql returns bytes; encode_json re-encodes,
+# which would otherwise double-encode into mojibake).
+print encode_json([ map { my $n = $ui->cgi->unescapeHTML($_->{name}); utf8::decode($n); +{id=>$_->{org_id}, name=>$n} } @$org ]);
 
 1;
