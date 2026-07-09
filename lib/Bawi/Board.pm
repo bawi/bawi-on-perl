@@ -1919,9 +1919,11 @@ sub get_attach {
                 is_img=> $$rv{is_img},
                 filehandle=> *FH,
             );
-            $attach{image} = 1 
+            # svg displays inline via <img> but is intentionally NOT is_img='y'
+            # (it must never enter the ImageMagick thumbnail/resize/strip paths)
+            $attach{image} = 1
               if ($$rv{content_type} =~ /image/gi and
-                  $$rv{content_type} =~ /gif|jpeg|jpg|png/gi );
+                  $$rv{content_type} =~ /gif|jpeg|jpg|png|svg/gi );
             return \%attach;
         } else { warn "$path: $!"; }
         
@@ -1940,8 +1942,8 @@ sub get_attachset {
     foreach my $i (sort { $a <=> $b } keys %$rv) {
         my $ct = $$rv{$i}->{content_type};
         #delete $$rv{$i}->{content_type};
-        $$rv{$i}->{image} = 1 
-            if ($ct =~ /image/gi && $ct =~ /gif|jpeg|jpg|png/gi);
+        $$rv{$i}->{image} = 1
+            if ($ct =~ /image/gi && $ct =~ /gif|jpeg|jpg|png|svg/gi);
         $$rv{$i}->{filesize} = &bytes($$rv{$i}->{filesize});
         push @rv, $$rv{$i};
     }

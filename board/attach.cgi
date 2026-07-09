@@ -65,6 +65,10 @@ if ($attach and $$attach{filehandle}) {
         # For non-image files or image types unlikely to have EXIF, serve normally
         print $ui->cgi->header(
             -type => $$attach{content_type},
+            # Sandbox untrusted uploads served as-is (e.g. svg, html): if opened as a
+            # top-level document their scripts are blocked and origin is opaque, so a
+            # malicious upload can't run same-origin JS or read the (non-HttpOnly) cookie.
+            -Content_Security_Policy => 'sandbox',
             -Content_Disposition => qq(inline; filename="$$attach{filename}"),
             -Content_length => $$attach{filesize},
             -expires => '+3M'
@@ -109,6 +113,10 @@ if ($attach and $$attach{filehandle}) {
     } else {
         print $ui->cgi->header(
             -type => $$attach{content_type},
+            # Sandbox untrusted uploads served as-is (e.g. svg, html): if opened as a
+            # top-level document their scripts are blocked and origin is opaque, so a
+            # malicious upload can't run same-origin JS or read the (non-HttpOnly) cookie.
+            -Content_Security_Policy => 'sandbox',
             -Content_Disposition => qq(inline; filename="$$attach{filename}"),
             -Content_length => $$attach{filesize},
             -expires => '+3M'
