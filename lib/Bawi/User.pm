@@ -351,6 +351,12 @@ sub has_degree {
     return $has_degree;
 }
 
+sub has_career {
+    my ($self, $uid) = @_;
+    my $rv = $DBH->selectrow_array(qq(select count(*) from bw_user_career where uid=?), undef, $uid);
+    return $rv ? 1 : 0;
+}
+
 sub max_ki {
     my ($self) = @_;
     my $sql = qq(select max(ki) from bw_user_ki);
@@ -466,7 +472,11 @@ sub del_degree {
     return $rv;
 }
 
-our %CAREER_TYPE = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');
+our %CAREER_TYPE = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');   # SINGLE SOURCE for the Perl side. Keep in
+# sync with the DB enum (db/20260708_create_career.sql) and the <option> list in
+# user/skin/default/career.tmpl — those two are parallel copies the template/SQL can't
+# read from here.
+sub career_types { return keys %CAREER_TYPE; }
 
 sub get_career {
     my ($self, $uid) = @_;
@@ -502,8 +512,16 @@ sub del_career {
     return $rv;
 }
 
+sub career_owned {
+    my ($self, $career_id, $uid) = @_;
+    return $DBH->selectrow_array(qq(select 1 from bw_user_career where career_id=? && uid=?), undef, $career_id, $uid);
+}
+
 sub career_set {
     my ($self, $uid) = @_;
+    # inner join is deliberate: an orphaned career must NOT get an edit form, or a re-save
+    # would resolve the '(삭제된 기관)' placeholder into a brand-new junk org. (get_career
+    # LEFT JOINs for the read-only list; see its comment.)
     my $sql = qq(SELECT c.career_id, c.type, c.organization_id, o.name AS organization, c.position, c.start_date, c.end_date FROM bw_user_career c JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
     my @rv;
@@ -550,7 +568,7 @@ sub resolve_or_create_org {
     $name =~ s/^\s+//;
     $name =~ s/\s+$//;
     return 0 unless length($name);
-    my $id = $DBH->selectrow_array(qq(SELECT org_id FROM org_alias WHERE alias=? LIMIT 1), undef, $name);
+    my $id = $DBH->selectrow_array(qq(SELECT a.org_id FROM org_alias a JOIN organizations o ON a.org_id=o.org_id WHERE a.alias=? LIMIT 1), undef, $name);
     return $id if $id;
     my $rv = $DBH->do(qq(INSERT INTO organizations (name,created_by) VALUES (?,?)), undef, $name, $uid);
     return 0 unless $rv;
@@ -569,15 +587,21 @@ sub org_list {
     return $rv;
 }
 
-sub org_exists { my ($self,$id)=@_; return $DBH->selectrow_array(qq(SELECT 1 FROM organizations WHERE org_id=?), undef, $id); }
+sub org_exists {
+    my ($self, $id) = @_;
+    my $sql = qq(SELECT 1 FROM organizations WHERE org_id=?);
+    return $DBH->selectrow_array($sql, undef, $id);
+}
 
 sub org_merge {
     my ($self, $from, $to) = @_;
     return unless ($from && $to && $from =~ /^\d+$/ && $to =~ /^\d+$/ && $from != $to);
     return unless $self->org_exists($to);
-    # No transactions on MyISAM: verify each step; never delete the org until the
-    # repoint has actually removed every career from $from, else orphaned careers
-    # vanish via the inner join in get_career.
+    # No transactions on MyISAM: verify each step; never delete the org until the repoint
+    # has emptied it, else orphaned careers lose their EDIT FORM via the inner join in
+    # career_set (get_career now LEFT JOINs and shows them as '(삭제된 기관)'). The two
+    # trailing DELETEs are best-effort cleanup — careers are already repointed, and a stale
+    # alias can't misresolve because resolve_or_create_org's lookup joins organizations (G4).
     return unless defined $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
     return if $DBH->selectrow_array(qq(SELECT COUNT(*) FROM bw_user_career WHERE organization_id=?), undef, $from);
     return unless defined $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
@@ -593,8 +617,8 @@ sub org_add_alias {
     $alias =~ s/\s+$//;
     return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
     $alias = $self->ui->cgi->escapeHTML($alias);
-    my $rv = $DBH->do(qq(INSERT IGNORE INTO org_alias (alias,org_id) VALUES (?,?)), undef, $alias, $org);
-    return $rv;
+    return '0E0' if $DBH->selectrow_array(qq(SELECT 1 FROM org_alias WHERE alias=? && org_id=?), undef, $alias, $org);
+    return $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $alias, $org);
 }
 
 sub org_del_alias {

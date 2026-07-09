@@ -36,8 +36,8 @@ if ($ui->cgi->request_method && $ui->cgi->request_method eq 'POST') {
         }
     } elsif ($action eq 'add_alias') {
         if ($org_id && $alias) {
-            $user->org_add_alias($org_id, $alias);
-            $ui->msg('별칭을 추가했습니다.');
+            my $rv = $user->org_add_alias($org_id, $alias);
+            $ui->msg($rv ? '별칭을 추가했습니다.' : '별칭을 추가하지 못했습니다.');
         } else {
             $ui->msg('기관과 별칭을 입력해주세요.');
         }

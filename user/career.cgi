@@ -37,11 +37,10 @@ end_month
 );
 
 my ($action, $career_id, $type, $org, $param_org_id, $position, $s_year, $s_month, $e_year, $e_month) = map { $ui->cparam($_) || '' } @field;
-my %type = map { $_=>1 } keys %Bawi::User::CAREER_TYPE;
+my %type = map { $_=>1 } $user->career_types;
 my @msg;
 
 $career_id = '' unless ($career_id && $career_id =~ /^\d+$/);
-$type = 'employment' unless ($type && $type{$type});
 $org = Encode::decode_utf8($org, Encode::FB_DEFAULT);
 $position = Encode::decode_utf8($position, Encode::FB_DEFAULT);
 $org =~ s/^\s+|\s+$//g;  $position =~ s/^\s+|\s+$//g;
@@ -73,6 +72,7 @@ if ($s_date && $e_date && $e_date lt $s_date) {
 
 if ($uid && $action && $action eq 'save') {
     my @missing;
+    push @missing, '종류' unless ($type && $type{$type});
     push @missing, '회사/기관명' unless length($org);
     push @missing, '직위/직책' unless length($position);
     if (@missing) {
@@ -84,22 +84,28 @@ if ($uid && $action && $action eq 'save') {
             push @msg, '회사/기관명이 너무 깁니다.';
         } elsif (length($position_esc) > 255) {
             push @msg, '직위/직책이 너무 깁니다.';
+        } elsif ("$org$position" =~ /[^\x{0}-\x{FFFF}]/) {
+            push @msg, '이모지 등 지원하지 않는 문자가 있습니다.';
         } else {
-            $org = Encode::encode_utf8($org_esc);
-            $position = Encode::encode_utf8($position_esc);
+            my $org_db = Encode::encode_utf8($org_esc);
+            my $position_db = Encode::encode_utf8($position_esc);
             # trust the type-ahead's picked org_id when it names a real org (JS clears it on
             # edit, so its presence means an unmodified pick); else resolve/create by name.
             my $org_id = ($param_org_id =~ /^\d+$/ && $param_org_id > 0 && $user->org_exists($param_org_id))
                          ? $param_org_id
-                         : $user->resolve_or_create_org($org, $uid);
+                         : $user->resolve_or_create_org($org_db, $uid);
             if ($org_id) {
-                my $rv = $career_id ?
-                    $user->update_career($career_id, $uid, $type, $org_id, $position, $s_date, $e_date) :
-                    $user->add_career($uid, $type, $org_id, $position, $s_date, $e_date);
-                if ($rv) {
-                    $user->modified($uid);
+                if ($career_id && !$user->career_owned($career_id, $uid)) {
+                    push @msg, '존재하지 않는 경력입니다.';
                 } else {
-                    push @msg, '저장하지 못했습니다. 다시 시도해주세요.';
+                    my $rv = $career_id ?
+                        $user->update_career($career_id, $uid, $type, $org_id, $position_db, $s_date, $e_date) :
+                        $user->add_career($uid, $type, $org_id, $position_db, $s_date, $e_date);
+                    if (defined $rv) {
+                        $user->modified($uid);
+                    } else {
+                        push @msg, '저장하지 못했습니다. 다시 시도해주세요.';
+                    }
                 }
             } else {
                 push @msg, '저장하지 못했습니다. 다시 시도해주세요.';
