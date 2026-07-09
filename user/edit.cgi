@@ -124,7 +124,10 @@ if ($uid) {
             }
         }
     }
-    $ui->tparam(profile=>[$user->get_user($uid)]);
+    my $p = $user->get_user($uid);
+    # own edit page: always show own careers (profile.cgi gates viewers, not owners)
+    $$p{career} = $user->get_career($uid);
+    $ui->tparam(profile=>[$p]);
     $ui->tparam(has_affiliation=>$user->has_affiliation($auth->uid));
     $ui->tparam(has_phone=>$user->has_phone($auth->uid));
 }

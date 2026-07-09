@@ -202,7 +202,18 @@
         (<tmpl_var type_brief>) <a href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var school_short></a>, <tmpl_var department><tmpl_if advisors> (지도교수: <a  href="school.cgi?type=<tmpl_var type>&school_id=<tmpl_var school_id>" title="<tmpl_var school>"><tmpl_var advisors></a>)</tmpl_if> [<tmpl_var start_date>~<tmpl_var end_date><tmpl_if status>/<tmpl_var status_brief></tmpl_if>]<tmpl_unless __last__><br></tmpl_unless>
             </tmpl_loop>
         </tmpl_if>
-    [<a href="degree.cgi">추가/변경</a>] [<a href="career.cgi">경력 추가/변경</a>]
+    [<a href="degree.cgi">추가/변경</a>]
+    </td>
+</tr>
+<tr>
+    <td class="lhead" nowrap>경력</td>
+    <td class="iteml">
+        <tmpl_if career>
+            <tmpl_loop career>
+        (<tmpl_var type_brief>) <tmpl_var organization>, <tmpl_var position> [<tmpl_var start_date>~<tmpl_var end_date>]<tmpl_unless __last__><br></tmpl_unless>
+            </tmpl_loop>
+        </tmpl_if>
+    [<a href="career.cgi">추가/변경</a>]
     </td>
 </tr>
 <tr>
