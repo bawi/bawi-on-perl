@@ -77,6 +77,10 @@ if ($uid && $action && $action eq 'save') {
     push @missing, '직위/직책' unless length($position);
     if (@missing) {
         push @msg, '입력해주세요: ' . join(', ', @missing);
+    } elsif ($career_id && !$user->career_owned($career_id, $uid)) {
+        # reject a forged/stale cid BEFORE resolving the org, else a new typed name
+        # would create an orphan org that the rejected save never uses.
+        push @msg, '존재하지 않는 경력입니다.';
     } else {
         my $org_esc = $ui->cgi->escapeHTML($org);
         my $position_esc = $ui->cgi->escapeHTML($position);
@@ -95,17 +99,13 @@ if ($uid && $action && $action eq 'save') {
                          ? $param_org_id
                          : $user->resolve_or_create_org($org_db, $uid);
             if ($org_id) {
-                if ($career_id && !$user->career_owned($career_id, $uid)) {
-                    push @msg, '존재하지 않는 경력입니다.';
+                my $rv = $career_id ?
+                    $user->update_career($career_id, $uid, $type, $org_id, $position_db, $s_date, $e_date) :
+                    $user->add_career($uid, $type, $org_id, $position_db, $s_date, $e_date);
+                if (defined $rv) {
+                    $user->modified($uid);
                 } else {
-                    my $rv = $career_id ?
-                        $user->update_career($career_id, $uid, $type, $org_id, $position_db, $s_date, $e_date) :
-                        $user->add_career($uid, $type, $org_id, $position_db, $s_date, $e_date);
-                    if (defined $rv) {
-                        $user->modified($uid);
-                    } else {
-                        push @msg, '저장하지 못했습니다. 다시 시도해주세요.';
-                    }
+                    push @msg, '저장하지 못했습니다. 다시 시도해주세요.';
                 }
             } else {
                 push @msg, '저장하지 못했습니다. 다시 시도해주세요.';

@@ -353,8 +353,10 @@ sub has_degree {
 
 sub has_career {
     my ($self, $uid) = @_;
+    my $ki = $self->ki($uid);
+    my $max_ki = $self->max_ki;
     my $rv = $DBH->selectrow_array(qq(select count(*) from bw_user_career where uid=?), undef, $uid);
-    return $rv ? 1 : 0;
+    return $rv || $max_ki - $ki < 5 ? 1 : 0;
 }
 
 sub max_ki {

@@ -63,6 +63,7 @@ if ($id) {
     $$p{has_address} = $user->has_address($auth->uid);
     $$p{has_major} = $user->has_major($auth->uid);
     $$p{has_degree} = $user->has_degree($auth->uid);
+    $$p{has_career} = $user->has_career($auth->uid);
     $$p{has_circle} = $user->has_circle($auth->uid);
     $$p{has_class} = $user->has_class($auth->uid);
     $$p{has_affiliation} = $user->has_affiliation($auth->uid);
@@ -80,7 +81,6 @@ if ($id) {
     $$p{major} = $user->get_major($uid);
     $$p{degree} = $user->get_degree($uid);
     $$p{career} = $user->get_career($uid);
-    $$p{has_career} = $user->has_career($auth->uid);
     $$p{circle} = $user->get_circle($uid);
     $$p{class} = $$p{class1} || $$p{class2} || $$p{class3} ? 1 : 0;
     $$p{guestbook_count} = $user->get_guestbook_count($uid);
