@@ -29,8 +29,8 @@ if ($ui->cgi->request_method && $ui->cgi->request_method eq 'POST') {
     my ($action, $from, $to, $org_id, $alias) = map { $ui->cparam($_) || '' } qw(action org_from org_to org_id alias);
     if ($action eq 'merge') {
         if ($from && $to && $from ne $to) {
-            $user->org_merge($from, $to);
-            $ui->msg('기관을 병합했습니다.');
+            my $rv = $user->org_merge($from, $to);
+            $ui->msg($rv ? '기관을 병합했습니다.' : '병합하지 못했습니다.');
         } else {
             $ui->msg('서로 다른 기관을 선택해주세요.');
         }

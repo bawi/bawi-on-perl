@@ -176,7 +176,7 @@
         </tmpl_if>
         <tmpl_if degree>
 <tr>
-    <td class="lhead" nowrap>학위/경력</td>
+    <td class="lhead" nowrap>학위</td>
     <td class="iteml">
             <tmpl_if has_degree>
                 <tmpl_loop degree>
@@ -185,6 +185,16 @@
             <tmpl_else>
             <tmpl_include _reciprocal.tmpl>
             </tmpl_if>
+    </td>
+</tr>
+        </tmpl_if>
+        <tmpl_if career>
+<tr>
+    <td class="lhead" nowrap>경력</td>
+    <td class="iteml">
+            <tmpl_loop career>
+        (<tmpl_var type_brief>) <tmpl_var organization>, <tmpl_var position> [<tmpl_var start_date>~<tmpl_var end_date>]<tmpl_unless __last__><br></tmpl_unless>
+            </tmpl_loop>
     </td>
 </tr>
         </tmpl_if>

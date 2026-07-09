@@ -466,15 +466,17 @@ sub del_degree {
     return $rv;
 }
 
+our %CAREER_TYPE = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');
+
 sub get_career {
     my ($self, $uid) = @_;
-    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, o.name AS organization, c.position, date_format(c.start_date,'%Y-%m') AS start_date, date_format(c.end_date,'%Y-%m') AS end_date FROM bw_user_career c JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
+    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, COALESCE(o.name,'(삭제된 기관)') AS organization, c.position, date_format(c.start_date,'%Y-%m') AS start_date, date_format(c.end_date,'%Y-%m') AS end_date FROM bw_user_career c LEFT JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
-    my %type = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');
+    my $type = \%CAREER_TYPE;
     foreach my $r (@$rv) {
         $r->{end_date} = $r->{end_date} ? $r->{end_date} : '현재';
         $r->{start_date} = $r->{start_date} || '';
-        $r->{type_brief} = $type{$r->{type}} || $type{other};
+        $r->{type_brief} = $type->{$r->{type}} || $type->{other};
     }
     return $rv;
 }
@@ -488,14 +490,14 @@ sub add_career {
 
 sub update_career {
     my ($self, $career_id, $uid, $type, $org_id, $position, $s_date, $e_date) = @_;
-    my $sql = qq(UPDATE bw_user_career SET type=?,organization_id=?,position=?,start_date=?,end_date=? WHERE career_id=? AND uid=?);
+    my $sql = qq(UPDATE bw_user_career SET type=?,organization_id=?,position=?,start_date=?,end_date=? WHERE career_id=? && uid=?);
     my $rv = $DBH->do($sql, undef, $type, $org_id, $position, $s_date, $e_date, $career_id, $uid);
     return $rv;
 }
 
 sub del_career {
     my ($self, $uid, $career_id) = @_;
-    my $sql = qq(DELETE FROM bw_user_career WHERE uid=? AND career_id=?);
+    my $sql = qq(DELETE FROM bw_user_career WHERE uid=? && career_id=?);
     my $rv = $DBH->do($sql, undef, $uid, $career_id);
     return $rv;
 }
@@ -553,7 +555,10 @@ sub resolve_or_create_org {
     my $rv = $DBH->do(qq(INSERT INTO organizations (name,created_by) VALUES (?,?)), undef, $name, $uid);
     return 0 unless $rv;
     $id = $DBH->selectrow_array(qq(SELECT LAST_INSERT_ID()));
-    $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $name, $id);
+    unless (defined $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $name, $id)) {
+        $DBH->do(qq(DELETE FROM organizations WHERE org_id=?), undef, $id);   # no alias == invisible org
+        return 0;
+    }
     return $id;
 }
 
@@ -564,14 +569,18 @@ sub org_list {
     return $rv;
 }
 
+sub org_exists { my ($self,$id)=@_; return $DBH->selectrow_array(qq(SELECT 1 FROM organizations WHERE org_id=?), undef, $id); }
+
 sub org_merge {
     my ($self, $from, $to) = @_;
     return unless ($from && $to && $from =~ /^\d+$/ && $to =~ /^\d+$/ && $from != $to);
-    # target must exist, else careers repoint to a ghost org_id and vanish from
-    # every view via the inner join in get_career.
-    return unless $DBH->selectrow_array(qq(SELECT 1 FROM organizations WHERE org_id=?), undef, $to);
-    $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
-    $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
+    return unless $self->org_exists($to);
+    # No transactions on MyISAM: verify each step; never delete the org until the
+    # repoint has actually removed every career from $from, else orphaned careers
+    # vanish via the inner join in get_career.
+    return unless defined $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
+    return if $DBH->selectrow_array(qq(SELECT COUNT(*) FROM bw_user_career WHERE organization_id=?), undef, $from);
+    return unless defined $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
     $DBH->do(qq(DELETE FROM org_alias WHERE org_id=?), undef, $from);
     $DBH->do(qq(DELETE FROM organizations WHERE org_id=?), undef, $from);
     return 1;
@@ -583,6 +592,7 @@ sub org_add_alias {
     $alias =~ s/^\s+//;
     $alias =~ s/\s+$//;
     return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
+    $alias = $self->ui->cgi->escapeHTML($alias);
     my $rv = $DBH->do(qq(INSERT IGNORE INTO org_alias (alias,org_id) VALUES (?,?)), undef, $alias, $org);
     return $rv;
 }
@@ -593,9 +603,11 @@ sub org_del_alias {
     $alias =~ s/^\s+//;
     $alias =~ s/\s+$//;
     return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
+    $alias = $self->ui->cgi->escapeHTML($alias);
     my $count = $DBH->selectrow_array(qq(SELECT COUNT(*) FROM org_alias WHERE org_id=?), undef, $org);
-    return if ($count && $count <= 1);
-    my $rv = $DBH->do(qq(DELETE FROM org_alias WHERE org_id=? AND alias=?), undef, $org, $alias);
+    return unless defined $count;
+    return if $count <= 1;
+    my $rv = $DBH->do(qq(DELETE FROM org_alias WHERE org_id=? && alias=?), undef, $org, $alias);
     return $rv;
 }
 

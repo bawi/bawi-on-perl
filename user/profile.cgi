@@ -79,6 +79,7 @@ if ($id) {
     
     $$p{major} = $user->get_major($uid);
     $$p{degree} = $user->get_degree($uid);
+    $$p{career} = $user->get_career($uid);
     $$p{circle} = $user->get_circle($uid);
     $$p{class} = $$p{class1} || $$p{class2} || $$p{class3} ? 1 : 0;
     $$p{guestbook_count} = $user->get_guestbook_count($uid);

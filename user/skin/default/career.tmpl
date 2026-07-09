@@ -111,6 +111,7 @@
 
 <script type="text/javascript">
 (function () {
+    var DOWN = 40, UP = 38, ENTER = 13, ESC = 27;
     function hide(box) {
         box.style.display = 'none';
         box.innerHTML = '';
@@ -164,10 +165,10 @@
         input.onkeydown = function (e) {
             e = e || window.event;
             if (box.style.display != 'block') return;
-            if (e.keyCode == 40) { box._sel = Math.min((typeof box._sel == 'number' ? box._sel : -1) + 1, box._items.length - 1); mark(box); if (e.preventDefault) e.preventDefault(); }
-            if (e.keyCode == 38) { box._sel = Math.max((typeof box._sel == 'number' ? box._sel : 0) - 1, 0); mark(box); if (e.preventDefault) e.preventDefault(); }
-            if (e.keyCode == 13 && box._sel >= 0) { pick(input, box._items[box._sel]); if (e.preventDefault) e.preventDefault(); }
-            if (e.keyCode == 27) hide(box);
+            if (e.keyCode == DOWN) { box._sel = Math.min(box._sel + 1, box._items.length - 1); mark(box); if (e.preventDefault) e.preventDefault(); }
+            if (e.keyCode == UP) { box._sel = Math.max(box._sel - 1, 0); mark(box); if (e.preventDefault) e.preventDefault(); }
+            if (e.keyCode == ENTER && box._sel >= 0) { pick(input, box._items[box._sel]); if (e.preventDefault) e.preventDefault(); }
+            if (e.keyCode == ESC) hide(box);
         };
         input.onblur = function () { setTimeout(function () { hide(box); }, 200); };
     }
