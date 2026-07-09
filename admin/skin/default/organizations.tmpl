@@ -1,0 +1,93 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<h3><a href="./">Admin</a> &gt; <a href="organizations.cgi">경력기관 관리</a></h3>
+
+<h4>기관 병합</h4>
+<form method="POST" action="organizations.cgi">
+<input type="hidden" name="action" value="merge">
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td class="lhead">대상</td>
+    <td class="iteml">
+        <select name="org_from" class="text" style="width:260px; height:20px">
+            <option value="">병합할 기관
+        <tmpl_loop orgs>
+            <option value="<tmpl_var org_id>"><tmpl_var name>
+        </tmpl_loop>
+        </select>
+        -&gt;
+        <select name="org_to" class="text" style="width:260px; height:20px">
+            <option value="">남길 기관
+        <tmpl_loop orgs>
+            <option value="<tmpl_var org_id>"><tmpl_var name>
+        </tmpl_loop>
+        </select>
+        <input type="submit" value="merge" class="button" style="width:60px">
+    </td>
+</tr>
+</table>
+</form>
+
+<h4>별칭 추가</h4>
+<form method="POST" action="organizations.cgi">
+<input type="hidden" name="action" value="add_alias">
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td class="lhead">기관</td>
+    <td class="iteml">
+        <select name="org_id" class="text" style="width:260px; height:20px">
+            <option value="">기관
+        <tmpl_loop orgs>
+            <option value="<tmpl_var org_id>"><tmpl_var name>
+        </tmpl_loop>
+        </select>
+        <input type="text" name="alias" value="" maxlength="128" class="text" style="width:240px">
+        <input type="submit" value="add" class="button" style="width:50px">
+    </td>
+</tr>
+</table>
+</form>
+
+<h4>별칭 삭제</h4>
+<form method="POST" action="organizations.cgi">
+<input type="hidden" name="action" value="del_alias">
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+    <td class="lhead">기관</td>
+    <td class="iteml">
+        <select name="org_id" class="text" style="width:260px; height:20px">
+            <option value="">기관
+        <tmpl_loop orgs>
+            <option value="<tmpl_var org_id>"><tmpl_var name>
+        </tmpl_loop>
+        </select>
+        <input type="text" name="alias" value="" maxlength="128" class="text" style="width:240px">
+        <input type="submit" value="delete" class="button" style="width:60px">
+    </td>
+</tr>
+</table>
+</form>
+
+<h4>기관 목록</h4>
+<tmpl_if orgs>
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+<tr>
+    <td class="thead" width="60">org_id</td>
+    <td class="thead">기관명</td>
+    <td class="thead" width="80">사용</td>
+    <td class="thead">별칭</td>
+</tr>
+    <tmpl_loop orgs>
+<tr class="alt<tmpl_if __odd__>1<tmpl_else>2</tmpl_if>">
+    <td class="itemc"><tmpl_var org_id></td>
+    <td class="iteml"><tmpl_var name></td>
+    <td class="itemc"><tmpl_var usage_count></td>
+    <td class="iteml"><tmpl_var aliases></td>
+</tr>
+    </tmpl_loop>
+</table>
+</tmpl_if>
+
+<tmpl_include _footer.tmpl>
