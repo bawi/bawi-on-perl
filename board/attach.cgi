@@ -69,6 +69,9 @@ if ($attach and $$attach{filehandle}) {
             # top-level document their scripts are blocked and origin is opaque, so a
             # malicious upload can't run same-origin JS or read the (non-HttpOnly) cookie.
             -Content_Security_Policy => 'sandbox',
+            # nosniff: don't let the browser MIME-sniff an as-is upload into a
+            # scriptable type (e.g. text/plain -> HTML) regardless of declared type.
+            -X_Content_Type_Options => 'nosniff',
             -Content_Disposition => qq(inline; filename="$$attach{filename}"),
             -Content_length => $$attach{filesize},
             -expires => '+3M'
@@ -117,6 +120,9 @@ if ($attach and $$attach{filehandle}) {
             # top-level document their scripts are blocked and origin is opaque, so a
             # malicious upload can't run same-origin JS or read the (non-HttpOnly) cookie.
             -Content_Security_Policy => 'sandbox',
+            # nosniff: don't let the browser MIME-sniff an as-is upload into a
+            # scriptable type (e.g. text/plain -> HTML) regardless of declared type.
+            -X_Content_Type_Options => 'nosniff',
             -Content_Disposition => qq(inline; filename="$$attach{filename}"),
             -Content_length => $$attach{filesize},
             -expires => '+3M'
