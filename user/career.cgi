@@ -99,6 +99,7 @@ if ($uid && $action && $action eq 'save') {
                          ? $param_org_id
                          : $user->resolve_or_create_org($org_db, $uid);
             if ($org_id) {
+                # $career_id here is already ownership-checked by the elsif above.
                 my $rv = $career_id ?
                     $user->update_career($career_id, $uid, $type, $org_id, $position_db, $s_date, $e_date) :
                     $user->add_career($uid, $type, $org_id, $position_db, $s_date, $e_date);
