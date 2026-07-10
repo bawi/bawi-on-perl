@@ -80,16 +80,25 @@ $t->param(last_page=>$last_page);
 $t->param(pages=>\@pages);
 $t->param(p=>$p);
 $t->param(total=>$articles);
+# cur_page = this my-comments listing page (reverse-numbered like the board).
+# The delete link routes through comment.cgi, which redirects to
+# mycomment.cgi?p=<this>, so it must carry the listing page, NOT the per-row
+# board page (that one is `page`, used only by the read link).
+$t->param(cur_page=>$page);
 
 # The board list page (read.cgi's p=) the comment's article appears on —
 # pages are reverse-numbered (tot_page = newest), matching get_tot_page/
 # get_start in Bawi::Board. The templates always forwarded p=<tmpl_var page>,
 # but no page column was ever selected, so the link carried an empty p.
+# CAST ... AS SIGNED: c.articles/c.article_per_page are UNSIGNED, so if the
+# counter has drifted low the CEIL-FLOOR difference goes negative and an
+# unsigned subtraction raises ER_DATA_OUT_OF_RANGE (1690) instead of letting
+# GREATEST clamp it — the SIGNED cast keeps the drift case a clamp, not a 500.
 my $board_page = qq(IF(c.article_per_page > 0,
-                       GREATEST(1, CEIL(c.articles / c.article_per_page) -
-                                   FLOOR((SELECT count(*) FROM bw_xboard_header as h
+                       GREATEST(1, CAST(CEIL(c.articles / c.article_per_page) AS SIGNED) -
+                                   CAST(FLOOR((SELECT count(*) FROM bw_xboard_header as h
                                           WHERE h.board_id=a.board_id && h.article_id > a.article_id)
-                                         / c.article_per_page)),
+                                         / c.article_per_page) AS SIGNED)),
                        1) as page);
 
 if ($board_id) {
