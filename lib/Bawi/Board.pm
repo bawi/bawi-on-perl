@@ -5,6 +5,7 @@ use Carp;
 use File::Spec;
 use Bawi::DBI;
 use Bawi::Board::Config;
+use Bawi::ImageSig;
 
 use vars qw(%CONF $DBH %TBL);
 $TBL{head}      = 'bw_xboard_header';
@@ -1919,9 +1920,14 @@ sub get_attach {
                 is_img=> $$rv{is_img},
                 filehandle=> *FH,
             );
-            $attach{image} = 1 
+            # 'image' = "render inline as <img>" (a display flag, read by the
+            # templates). It is DISTINCT from the is_img column, which is set in
+            # upload_attach and gates the ImageMagick paths. svg gets image=1 here
+            # but is deliberately is_img='n' -- do NOT flip is_img for svg to gain a
+            # thumbnail, that re-opens the ImageTragick RCE upload_attach guards against.
+            $attach{image} = 1
               if ($$rv{content_type} =~ /image/gi and
-                  $$rv{content_type} =~ /gif|jpeg|jpg|png/gi );
+                  $$rv{content_type} =~ /gif|jpeg|jpg|png|svg/gi );
             return \%attach;
         } else { warn "$path: $!"; }
         
@@ -1940,8 +1946,8 @@ sub get_attachset {
     foreach my $i (sort { $a <=> $b } keys %$rv) {
         my $ct = $$rv{$i}->{content_type};
         #delete $$rv{$i}->{content_type};
-        $$rv{$i}->{image} = 1 
-            if ($ct =~ /image/gi && $ct =~ /gif|jpeg|jpg|png/gi);
+        $$rv{$i}->{image} = 1
+            if ($ct =~ /image/gi && $ct =~ /gif|jpeg|jpg|png|svg/gi);
         $$rv{$i}->{filesize} = &bytes($$rv{$i}->{filesize});
         push @rv, $$rv{$i};
     }
@@ -1966,14 +1972,19 @@ sub upload_attach {
             $attach{filename} = $q->param($name);
             $attach{filename} =~ s/.+[\\\/](.+)$/$1/g;
             $attach{content_type} = $q->uploadInfo($q->param($name))->{'Content-Type'};
-            $attach{is_img} = 
-                ($attach{content_type} =~ /image/gi and
-                 $attach{content_type} =~ /gif|jpeg|jpg|png/gi) ? 'y' : 'n';
             my $buffer;
             while (my $len = read($attach, $buffer, 1024)) {
                 $attach{file} .= $buffer;
                 $attach{filesize} += $len;
             }
+            # is_img is the single switch every ImageMagick path keys on (EXIF strip,
+            # thumbnail, resize). Don't trust the client-declared Content-Type ALONE --
+            # also require the file's real signature: a file claiming image/* but carrying
+            # SVG/MVG/MSL bytes must never reach ImageMagick (ImageTragick RCE via delegates).
+            $attach{is_img} =
+                ($attach{content_type} =~ /image/gi and
+                 $attach{content_type} =~ /gif|jpeg|jpg|png/gi and
+                 Bawi::ImageSig::is_raster_image($attach{file})) ? 'y' : 'n';
             push @attach, \%attach;
         }
     }

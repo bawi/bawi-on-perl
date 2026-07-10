@@ -7,6 +7,7 @@ use Image::Magick;
 use Bawi::Auth;
 use Bawi::Board;
 use Bawi::Board::UI;
+use Bawi::ImageSig;
 
 my $ui = new Bawi::Board::UI;
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
@@ -36,35 +37,60 @@ if ($attach and $$attach{filehandle}) {
             $file_content .= $buffer;
         }
         close $fh;
-        
-        # Process with ImageMagick to strip metadata
-        my $im = new Image::Magick;
-        $im->BlobToImage($file_content);
-        
-        # Strip all metadata including EXIF/geotags
-        $im->Strip();
-        
-        # Maintain quality for JPEG images
-        $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
-        
-        # Get processed image data
-        my $cleaned_image = $im->ImageToBlob();
-        
-        # Update filesize
-        my $new_size = length($cleaned_image);
-        
-        # Output the cleaned image
-        print $ui->cgi->header(
-            -type => $$attach{content_type},
-            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-            -Content_length => $new_size,
-            -expires => '+3M'
-        );
-        print $cleaned_image;
+
+        # A row can carry is_img='y' + an image/* content_type yet hold non-raster
+        # bytes -- stored raw before upload-time validation existed, or migrated by
+        # z2x.pl from a filename extension. Never feed those to ImageMagick
+        # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
+        # upload. is_raster_image is the same magic-byte check upload_attach uses.
+        if (Bawi::ImageSig::is_raster_image($file_content)) {
+            # Process with ImageMagick to strip metadata
+            my $im = new Image::Magick;
+            $im->BlobToImage($file_content);
+
+            # Strip all metadata including EXIF/geotags
+            $im->Strip();
+
+            # Maintain quality for JPEG images
+            $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
+
+            # Get processed image data
+            my $cleaned_image = $im->ImageToBlob();
+
+            # Update filesize
+            my $new_size = length($cleaned_image);
+
+            # Output the cleaned image
+            print $ui->cgi->header(
+                -type => $$attach{content_type},
+                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                -Content_length => $new_size,
+                -expires => '+3M'
+            );
+            print $cleaned_image;
+        } else {
+            # Non-raster bytes wearing an image/* content_type: serve as-is, sandboxed.
+            print $ui->cgi->header(
+                -type => $$attach{content_type},
+                -Content_Security_Policy => 'sandbox',
+                -X_Content_Type_Options => 'nosniff',
+                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                -Content_length => length($file_content),
+                -expires => '+3M'
+            );
+            print $file_content;
+        }
     } else {
         # For non-image files or image types unlikely to have EXIF, serve normally
         print $ui->cgi->header(
             -type => $$attach{content_type},
+            # Sandbox untrusted uploads served as-is (e.g. svg, html): if opened as a
+            # top-level document their scripts are blocked and origin is opaque, so a
+            # malicious upload can't run same-origin JS or read the (non-HttpOnly) cookie.
+            -Content_Security_Policy => 'sandbox',
+            # nosniff: don't let the browser MIME-sniff an as-is upload into a
+            # scriptable type (e.g. text/plain -> HTML) regardless of declared type.
+            -X_Content_Type_Options => 'nosniff',
             -Content_Disposition => qq(inline; filename="$$attach{filename}"),
             -Content_length => $$attach{filesize},
             -expires => '+3M'
@@ -79,41 +105,6 @@ if ($attach and $$attach{filehandle}) {
             print $buffer;
         }
         close $fh;
-    }
-} elsif ($attach and $$attach{file}) {
-    # Handle case where file content is directly in $$attach{file}
-    if ($$attach{is_img} eq 'y' && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
-        # Process with ImageMagick to strip metadata
-        my $im = new Image::Magick;
-        $im->BlobToImage($$attach{file});
-        
-        # Strip all metadata including EXIF/geotags
-        $im->Strip();
-        
-        # Maintain quality for JPEG images
-        $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
-        
-        # Get processed image data
-        my $cleaned_image = $im->ImageToBlob();
-        
-        # Update filesize
-        my $new_size = length($cleaned_image);
-        
-        print $ui->cgi->header(
-            -type => $$attach{content_type},
-            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-            -Content_length => $new_size,
-            -expires => '+3M'
-        );
-        print $cleaned_image;
-    } else {
-        print $ui->cgi->header(
-            -type => $$attach{content_type},
-            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-            -Content_length => $$attach{filesize},
-            -expires => '+3M'
-        );
-        print $$attach{file};
     }
 } elsif ($ui->cgi->server_name ne "www.bawi.org") {
     print $ui->cgi->redirect("http://www.bawi.org/board/attach.cgi?".$ui->cgi->query_string);

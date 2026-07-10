@@ -2,8 +2,9 @@
 use strict;
 use lib "../lib";
 use CGI;
-use Bawi::Auth; 
+use Bawi::Auth;
 use Bawi::User::UI;
+use Bawi::ImageSig;
 
 my $UPDIR = "/home/bawi/photo_attach";
 
@@ -41,30 +42,42 @@ if($q->param('image')) {
     my $temp_file = "$UPDIR/temp_$uid.jpg";
     my($bytesread, $buffer);
     open(TEMPFILE, "> $temp_file") or die("Can't open file $temp_file: $!\n");
+    binmode(TEMPFILE);
     while($bytesread=read($fh,$buffer,1024)) {
       print TEMPFILE $buffer;
     }
+    close(TEMPFILE);
 
-    # Process with ImageMagick to strip metadata
-    use Image::Magick;
-    my $im = new Image::Magick;
-    $im->Read($temp_file);
+    # ImageMagick picks its coder by file content, not the .jpg name, so a forged
+    # image/jpeg carrying SVG/MVG/MSL bytes would be parsed by the vulnerable
+    # delegate (ImageTragick). Require a real JPEG SOI marker before Read().
+    open(my $sfh, '<', $temp_file); binmode($sfh); read($sfh, my $sig, 8); close($sfh);
+    if (Bawi::ImageSig::is_jpeg($sig)) {
+        # Process with ImageMagick to strip metadata
+        use Image::Magick;
+        my $im = new Image::Magick;
+        $im->Read($temp_file);
 
-    # Sterip all metadata including EXIF/geotags
-    $im->Strip();
+        # Sterip all metadata including EXIF/geotags
+        $im->Strip();
 
-    # Write the cleaned image
-    $im->Set(quality=>90) if $im->Get('magick') eq 'JPEG';
-    $im->Write(filename=>$out);
+        # Write the cleaned image
+        $im->Set(quality=>90) if $im->Get('magick') eq 'JPEG';
+        $im->Write(filename=>$out);
 
-    # Remove the temporary file
-    unlink($temp_file);
+        # Remove the temporary file
+        unlink($temp_file);
 
-    $ui->tparam(upload_success=>1);
-    $ui->tparam(uid=>$uid);
+        $ui->tparam(upload_success=>1);
+        $ui->tparam(uid=>$uid);
+    } else {
+        unlink($temp_file);
+        $ui->msg("JPEG 형식만 지원합니다.");
+        $ui->tparam(upload_form=>1);
+    }
 	} else {
-		print "<CENTER><H5>JPEG 형식만 지원합니다.</H5></CENTER>";
-		print &uploadform;
+		$ui->msg("JPEG 형식만 지원합니다.");
+		$ui->tparam(upload_form=>1);
 	}
 } else {
   $ui->tparam(upload_form=>1);
