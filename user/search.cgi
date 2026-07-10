@@ -20,10 +20,15 @@ $ui->tparam(user_url=>$ui->cfg->UserURL);
 $ui->tparam(note_url=>$ui->cfg->NoteURL);
 
 if ($keyword) {
+    my $has_career = $user->has_career($auth->uid);
     $ui->tparam(keyword=>$ui->cgi->escapeHTML($keyword));
-    my $rv = $user->search_affiliation($keyword);
+    $ui->tparam(has_career=>$has_career);
+    $ui->tparam(has_affiliation=>$user->has_affiliation($auth->uid));
+    my $rv = $user->search_affiliation($keyword, $has_career);
     $keyword =~ s/(\[|\*|\(|\)|\{|\}|\\|\+|\?|\||\.|\&)/\\$1/g;
-    my @rv = map { $$_{affiliation} =~ s/($keyword)/<span class="search">$1<\/span>/gi; $_ } @$rv;
+    my @rv = map { $$_{affiliation} =~ s/($keyword)/<span class="search">$1<\/span>/gi;
+                   $$_{career} =~ s/($keyword)/<span class="search">$1<\/span>/gi if $$_{career};
+                   $_ } @$rv;
     $ui->tparam(user=>\@rv);
     $ui->tparam(total=>scalar(@rv));
 }
