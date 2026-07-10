@@ -127,6 +127,10 @@ print $ui->output;
 
 sub update {
     my ($uid, $photo) = @_;
+    # Guard the sink: only decode a real JPEG (magic bytes). photo_attach files come
+    # from upload_photo.cgi (now magic-checked) or an admin write, but checking here
+    # keeps forged bytes out of ImageMagick regardless of producer (ImageTragick).
+    return unless defined $photo && $photo =~ /\A\xFF\xD8\xFF/;
     my $im = Image::Magick->new(magick=>'jpeg');
     $im->BlobToImage($photo);
     $im->Thumbnail(width=>'60', height=>'80');
