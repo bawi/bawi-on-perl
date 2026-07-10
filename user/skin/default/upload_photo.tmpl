@@ -1,6 +1,9 @@
 <tmpl_include _html_header.tmpl>
 <tmpl_include _menu.tmpl><div style="clear: both">
 <br/>
+<tmpl_if msg>
+<div style="background:#FFC129; padding: 0px; text-align: center; -webkit-border-radius: 6px; -moz-border-radius: 6px"><tmpl_var msg></div>
+</tmpl_if>
 <tmpl_if upload_success>
 <CENTER>
 <div id="msg">접수되었습니다. 사진은 바위지기가 규격에 맞게 편집하여 등록해드립니다. 사진이 등록되면 쪽지로 알려드리겠습니다.</div>
