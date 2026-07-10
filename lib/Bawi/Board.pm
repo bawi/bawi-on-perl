@@ -1919,8 +1919,11 @@ sub get_attach {
                 is_img=> $$rv{is_img},
                 filehandle=> *FH,
             );
-            # svg displays inline via <img> but is intentionally NOT is_img='y'
-            # (it must never enter the ImageMagick thumbnail/resize/strip paths)
+            # 'image' = "render inline as <img>" (a display flag, read by the
+            # templates). It is DISTINCT from the is_img column, which is set in
+            # upload_attach and gates the ImageMagick paths. svg gets image=1 here
+            # but is deliberately is_img='n' -- do NOT flip is_img for svg to gain a
+            # thumbnail, that re-opens the ImageTragick RCE upload_attach guards against.
             $attach{image} = 1
               if ($$rv{content_type} =~ /image/gi and
                   $$rv{content_type} =~ /gif|jpeg|jpg|png|svg/gi );
@@ -1974,9 +1977,9 @@ sub upload_attach {
                 $attach{filesize} += $len;
             }
             # is_img is the single switch every ImageMagick path keys on (EXIF strip,
-            # thumbnail, resize). Trust the file's real signature, not the client-declared
-            # Content-Type: a file claiming image/* but carrying SVG/MVG/MSL bytes must
-            # never reach ImageMagick (ImageTragick RCE via delegates).
+            # thumbnail, resize). Don't trust the client-declared Content-Type ALONE --
+            # also require the file's real signature: a file claiming image/* but carrying
+            # SVG/MVG/MSL bytes must never reach ImageMagick (ImageTragick RCE via delegates).
             $attach{is_img} =
                 ($attach{content_type} =~ /image/gi and
                  $attach{content_type} =~ /gif|jpeg|jpg|png/gi and
@@ -1989,11 +1992,12 @@ sub upload_attach {
 
 # True only when $bytes starts with a real JPEG/PNG/GIF magic number. Keeps
 # forged-Content-Type uploads (e.g. SVG/MVG bytes labeled image/png) out of every
-# ImageMagick path. Deliberately a raw byte check, NOT Image::Magick->Ping, which
-# would itself parse the untrusted input we are trying to guard.
+# ImageMagick path. Deliberately a raw byte check, NOT Image::Magick->Ping -- Ping
+# would itself parse the untrusted bytes we are trying to keep out of ImageMagick.
 sub is_raster_image {
     my $bytes = shift;
     return 0 unless defined $bytes;
+    #        JPEG SOI       PNG signature        GIF87a/GIF89a
     return $bytes =~ /\A(?:\xFF\xD8\xFF|\x89PNG\r\n\x1A\n|GIF8[79]a)/ ? 1 : 0;
 }
 
