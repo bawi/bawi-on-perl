@@ -27,8 +27,11 @@ if ($type && $type =~ /article|people|board/ && $keyword) {
     if ($type eq 'article') {
         $ui->tparam(result_article=>&search_article($keyword, $ui, $page)); 
     } elsif ($type eq 'people') {
-        $ui->tparam(result_people=>$user->search_people($keyword));
-        $ui->tparam(has_career=>$user->has_career($auth->uid));
+        my $has_career = $user->has_career($auth->uid);
+        $ui->tparam(result_people=>$user->search_people($keyword, $has_career));
+        $ui->tparam(has_phone=>$user->has_phone($auth->uid));
+        $ui->tparam(has_affiliation=>$user->has_affiliation($auth->uid));
+        $ui->tparam(has_career=>$has_career);
     } elsif ($type eq 'board') {
         $ui->tparam(result_board=>&search_board($keyword, $ui));
     }

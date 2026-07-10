@@ -884,10 +884,17 @@ sub get_guestbook_stat {
 # Career-search fragments shared by search_affiliation/search_people; both
 # expect bw_xauth_passwd aliased as `a` in the outer query. Matching goes
 # through org_alias, so a search for any alias (e.g. Samsung) finds people
-# whose career is at the canonical org (삼성전자).
+# whose career is at the canonical org (삼성전자). The career column shows
+# ongoing orgs plus, as "(전) X", past orgs the keyword matched — so a hit on
+# an ended career is visible. Career search is quid-pro-quo: the caller passes
+# has_career($viewer) and a viewer without it gets neither match nor display.
 my $CAREER_COL = qq((select group_concat(distinct o.name order by o.name separator ', ')
                      from bw_user_career k, organizations o
-                     where k.uid=a.uid && k.organization_id=o.org_id && k.end_date is null) as career);
+                     where k.uid=a.uid && k.organization_id=o.org_id && k.end_date is null) as career,
+                    (select group_concat(distinct concat('(전) ', o.name) order by o.name separator ', ')
+                     from bw_user_career k, organizations o, org_alias oa
+                     where k.uid=a.uid && k.organization_id=o.org_id && k.end_date is not null &&
+                           oa.org_id=k.organization_id && (oa.alias like ? || k.position like ?)) as career_past);
 my $CAREER_MATCH = qq(exists (select 1 from bw_user_career k, org_alias oa
                               where k.uid=a.uid && oa.org_id=k.organization_id &&
                                     (oa.alias like ? || k.position like ?)));
@@ -902,15 +909,11 @@ sub career_keyword {
     return "\%$kw\%";
 }
 
-sub search_affiliation {
-    my ($self, $keyword) = @_;
-    my $kw = $self->career_keyword($keyword);
-    my $sql = qq(select a.id, a.name, b.ki, c.affiliation, $CAREER_COL
-                 from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
-                 where a.uid=b.uid && a.uid=c.uid &&
-                 (c.affiliation like ? || a.id like ? || a.name like ? || $CAREER_MATCH) );
-    my $rv = $DBH->selectall_hashref($sql, 'id', undef, ("\%$keyword\%") x 3, ($kw) x 2);
-    my @rv = map { $$rv{$_} }
+sub career_sort {
+    my ($self, $rv) = @_;
+    my @rv = map { my $r = $$rv{$_};
+                   $r->{career} = join(', ', grep { $_ } $r->{career}, delete $r->{career_past});
+                   $r }
                  sort { $$rv{$a}->{ki} <=> $$rv{$b}->{ki} ||
                         $$rv{$a}->{name} cmp $$rv{$b}->{name} ||
                         $$rv{$a}->{id} cmp $$rv{$b}->{id}
@@ -918,23 +921,37 @@ sub search_affiliation {
     return \@rv;
 }
 
+sub search_affiliation {
+    my ($self, $keyword, $career_ok) = @_;
+    my ($col, $match, @kw) = ('null as career, null as career_past', '0');
+    if ($career_ok) {
+        ($col, $match) = ($CAREER_COL, $CAREER_MATCH);
+        @kw = ($self->career_keyword($keyword)) x 2;
+    }
+    my $sql = qq(select a.id, a.name, b.ki, c.affiliation, $col
+                 from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
+                 where a.uid=b.uid && a.uid=c.uid &&
+                 (c.affiliation like ? || a.id like ? || a.name like ? || $match) );
+    my $rv = $DBH->selectall_hashref($sql, 'id', undef, @kw, ("\%$keyword\%") x 3, @kw);
+    return $self->career_sort($rv);
+}
+
 sub search_people {
-    my ($self, $keyword) = @_;
-    my $kw = $self->career_keyword($keyword);
-    my $sql = qq(select a.id, a.name, b.ki, c.affiliation, c.mobile_tel, c.office_address, $CAREER_COL
+    my ($self, $keyword, $career_ok) = @_;
+    my ($col, $match, @kw) = ('null as career, null as career_past', '0');
+    if ($career_ok) {
+        ($col, $match) = ($CAREER_COL, $CAREER_MATCH);
+        @kw = ($self->career_keyword($keyword)) x 2;
+    }
+    my $sql = qq(select a.id, a.name, b.ki, c.affiliation, c.mobile_tel, c.office_address, $col
                  from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
                  where a.uid=b.uid && a.uid=c.uid &&
                        (a.id like ? || a.name like ? || c.affiliation like ? ||
                         c.home_address like ? || c.office_address like ? || c.temp_address like ? ||
                         c.mobile_tel like ? || c.home_tel like ? ||
-                        c.office_tel like ? || c.temp_tel like ? || $CAREER_MATCH));
-    my $rv = $DBH->selectall_hashref($sql, 'id', undef, ("\%$keyword\%") x 10, ($kw) x 2);
-    my @rv = map { $$rv{$_} }
-                 sort { $$rv{$a}->{ki} <=> $$rv{$b}->{ki} ||
-                        $$rv{$a}->{name} cmp $$rv{$b}->{name} ||
-                        $$rv{$a}->{id} cmp $$rv{$b}->{id}
-                      } keys %$rv;
-    return \@rv;
+                        c.office_tel like ? || c.temp_tel like ? || $match));
+    my $rv = $DBH->selectall_hashref($sql, 'id', undef, @kw, ("\%$keyword\%") x 10, @kw);
+    return $self->career_sort($rv);
 }
 
 sub get_mapset {
