@@ -28,7 +28,7 @@
     <tmpl_loop result_people>
     <li><a href="<tmpl_var user_url>/ki.cgi?ki=<tmpl_var ki>"><tmpl_var ki>기</a>
         <tmpl_include _name_id.tmpl>:
-        <tmpl_if has_affiliation><tmpl_var affiliation>,</tmpl_if> <tmpl_if has_phone><tmpl_var mobile_tel></tmpl_if></li>
+        <tmpl_if has_affiliation><tmpl_var affiliation>,</tmpl_if> <tmpl_if has_career><tmpl_if career><tmpl_var career>,</tmpl_if></tmpl_if> <tmpl_if has_phone><tmpl_var mobile_tel></tmpl_if></li>
     </tmpl_loop>
 </ol>
 <tmpl_else>

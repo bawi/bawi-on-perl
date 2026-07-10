@@ -2,11 +2,13 @@
 use strict;
 use lib '../lib';
 use Bawi::Auth;
+use Bawi::User;
 use Bawi::Main::UI;
 use CGI qw(escape escapeHTML);
 
 my $ui = new Bawi::Main::UI(-template=>'search2.tmpl');
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
+my $user = new Bawi::User(-ui=>$ui);
 
 unless ($auth->auth) {
     print $auth->login_page($ui->cgiurl);
@@ -25,7 +27,8 @@ if ($type && $type =~ /article|people|board/ && $keyword) {
     if ($type eq 'article') {
         $ui->tparam(result_article=>&search_article($keyword, $ui, $page)); 
     } elsif ($type eq 'people') {
-        $ui->tparam(result_people=>&search_people($keyword, $ui));
+        $ui->tparam(result_people=>$user->search_people($keyword));
+        $ui->tparam(has_career=>$user->has_career($auth->uid));
     } elsif ($type eq 'board') {
         $ui->tparam(result_board=>&search_board($keyword, $ui));
     }
@@ -43,25 +46,6 @@ sub get_tot_page {
     ++$tot_page if ($tot_article % $article_per_page);
     $tot_page = 1 if ($tot_page < 1);
     return $tot_page;
-}
-
-sub search_people {
-    my $keyword = shift;
-    my $ui = shift;
-    my $sql = qq(select a.id, a.name, b.ki, c.affiliation, c.mobile_tel, c.office_address
-                 from bw_xauth_passwd as a, bw_user_ki as b, bw_user_basic as c
-                 where a.uid=b.uid && a.uid=c.uid && 
-                       (a.id like ? || a.name like ? || c.affiliation like ? ||
-                        c.home_address like ? || c.office_address like ? || c.temp_address like ? ||
-                        c.mobile_tel like ? || c.home_tel like ? ||
-                        c.office_tel like ? || c.temp_tel like ?));
-    my $rv = $ui->dbh->selectall_hashref($sql, 'id', undef, ("\%$keyword\%") x 10);
-    my @rv = map { $$rv{$_} }
-                 sort { $$rv{$a}->{ki} <=> $$rv{$b}->{ki} ||
-                        $$rv{$a}->{name} cmp $$rv{$b}->{name} ||
-                        $$rv{$a}->{id} cmp $$rv{$b}->{id} 
-                      } keys %$rv;
-    return \@rv;
 }
 
 sub search_board {
