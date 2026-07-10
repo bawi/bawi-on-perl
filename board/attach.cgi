@@ -7,6 +7,7 @@ use Image::Magick;
 use Bawi::Auth;
 use Bawi::Board;
 use Bawi::Board::UI;
+use Bawi::ImageSig;
 
 my $ui = new Bawi::Board::UI;
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
@@ -42,7 +43,7 @@ if ($attach and $$attach{filehandle}) {
         # z2x.pl from a filename extension. Never feed those to ImageMagick
         # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
         # upload. is_raster_image is the same magic-byte check upload_attach uses.
-        if (Bawi::Board::is_raster_image($file_content)) {
+        if (Bawi::ImageSig::is_raster_image($file_content)) {
             # Process with ImageMagick to strip metadata
             my $im = new Image::Magick;
             $im->BlobToImage($file_content);

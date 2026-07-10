@@ -4,6 +4,7 @@ use lib '../lib';
 use Bawi::Main::UI;
 use Bawi::Auth;
 use Bawi::Main::Note;
+use Bawi::ImageSig;
 use Image::Magick;
 
 
@@ -130,7 +131,7 @@ sub update {
     # Guard the sink: only decode a real JPEG (magic bytes). photo_attach files come
     # from upload_photo.cgi (now magic-checked) or an admin write, but checking here
     # keeps forged bytes out of ImageMagick regardless of producer (ImageTragick).
-    return unless defined $photo && $photo =~ /\A\xFF\xD8\xFF/;
+    return unless Bawi::ImageSig::is_jpeg($photo);
     my $im = Image::Magick->new(magick=>'jpeg');
     $im->BlobToImage($photo);
     $im->Thumbnail(width=>'60', height=>'80');

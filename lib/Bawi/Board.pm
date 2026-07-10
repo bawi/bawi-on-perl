@@ -5,6 +5,7 @@ use Carp;
 use File::Spec;
 use Bawi::DBI;
 use Bawi::Board::Config;
+use Bawi::ImageSig;
 
 use vars qw(%CONF $DBH %TBL);
 $TBL{head}      = 'bw_xboard_header';
@@ -1983,22 +1984,11 @@ sub upload_attach {
             $attach{is_img} =
                 ($attach{content_type} =~ /image/gi and
                  $attach{content_type} =~ /gif|jpeg|jpg|png/gi and
-                 &is_raster_image($attach{file})) ? 'y' : 'n';
+                 Bawi::ImageSig::is_raster_image($attach{file})) ? 'y' : 'n';
             push @attach, \%attach;
         }
     }
     return \@attach;
-}
-
-# True only when $bytes starts with a real JPEG/PNG/GIF magic number. Keeps
-# forged-Content-Type uploads (e.g. SVG/MVG bytes labeled image/png) out of every
-# ImageMagick path. Deliberately a raw byte check, NOT Image::Magick->Ping -- Ping
-# would itself parse the untrusted bytes we are trying to keep out of ImageMagick.
-sub is_raster_image {
-    my $bytes = shift;
-    return 0 unless defined $bytes;
-    #        JPEG SOI       PNG signature        GIF87a/GIF89a
-    return $bytes =~ /\A(?:\xFF\xD8\xFF|\x89PNG\r\n\x1A\n|GIF8[79]a)/ ? 1 : 0;
 }
 
 sub attach_file_path {

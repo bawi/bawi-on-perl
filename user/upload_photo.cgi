@@ -2,8 +2,9 @@
 use strict;
 use lib "../lib";
 use CGI;
-use Bawi::Auth; 
+use Bawi::Auth;
 use Bawi::User::UI;
+use Bawi::ImageSig;
 
 my $UPDIR = "/home/bawi/photo_attach";
 
@@ -50,8 +51,8 @@ if($q->param('image')) {
     # ImageMagick picks its coder by file content, not the .jpg name, so a forged
     # image/jpeg carrying SVG/MVG/MSL bytes would be parsed by the vulnerable
     # delegate (ImageTragick). Require a real JPEG SOI marker before Read().
-    open(my $sfh, '<', $temp_file); binmode($sfh); read($sfh, my $sig, 3); close($sfh);
-    if (defined $sig && $sig eq "\xFF\xD8\xFF") {
+    open(my $sfh, '<', $temp_file); binmode($sfh); read($sfh, my $sig, 8); close($sfh);
+    if (Bawi::ImageSig::is_jpeg($sig)) {
         # Process with ImageMagick to strip metadata
         use Image::Magick;
         my $im = new Image::Magick;
