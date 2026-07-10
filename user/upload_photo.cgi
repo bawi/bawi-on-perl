@@ -44,7 +44,13 @@ if($q->param('image')) {
     while($bytesread=read($fh,$buffer,1024)) {
       print TEMPFILE $buffer;
     }
+    close(TEMPFILE);
 
+    # ImageMagick picks its coder by file content, not the .jpg name, so a forged
+    # image/jpeg carrying SVG/MVG/MSL bytes would be parsed by the vulnerable
+    # delegate (ImageTragick). Require a real JPEG SOI marker before Read().
+    open(my $sfh, '<', $temp_file); binmode($sfh); read($sfh, my $sig, 3); close($sfh);
+    if (defined $sig && $sig eq "\xFF\xD8\xFF") {
     # Process with ImageMagick to strip metadata
     use Image::Magick;
     my $im = new Image::Magick;
@@ -62,6 +68,11 @@ if($q->param('image')) {
 
     $ui->tparam(upload_success=>1);
     $ui->tparam(uid=>$uid);
+	} else {
+	    unlink($temp_file);
+	    print "<CENTER><H5>JPEG 형식만 지원합니다.</H5></CENTER>";
+	    print &uploadform;
+	}
 	} else {
 		print "<CENTER><H5>JPEG 형식만 지원합니다.</H5></CENTER>";
 		print &uploadform;
