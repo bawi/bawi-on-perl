@@ -18,10 +18,10 @@ my $xb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 $ui->tparam(HTMLTitle => "찾기");
 
 my ($keyword, $field) = map { $ui->cparam($_) || '' } qw(keyword field);
-$ui->tparam(keyword=>$keyword);
+$field = 'title' unless $field =~ /^(title|body|name|id)$/;
+$ui->tparam(keyword=>$ui->cgi->escapeHTML($keyword));   # reflected into the form's value attribute
 $ui->tparam(field=>$field);
 
-$field = 'title' unless $field; 
 my @search_fields;
 my @field = qw(title body name id);
 foreach my $i (@field) {

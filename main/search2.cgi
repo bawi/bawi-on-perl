@@ -15,7 +15,7 @@ unless ($auth->auth) {
 
 my ($type, $keyword, $page) = map { $ui->cparam($_) || '' } qw(type keyword page);
 $type = 'article' unless ($type);
-$page = '1' unless ($page);
+$page = '1' unless ($page =~ /^\d+$/);   # numeric only: reflected into page-nav hrefs
 
 if ($type && $type =~ /article|people|board/ && $keyword) {
 

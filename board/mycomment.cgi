@@ -27,6 +27,7 @@ if ($auth->auth) {
 }
 
 my $board_id = $q->param('bid') || 0;
+$board_id = 0 unless $board_id =~ /^\d+$/;   # reflected into the url tparam (page-nav hrefs)
 my $sql;
 my $rv;
 
@@ -44,9 +45,10 @@ my $page_per_page = 10;
 my $tot_page = int ($articles / $article_per_page);
 ++$tot_page if ($articles % $article_per_page);
 $tot_page = 1 if ($tot_page < 1);
-my $p = $q->param('p');
+my $p = $q->param('p') || '';
+$p = '' unless $p =~ /^\d+$/;   # reflected via the p tparam
 my $page = $p;
-$page = $tot_page unless ($page && $page =~ /^\d+$/ && $page <= $tot_page);
+$page = $tot_page unless ($page && $page <= $tot_page);
 
 my $start_limit = ($tot_page - $page) * $article_per_page;
 
