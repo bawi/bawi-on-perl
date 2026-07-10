@@ -43,30 +43,30 @@ if ($attach and $$attach{filehandle}) {
         # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
         # upload. is_raster_image is the same magic-byte check upload_attach uses.
         if (Bawi::Board::is_raster_image($file_content)) {
-        # Process with ImageMagick to strip metadata
-        my $im = new Image::Magick;
-        $im->BlobToImage($file_content);
-        
-        # Strip all metadata including EXIF/geotags
-        $im->Strip();
-        
-        # Maintain quality for JPEG images
-        $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
-        
-        # Get processed image data
-        my $cleaned_image = $im->ImageToBlob();
-        
-        # Update filesize
-        my $new_size = length($cleaned_image);
-        
-        # Output the cleaned image
-        print $ui->cgi->header(
-            -type => $$attach{content_type},
-            -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-            -Content_length => $new_size,
-            -expires => '+3M'
-        );
-        print $cleaned_image;
+            # Process with ImageMagick to strip metadata
+            my $im = new Image::Magick;
+            $im->BlobToImage($file_content);
+
+            # Strip all metadata including EXIF/geotags
+            $im->Strip();
+
+            # Maintain quality for JPEG images
+            $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
+
+            # Get processed image data
+            my $cleaned_image = $im->ImageToBlob();
+
+            # Update filesize
+            my $new_size = length($cleaned_image);
+
+            # Output the cleaned image
+            print $ui->cgi->header(
+                -type => $$attach{content_type},
+                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                -Content_length => $new_size,
+                -expires => '+3M'
+            );
+            print $cleaned_image;
         } else {
             # Non-raster bytes wearing an image/* content_type: serve as-is, sandboxed.
             print $ui->cgi->header(
