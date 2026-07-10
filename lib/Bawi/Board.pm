@@ -2756,7 +2756,7 @@ sub make_hyperlink {
         $shorten = join("", $u[1], $u[2], $u[3] ? "../" : "", $u[4], $u[5] ? "?.." : "") if length $shorten > 65;
         $shorten = join("", $u[1], $u[2], ($u[3] || $u[4] || $u[5] ) ? "..." : "") if length $shorten > 70;
       };
-      m! \.(?:jpg|jpeg|gif|png) $ !iogx and
+      m! \.(?:jpg|jpeg|gif|png|svg) $ !iogx and
         return qq(<a href="$src" rel="lightbox[embedded-$aid]" title="$title [$1] by $name ($id)" class="auto"><img src="$src" alt="$_"/></a>);
       # Internet Explorer uses the <object> tag, while Firefox, Safari, Chrome, and Opera use the <embed> tag.
       m! \.(?:swf|flv|mp4) $ !iox and $domain =~ m|bawi\.org/$|o and $page eq "attach.cgi" and
