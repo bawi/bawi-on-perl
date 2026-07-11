@@ -1137,6 +1137,14 @@ sub format_article {
 
     my $article = $arg{-article};
     my $body = $arg{-body};
+    # category==1: opt-in Markdown rendering. This path is intentionally
+    # NON-sanitizing: it matches the board's legacy HTML-permissive trust model
+    # (escape_tags is a tag-name denylist only -- raw <img onerror=...> passes
+    # through on BOTH the legacy and markdown paths by design). The href rewrite
+    # below only neutralizes casual quoted [text](javascript:/data:/vbscript:)
+    # links; it is NOT an XSS boundary (entity-encoded, embedded-quote, or
+    # unquoted hrefs bypass it). Do NOT reuse this path for untrusted input
+    # (comments, anonymous/public boards) without a real allowlist sanitizer.
     if ($article && $$article{category} && $$article{category} == 1) {
         require Text::Markdown;
         $body = Text::Markdown::markdown($body);
@@ -1153,7 +1161,11 @@ sub format_article {
         chomp;
 
         $_ = &escape_tags($self, $_);
-        $_ = &make_hyperlink($self, $_, $article);
+        # Do NOT pass $article here: make_hyperlink() bakes the author's real
+        # name/id into image-link tooltips, which would leak identity on
+        # anonymous boards (format_anon_list runs later and cannot scrub
+        # already-rendered body HTML). Legacy behavior passed no article.
+        $_ = &make_hyperlink($self, $_);
         ($_, $was_inside_html_tag, $is_inside_html_tag, $inside_span)
             = &make_quote_coloring($_, $was_inside_html_tag, $is_inside_html_tag, $inside_span);
     }
