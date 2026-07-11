@@ -179,4 +179,27 @@ $body = render('허공[^nope] 참조');
 $body = render(qq{```\n각주[^1] 문법\n```\n\n[^1]: 정의\n});
 &assert_contains('fn ref in fence literal', $body, '각주[^1] 문법');
 
+# --- blockquote nesting fixtures ---
+
+# fence inside a blockquote: quote prefix stripped from code, block stays
+# inside the quote
+$body = render(qq{> 인용 속 코드:\n>\n> ```python\n> def f(): pass\n> ```\n});
+&assert_contains('quoted fence class', $body, '<pre><code class="language-python">def f(): pass');
+die "quoted fence not inside blockquote:\n$body"
+    unless $body =~ m{<blockquote>.*<pre><code class="language-python">.*</blockquote>}s;
+
+# code lines keeping their own > chars beyond the quote level
+$body = render(qq{> ```\n> cmd >> out.txt\n> ```\n});
+&assert_contains('quoted fence redirect chars', $body, 'cmd &gt;&gt; out.txt');
+
+# table inside a blockquote
+$body = render("> | a | b |\n> |---|--:|\n> | 1 | 2 |\n");
+&assert_contains('quoted table right align', $body, '<td align="right">2</td>');
+die "quoted table not inside blockquote:\n$body"
+    unless $body =~ m{<blockquote>.*<table>.*</blockquote>}s;
+
+# a quoted table stops at a quote-level change
+$body = render("> | a | b |\n> |---|---|\n> | 1 | 2 |\n| 3 | 4 |\n");
+&assert_not_contains('level change ends table', $body, '<td>3</td>');
+
 print "ok\n";

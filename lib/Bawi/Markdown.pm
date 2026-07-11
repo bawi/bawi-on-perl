@@ -24,15 +24,16 @@ package Bawi::Markdown;
 #   here -- Bawi::Board::format_article applies it after render(), so
 #   math/fence/table content passes the same denylist as everything else.
 #
-# ponytail ceilings (v1): fences/tables/footnote-definitions are
-# recognized at top level only (not inside lists/blockquotes -- note that
-# 8-space-indented code inside a list item is native classic markdown and
-# already works); a pipe-table lookalike inside 4-space indented code is
+# ponytail ceilings (v1): fences/tables work at top level and inside
+# blockquotes, but NOT inside list items -- that would need real block-
+# structure parsing (4-space indent inside a list item already means
+# "code block" in classic markdown); 8-space-indented code inside a list
+# item is native and works. Footnote definitions are top-level and
+# single-line. A pipe-table lookalike inside 4-space indented code is
 # parsed as a table (use a ``` fence for code instead); escape a literal
 # | in a table cell as \|; a single $..$ can eat a | if one math span is
 # written across two cells; $..$ and [^ref] inside inline `code spans`
-# and 4-space blocks are still transformed (fences are fully immune);
-# footnote definitions are single-line.
+# and 4-space blocks are still transformed (fences are fully immune).
 use strict;
 use warnings;
 use Text::Markdown;
@@ -47,16 +48,23 @@ sub render {
         return "\x{1A}M" . $#shielded . "M\x{1A}";
     };
 
-    # 1. fenced code blocks
-    $body =~ s{^```[ \t]*(\w*)[ \t]*\r?\n(.*?)^```[ \t]*\r?$}{
-        my ($lang, $code) = ($1, $2);
+    # 1. fenced code blocks, at top level or inside blockquotes: an
+    #    optional uniform "> " prefix is captured, stripped from the code
+    #    lines, and re-emitted around the shield token so the rendered
+    #    block stays inside the quote
+    $body =~ s{^((?:>[ \t]?)*)```[ \t]*(\w*)[ \t]*\r?\n(.*?)^(?:>[ \t]?)*```[ \t]*\r?$}{
+        my ($pfx, $lang, $code) = ($1, $2, $3);
+        my $lvl = () = $pfx =~ /(>)/g;
         $code =~ s/\r//g;
+        $code =~ s/^(?:>[ \t]?){0,$lvl}//mg if $lvl;
         $code =~ s/&/&amp;/g;
         $code =~ s/</&lt;/g;
         $code =~ s/>/&gt;/g;
-        $shield->('<pre><code'
-                  . ($lang ? qq{ class="language-$lang"} : '')
-                  . '>' . $code . '</code></pre>');
+        $pfx . "\n" . $pfx
+            . $shield->('<pre><code'
+                        . ($lang ? qq{ class="language-$lang"} : '')
+                        . '>' . $code . '</code></pre>')
+            . "\n" . $pfx;
     }egms;
 
     # 2. math spans; $$..$$ / \[..\] / \(..\) verbatim, then inline $..$
@@ -149,16 +157,26 @@ sub _split_row {
     } split(/\|/, $r, -1);
 }
 
+sub _quote_level {
+    my $n = () = $_[0] =~ /(>)/g;
+    return $n;
+}
+
 sub _pipe_tables {
     my $body = shift;
     my @lines = split /\r?\n/, $body, -1;
     my @out;
     for (my $i = 0; $i <= $#lines; $i++) {
+        # tables work at top level (empty prefix) and inside blockquotes:
+        # all rows must sit at the same quote level, and the emitted
+        # <table> line keeps the prefix so it stays inside the quote
+        my ($pfx, $rest) = $lines[$i] =~ /^((?:>[ \t]?)*)(.*)$/;
         my @hdr;
-        if ($lines[$i] =~ /\|/ && $i < $#lines && $lines[$i+1] =~ /\|/
-            && (@hdr = _split_row($lines[$i]))) {
-            my @sep = _split_row($lines[$i+1]);
-            if (@sep == @hdr && @sep && !grep { !/^:?-+:?$/ } @sep) {
+        if ($rest =~ /\|/ && $i < $#lines && (@hdr = _split_row($rest))) {
+            my ($pfx2, $rest2) = $lines[$i+1] =~ /^((?:>[ \t]?)*)(.*)$/;
+            my @sep = ( _quote_level($pfx2) == _quote_level($pfx)
+                        && $rest2 =~ /\|/ ) ? _split_row($rest2) : ();
+            if (@sep && @sep == @hdr && !grep { !/^:?-+:?$/ } @sep) {
                 my @align = map {
                     /^:-*:$/ ? 'center' : /-:$/ ? 'right' : /^:/ ? 'left' : ''
                 } @sep;
@@ -168,8 +186,11 @@ sub _pipe_tables {
                     for 0 .. $#hdr;
                 $html .= '</tr></thead><tbody>';
                 my $j = $i + 2;
-                while ($j <= $#lines && $lines[$j] =~ /\|/) {
-                    my @row = _split_row($lines[$j]);
+                while ($j <= $#lines) {
+                    my ($pj, $rj) = $lines[$j] =~ /^((?:>[ \t]?)*)(.*)$/;
+                    last unless _quote_level($pj) == _quote_level($pfx)
+                             && $rj =~ /\|/;
+                    my @row = _split_row($rj);
                     $html .= '<tr>';
                     $html .= '<td' . $attr->($_) . '>'
                              . _cell_span(defined $row[$_] ? $row[$_] : '')
@@ -179,9 +200,9 @@ sub _pipe_tables {
                     $j++;
                 }
                 $html .= '</tbody></table>';
-                # blank lines around the block so Text::Markdown hashes it
-                # as raw block HTML instead of wrapping it in <p>
-                push @out, '', $html, '';
+                # blank(-in-quote) lines around the block so Text::Markdown
+                # hashes it as raw block HTML instead of wrapping in <p>
+                push @out, $pfx, $pfx . $html, $pfx;
                 $i = $j - 1;
                 next;
             }
