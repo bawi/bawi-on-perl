@@ -46,7 +46,7 @@ my $tot_page = int ($articles / $article_per_page);
 ++$tot_page if ($articles % $article_per_page);
 $tot_page = 1 if ($tot_page < 1);
 my $p = $q->param('p') || '';
-$p = '' unless $p =~ /^\d+$/;   # reflected via the p tparam
+$p = '' unless $p =~ /^\d+$/;   # no p sink in this page's templates; kept numeric so the $page arithmetic below stays sane
 my $page = $p;
 $page = $tot_page unless ($page && $page <= $tot_page);
 

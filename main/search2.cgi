@@ -15,7 +15,7 @@ unless ($auth->auth) {
 
 my ($type, $keyword, $page) = map { $ui->cparam($_) || '' } qw(type keyword page);
 $type = 'article' unless ($type);
-$page = '1' unless ($page =~ /^\d+$/);   # numeric only: reflected into page-nav hrefs
+$page = '1' unless ($page =~ /^[1-9]\d*\z/);   # positive integer only: rendered as bare text in _search2_page_nav.tmpl and feeds the SQL LIMIT offset
 
 if ($type && $type =~ /article|people|board/ && $keyword) {
 
