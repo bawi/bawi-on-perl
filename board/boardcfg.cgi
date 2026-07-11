@@ -76,6 +76,10 @@ push @field, qw(seq gid article_per_page page_per_page
                g_comment m_comment a_comment); # if $is_root;
 my $updated = 0;
 foreach my $i (@field) {
+    # Enforce the anonboard gate server-side: line 62 only controls whether the
+    # UI renders the toggle. Without this, an owner could POST is_anonboard=1
+    # even when AllowAnonBoard is off (config gates visibility, not the write).
+    next if ($i eq 'is_anonboard' && !$allow_anon_board);
     my @val = $ui->cgi->param($i);
     my $val = pop (@val);
     $val =~ s/^\s+|\s+$//g if defined $val;

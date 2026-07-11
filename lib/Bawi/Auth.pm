@@ -54,6 +54,7 @@ sub new {
             -domain  => $cfg->SessionDomain,
             -path    => $OPT{session_path},
             -expires => $OPT{session_expires},
+            -httponly => 1,   # block document.cookie access -> session key not stealable via XSS
         }
             
     }, $class;
