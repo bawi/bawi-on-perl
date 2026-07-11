@@ -716,7 +716,7 @@ sub get_article {
     my $session_key = $self->session_key || 0;
     my $expired = $self->expire_days || 36500; # 100 years
     
-    my $sql = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
+    my $sql = qq(SELECT a.board_id, a.category, a.article_no, a.article_id, a.thread_no,
                         a.title, a.uid, a.id, a.name,
                         IF( a.created + INTERVAL 180 DAY > now(), 
                           DATE_FORMAT(a.created, '%m/%d %H:%i'),
@@ -766,7 +766,7 @@ sub get_thread {
     my $sql = qq(UPDATE $TBL{head} SET count=count+1 
                  WHERE board_id=? && thread_no=? && uid != ?);
     my $rv = $DBH->do($sql, undef, $bid, $thread_no, $uid);
-    $sql = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
+    $sql = qq(SELECT a.board_id, a.category, a.article_no, a.article_id, a.thread_no,
                      a.title, a.uid, a.id, a.name,
                      IF( a.created + INTERVAL 180 DAY > now(), 
                        DATE_FORMAT(a.created, '%m/%d %H:%i'),
@@ -802,7 +802,7 @@ sub get_new_articles {
     my $session_key = $self->session_key || 0;
     my $expired = $self->expire_days || 36500; # 100 years
     
-    my $sql2 = qq(SELECT a.board_id, a.article_no, a.article_id, a.thread_no, 
+    my $sql2 = qq(SELECT a.board_id, a.category, a.article_no, a.article_id, a.thread_no,
                      a.title, a.uid, a.id, a.name,
                      IF( a.created + INTERVAL 180 DAY > now(), 
                        DATE_FORMAT(a.created, '%m/%d %H:%i'),
@@ -923,12 +923,14 @@ sub add_article {
     my $article_no = $self->{max_article_no} + 1; 
     my $parent_no = $arg{-parent_no} || $article_no;
     my $thread_no = $arg{-thread_no} || &get_next_thread_no($arg{-board_id});
+    my $markup = $arg{-markup} || 0;
     
-    $sql = qq(INSERT INTO $TBL{head} (article_no, parent_no, thread_no, board_id, title, uid, id, name, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()));
+    $sql = qq(INSERT INTO $TBL{head} (article_no, parent_no, thread_no, board_id, category, title, uid, id, name, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()));
     $rv = $DBH->do($sql, undef, $article_no,
                                 $parent_no,
                                 $thread_no,
                                 $arg{-board_id},
+                                $markup,
                                 $arg{-title},
                                 $arg{-uid},
                                 $arg{-id},
@@ -959,8 +961,9 @@ sub edit_article {
                    exists $arg{-title} &&
                    exists $arg{-body});
 
-    my $sql = qq(UPDATE $TBL{head} SET title=? WHERE article_id=?);
-    my $rv = $DBH->do($sql, undef, $arg{-title}, $arg{-article_id});
+    my $markup = $arg{-markup} || 0;
+    my $sql = qq(UPDATE $TBL{head} SET title=?, category=? WHERE article_id=?);
+    my $rv = $DBH->do($sql, undef, $arg{-title}, $markup, $arg{-article_id});
     $sql = qq(UPDATE $TBL{body} SET body=? WHERE article_id=?);
     $rv = $DBH->do($sql, undef, $arg{-body}, $arg{-article_id});
     return $rv;
@@ -1134,6 +1137,13 @@ sub format_article {
 
     my $article = $arg{-article};
     my $body = $arg{-body};
+    if ($article && $$article{category} && $$article{category} == 1) {
+        require Text::Markdown;
+        $body = Text::Markdown::markdown($body);
+        $body = &escape_tags($self, $body);
+        $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
+        return $body;
+    }
     my @body = split(/\r?\n/, $body);
     my ( $was_inside_html_tag, $is_inside_html_tag, $inside_span )  = (0, 0, 0);
     foreach ( @body ) {

@@ -50,7 +50,7 @@ my $article = $xb->get_article(-board_id=>$bid, -article_id=>$aid)
     if ($aid && $aid =~ /^\d+$/);
 
 if ($article) {
-    $$article{body} = $xb->format_article(-body=>$$article{body});
+    $$article{body} = $xb->format_article(-body=>$$article{body}, -article=>$article);
     $$article{comment} = $xb->get_commentset(-board_id=>$bid,
                                              -article_id=>$aid,
                                              -uid=>$uid);
@@ -67,7 +67,7 @@ my $thread = $xb->get_thread(-thread_no=>$tno)
 
 if ($thread) {
     foreach my $i (@$thread) {
-        $$i{body} = $xb->format_article(-body=>$$i{body});
+        $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
         $$i{comment} = $xb->get_commentset(-article_id=>$$i{article_id}, -uid=>$uid),
         $$i{attach} = $xb->get_attachset(-article_id=>$$i{article_id});
         delete $$i{uid} unless ($uid && $$i{uid} == $uid);

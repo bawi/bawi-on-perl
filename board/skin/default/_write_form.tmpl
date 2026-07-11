@@ -34,6 +34,12 @@
   <td class="label"><label for="body"><tmpl_var T_BODY></label></td>
   <td><textarea id="body" class="body" name="body"><tmpl_var body></textarea></td>
 </tr>
+<tr>
+  <td class="label"></td>
+  <td><label class="checkbox">
+    <input type="checkbox" name="markup" value="1"<tmpl_if markup> checked="checked"</tmpl_if> />
+    Markdown</label></td>
+</tr>
 
 <!--tr>
   <td><label for="tags">Tags</label></td>

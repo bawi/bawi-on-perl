@@ -213,6 +213,7 @@ CREATE TABLE `bw_xboard_header` (
   `parent_no` mediumint(8) unsigned NOT NULL default '0',
   `thread_no` mediumint(8) unsigned NOT NULL default '0',
   `board_id` smallint(5) unsigned NOT NULL default '0',
+  -- category: 0=legacy bawi markup, 1=markdown
   `category` tinyint(3) unsigned NOT NULL default '0',
   `title` char(64) NOT NULL default '',
   `uid` mediumint(8) unsigned NOT NULL default '0',
@@ -327,4 +328,3 @@ CREATE TABLE `bw_xboard_tagmap` (
   PRIMARY KEY (`tagmap_id`),
   UNIQUE KEY `tagmap` (`board_id`,`article_id`,`uid`,`tag_id`)
 ) TYPE=MyISAM;
-

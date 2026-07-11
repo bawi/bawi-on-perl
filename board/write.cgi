@@ -80,6 +80,7 @@ if ($allow_write && $bid) {
 
     my ($ftitle, $fbody, $poll) 
         = map { $q->param($_) || '' } qw( title body poll);
+    my $markup = $q->param('markup') ? 1 : 0;
     $ftitle =~ s/^\s+//g;
     $ftitle =~ s/\s+$//g;
     my $signature = '';
@@ -120,6 +121,7 @@ if ($allow_write && $bid) {
                                        -thread_no   =>$tno,
                                        -title       =>$ftitle,
                                        -body        =>$fbody,
+                                       -markup      =>$markup,
                                        -uid         =>$uid,
                                        -id          =>$id,
                                        -name        =>$name);

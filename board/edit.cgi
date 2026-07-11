@@ -80,6 +80,7 @@ if ($allow_write && $bid && $bid =~ /^\d+$/ && $aid && $aid =~ /^\d+$/) {
         my $body  = $article->{body};
         $t->param(title=> $q->escapeHTML($title));
         $t->param(body => $q->escapeHTML($body));
+        $t->param(markup=>$article->{category});
         $t->param(attach=>$xb->get_attachset(-article_id=>$aid));
         if ($q->request_method() && $q->request_method eq 'POST') {
             my $attach = $xb->upload_attach(-query=>$q);
@@ -105,11 +106,13 @@ if ($allow_write && $bid && $bid =~ /^\d+$/ && $aid && $aid =~ /^\d+$/) {
                 my $rv = $xb->add_pollset(-query=>$q, -article_id=>$aid); 
             }
             my ($ftitle, $fbody) = map { $q->param($_) || '' } qw( title body );
+            my $markup = $q->param('markup') ? 1 : 0;
             if ($ftitle ne '' && $fbody ne '') {
                 #$ftitle = $ui->substrk2($ftitle, 50); ### NOTE 
                 my $rv = $xb->edit_article(-article_id=>$aid, 
                                            -title=>$ftitle, 
-                                           -body=>$fbody);
+                                           -body=>$fbody,
+                                           -markup=>$markup);
                 print $q->redirect("read.cgi?bid=$bid&aid=$aid&p=$p&autosave=1");
                 exit (1);
             } else {
