@@ -146,7 +146,7 @@ my $thread = $xb->get_thread(-thread_no=>$tno, -uid=>$uid)
 if ($thread) {
     foreach my $i (@$thread) {
         $$i{title} = $q->escapeHTML($$i{title}); 
-        $$i{body} = $xb->format_article(-body=>$$i{body});
+        $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
         $$i{comment} = $xb->get_commentset(-article_id => $$i{article_id},
                                            -uid        => $uid)
             if ($$i{comments});
@@ -199,7 +199,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         if ($#{$na} > -1) {
             foreach my $i (@$na) {
                 $$i{title} = $q->escapeHTML($$i{title}); 
-                $$i{body} = $xb->format_article(-body=>$$i{body});
+                $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
                 $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
@@ -289,7 +289,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         if ($#{$na} > -1) {
             foreach my $i (@$na) {
                 $$i{title} = $q->escapeHTML($$i{title}); 
-                $$i{body} = $xb->format_article(-body=>$$i{body});
+                $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
                 $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
                 $$i{is_board_owner} = $is_board_owner if ($is_board_owner);
                 $$i{allow_comment} = $allow_comment;
