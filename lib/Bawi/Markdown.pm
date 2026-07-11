@@ -11,21 +11,28 @@ package Bawi::Markdown;
 #        from the parser; inline $..$ is emitted as \(..\) because the
 #        site MathJax config (TeX-MML-AM_CHTML) has single-$ off but
 #        already processes \(..\) -- no client config change
-#     3. GFM pipe tables -> <table> (Text::Markdown passes block-level
+#     3. footnotes: [^id] references + top-level "[^id]: text"
+#        definitions -> numbered <sup> links and a trailing footnote list
+#     4. GFM pipe tables -> <table> (Text::Markdown passes block-level
 #        HTML through untouched; cell contents get span-level markdown)
-#     4. Text::Markdown::markdown()
-#     5. ~~strikethrough~~ -> <del>, skipping <pre>/<code> regions
-#     6. shielded spans restored verbatim
+#     5. Text::Markdown::markdown()
+#     6. ~~strikethrough~~ -> <del>, skipping <pre>/<code> regions
+#     7. task lists: <li>[ ] / <li>[x] -> disabled checkboxes
+#     8. shielded spans restored verbatim
 #
 #   Sanitization (escape_tags denylist, href scheme strip) is NOT done
 #   here -- Bawi::Board::format_article applies it after render(), so
 #   math/fence/table content passes the same denylist as everything else.
 #
-# ponytail ceilings (v1): fences/tables are recognized at top level only
-# (not inside lists/blockquotes); a pipe-table lookalike inside 4-space
-# indented code is parsed as a table (use a ``` fence for code instead);
-# escape a literal | in a table cell as \|; a single $..$ can eat a |
-# if one math span is written across two cells.
+# ponytail ceilings (v1): fences/tables/footnote-definitions are
+# recognized at top level only (not inside lists/blockquotes -- note that
+# 8-space-indented code inside a list item is native classic markdown and
+# already works); a pipe-table lookalike inside 4-space indented code is
+# parsed as a table (use a ``` fence for code instead); escape a literal
+# | in a table cell as \|; a single $..$ can eat a | if one math span is
+# written across two cells; $..$ and [^ref] inside inline `code spans`
+# and 4-space blocks are still transformed (fences are fully immune);
+# footnote definitions are single-line.
 use strict;
 use warnings;
 use Text::Markdown;
@@ -58,18 +65,56 @@ sub render {
     $body =~ s/(\$\$.+?\$\$|\\\[.+?\\\]|\\\(.+?\\\))/$shield->($1)/egs;
     $body =~ s/(?<![\$\\])\$(?=\S)([^\$\n]+?)(?<=\S)\$(?!\d)/$shield->("\\($1\\)")/eg;
 
-    # 3. pipe tables
+    # 3. footnotes: collect top-level single-line definitions, then turn
+    #    references into numbered sup links (numbered by first reference)
+    my (%fndef, @fnorder);
+    $body =~ s{^\[\^([^\]\s]+)\]:[ \t]+(.+?)[ \t]*$}{
+        $fndef{$1} = $2; '';
+    }egm;
+    if (%fndef) {
+        my %fnnum;
+        $body =~ s{\[\^([^\]\s]+)\]}{
+            if (exists $fndef{$1}) {
+                my $id = $1;
+                $fnnum{$id} ||= push @fnorder, $id;
+                (my $safe = $id) =~ s/[^\w-]//g;
+                qq{<sup id="fnref-$safe"><a href="#fn-$safe">$fnnum{$id}</a></sup>};
+            } else {
+                "[^$1]";
+            }
+        }eg;
+    }
+
+    # 4. pipe tables
     $body = _pipe_tables($body);
 
-    # 4. classic markdown
+    # 5. classic markdown
     $body = Text::Markdown::markdown($body);
 
-    # 5. strikethrough outside code regions
+    # 6. strikethrough outside code regions
     $body = join '', map {
         /^<(?:pre|code)\b/i ? $_ : _del($_)
     } split /(<pre\b.*?<\/pre>|<code\b.*?<\/code>)/si, $body;
 
-    # 6. restore shielded spans
+    # 7. task lists (GFM): checkbox display only, bullet suppressed
+    $body =~ s{(<li>)(\s*<p>)?\s*\[([ xX])\]\s+}{
+        '<li style="list-style-type:none">' . ($2 || '')
+        . '<input type="checkbox" disabled'
+        . (lc($3) eq 'x' ? ' checked' : '') . '> '
+    }eg;
+
+    # footnote list appended last (content may hold shielded math)
+    if (@fnorder) {
+        my $fn = qq{<div class="footnotes"><hr /><ol>};
+        for my $id (@fnorder) {
+            (my $safe = $id) =~ s/[^\w-]//g;
+            $fn .= qq{<li id="fn-$safe">} . _cell_span($fndef{$id})
+                 . qq{ <a href="#fnref-$safe">&#8617;</a></li>};
+        }
+        $body .= $fn . '</ol></div>';
+    }
+
+    # 8. restore shielded spans
     $body =~ s/\x{1A}M(\d+)M\x{1A}/$shielded[$1]/g;
 
     return $body;

@@ -150,4 +150,33 @@ $body = render('code `~~x~~` keeps tildes');
 $body = render("    ~~x~~ indented code");
 &assert_not_contains('no del in code block', $body, '<del>');
 
+# --- task list fixtures ---
+
+$body = render("- [ ] 할 일\n- [x] 끝난 일\n");
+&assert_contains('task unchecked', $body, '<input type="checkbox" disabled> 할 일');
+&assert_contains('task checked', $body, '<input type="checkbox" disabled checked> 끝난 일');
+&assert_contains('task bullet suppressed', $body, '<li style="list-style-type:none">');
+
+$body = render('[ ] 목록 아님');
+&assert_not_contains('bracket outside list not task', $body, '<input');
+
+# --- footnote fixtures ---
+
+$body = render("본문[^1] 이고 다시[^note] 참조.\n\n[^1]: 첫 각주 **강조**\n[^note]: 둘째 \$E=mc^2\$ 각주\n");
+&assert_contains('fn ref sup', $body, '<sup id="fnref-1"><a href="#fn-1">1</a></sup>');
+&assert_contains('fn ref second number', $body, '<a href="#fn-note">2</a>');
+&assert_contains('fn list item', $body, '<li id="fn-1">첫 각주 <strong>강조</strong>');
+&assert_contains('fn backlink', $body, '<a href="#fnref-1">&#8617;</a>');
+&assert_contains('fn math in def', $body, '\(E=mc^2\)');
+&assert_not_contains('fn def line removed', $body, '[^1]:');
+
+# unknown reference stays literal; no footnote section without defs
+$body = render('허공[^nope] 참조');
+&assert_contains('unknown fn ref literal', $body, '[^nope]');
+&assert_not_contains('no fn section', $body, 'class="footnotes"');
+
+# fn ref inside a fence stays literal
+$body = render(qq{```\n각주[^1] 문법\n```\n\n[^1]: 정의\n});
+&assert_contains('fn ref in fence literal', $body, '각주[^1] 문법');
+
 print "ok\n";
