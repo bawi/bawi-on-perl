@@ -18,12 +18,12 @@ my $xb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 $ui->tparam(HTMLTitle => "찾기");
 
 my ($keyword, $field) = map { $ui->cparam($_) || '' } qw(keyword field);
-$ui->tparam(keyword=>$keyword);
+my @field = qw(title body name id);
+$field = 'title' unless grep { $_ eq $field } @field;   # whitelist: single source of truth (also drives the radio loop below)
+$ui->tparam(keyword=>$ui->cgi->escapeHTML($keyword));   # reflected into the form's value attribute
 $ui->tparam(field=>$field);
 
-$field = 'title' unless $field; 
 my @search_fields;
-my @field = qw(title body name id);
 foreach my $i (@field) {
     my $checked = $i eq $field ? 1 : 0;
     push @search_fields, { field=>$i, checked=>$checked };
