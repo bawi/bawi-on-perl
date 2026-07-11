@@ -84,7 +84,12 @@ $t->param(total=>$articles);
 # The delete link routes through comment.cgi, which redirects to
 # mycomment.cgi?p=<this>, so it must carry the listing page, NOT the per-row
 # board page (that one is `page`, used only by the read link).
-$t->param(cur_page=>$page);
+# But comment.cgi's redirect drops the bid, so when this listing is itself
+# bid-filtered the filtered page number would be applied to the UNFILTERED
+# listing (a different, usually larger, page space) and land on the wrong
+# page. In the filtered case emit an empty p instead, which mycomment.cgi
+# then clamps to the newest page — the pre-existing behaviour for that flow.
+$t->param(cur_page=>$board_id ? '' : $page);
 
 # The board list page (read.cgi's p=) the comment's article appears on —
 # pages are reverse-numbered (tot_page = newest), matching get_tot_page/
