@@ -1146,25 +1146,12 @@ sub format_article {
     # unquoted hrefs bypass it). Do NOT reuse this path for untrusted input
     # (comments, anonymous/public boards) without a real allowlist sanitizer.
     if ($article && $$article{category} && $$article{category} == 1) {
-        require Text::Markdown;
-        # Shield MathJax spans from the Markdown parser: backslash-escape
-        # processing eats \( \) \[ \] \\ \{ \}, and emphasis can inject <em>
-        # into $$..$$ (e.g. an _ subscript right after a closing brace).
-        # Spans are restored verbatim BEFORE escape_tags so math text still
-        # passes the same denylist as everything else. Inline $..$ (pandoc
-        # rule: non-space inside, closing $ not followed by a digit, single
-        # line -- keeps "$5 ... $10" as currency) is emitted as \(..\): the
-        # loaded MathJax config (TeX-MML-AM_CHTML) has single-$ off but
-        # already processes \(..\) inline, so no client config change.
-        # ponytail: blind to code blocks -- $$ inside a code block round-trips
-        # literally and MathJax skips <code>, which is what showing TeX
-        # source wants anyway.
-        my @math;
-        my $shield = sub { push @math, $_[0]; "\x{1A}M" . $#math . "M\x{1A}" };
-        $body =~ s/(\$\$.+?\$\$|\\\[.+?\\\]|\\\(.+?\\\))/$shield->($1)/egs;
-        $body =~ s/(?<![\$\\])\$(?=\S)([^\$\n]+?)(?<=\S)\$(?!\d)/$shield->("\\($1\\)")/eg;
-        $body = Text::Markdown::markdown($body);
-        $body =~ s/\x{1A}M(\d+)M\x{1A}/$math[$1]/g;
+        # Bawi::Markdown = Text::Markdown + MathJax span shielding + ```
+        # fences (prism) + GFM pipe tables + ~~strikethrough~~. It does NO
+        # sanitizing of its own: escape_tags below applies the same tag
+        # denylist to its output (math/fence/table content included).
+        require Bawi::Markdown;
+        $body = Bawi::Markdown::render($body);
         $body = &escape_tags($self, $body);
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
         return $body;

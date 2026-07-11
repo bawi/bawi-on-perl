@@ -2,19 +2,13 @@
 use strict;
 use FindBin;
 use lib "$FindBin::Bin/../../lib";
-use Text::Markdown;
+use Bawi::Markdown;
 
 sub render {
-    my $body = shift;
+    my $body = Bawi::Markdown::render(shift);
 
-    # Same markdown pipeline as Bawi::Board::format_article.
-    my @math;
-    my $shield = sub { push @math, $_[0]; "\x{1A}M" . $#math . "M\x{1A}" };
-    $body =~ s/(\$\$.+?\$\$|\\\[.+?\\\]|\\\(.+?\\\))/$shield->($1)/egs;
-    $body =~ s/(?<![\$\\])\$(?=\S)([^\$\n]+?)(?<=\S)\$(?!\d)/$shield->("\\($1\\)")/eg;
-    $body = Text::Markdown::markdown($body);
-    $body =~ s/\x{1A}M(\d+)M\x{1A}/$math[$1]/g;
-
+    # escape_tags denylist + href strip, as Bawi::Board::format_article
+    # applies after Bawi::Markdown::render().
     my $escaped_tags = 'html body embed iframe applet script bgsound object meta head style link';
     my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')'; 
     $body =~ s/<(\/?$tags)/&lt;$1/igox;
@@ -105,5 +99,55 @@ $body = render("    \$\$x\$\$");
 $body = render('$$<script>alert(1)</script>$$');
 &assert_contains('script in math escaped', $body, '&lt;script');
 &assert_not_contains('script in math escaped', $body, '<script');
+
+# --- fenced code block fixtures ---
+
+# ```lang fence -> <pre><code class="language-..."> with entities escaped,
+# and $ inside code never becomes math
+$body = render(qq{```perl\nmy \$x = <STDIN>;\nprint "\$x & \$y";\n```});
+&assert_contains('fence language class', $body, '<pre><code class="language-perl">');
+&assert_contains('fence escapes angle', $body, 'my $x = &lt;STDIN&gt;;');
+&assert_contains('fence escapes amp', $body, '&amp;');
+&assert_not_contains('fence dollar not math', $body, '\(');
+
+# bare fence -> plain <pre><code>
+$body = render(qq{```\nplain block\n```});
+&assert_contains('bare fence', $body, '<pre><code>plain block');
+
+# $$ inside a fence stays literal (MathJax skips <code>)
+$body = render(qq{```\n\$\$x\$\$\n```});
+&assert_contains('math in fence literal', $body, '$$x$$');
+
+# markdown markup inside a fence stays literal
+$body = render(qq{```\n# not a heading\n```});
+&assert_not_contains('heading in fence literal', $body, '<h1>');
+
+# --- pipe table fixtures ---
+
+my $table = "| 변수 | 의미 | 노름 |\n|:-----|:----:|-----:|\n| \$Z\$ | **정칙** | 1 |\n";
+$body = render($table);
+&assert_contains('table built', $body, '<table><thead><tr><th align="left">변수</th>');
+&assert_contains('table center align', $body, '<th align="center">의미</th>');
+&assert_contains('table right align', $body, '<td align="right">1</td>');
+&assert_contains('table cell strong', $body, '<td align="center"><strong>정칙</strong></td>');
+&assert_contains('table cell math', $body, '<td align="left">\(Z\)</td>');
+&assert_not_contains('table not p-wrapped', $body, '<p><table');
+
+# escaped pipe in a cell; prose with pipes but no separator is not a table
+$body = render("| a\\|b | c |\n|---|---|\n| 1 | 2 |\n");
+&assert_contains('escaped pipe in cell', $body, '<th>a|b</th>');
+$body = render("this | that\nother | thing\n");
+&assert_not_contains('prose pipes not table', $body, '<table');
+
+# --- strikethrough fixtures ---
+
+$body = render('~~틀린 내용~~ 이렇게 지웁니다.');
+&assert_contains('strikethrough', $body, '<del>틀린 내용</del>');
+
+$body = render('code `~~x~~` keeps tildes');
+&assert_not_contains('no del in code span', $body, '<del>');
+
+$body = render("    ~~x~~ indented code");
+&assert_not_contains('no del in code block', $body, '<del>');
 
 print "ok\n";
