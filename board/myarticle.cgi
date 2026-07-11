@@ -45,8 +45,8 @@ my $tot_page = int ($articles / $article_per_page);
 ++$tot_page if ($articles % $article_per_page);
 $tot_page = 1 if ($tot_page < 1);
 my $p = $q->param('p');
-my $page = $p || $tot_page || 1;
-$page = $tot_page < $page ? $tot_page : $page;
+my $page = $p;
+$page = $tot_page unless ($page && $page =~ /^\d+$/ && $page <= $tot_page);
 
 my $start_limit = ($tot_page - $page) * $article_per_page;
 
@@ -79,6 +79,21 @@ $t->param(first_page=>$first_page);
 $t->param(last_page=>$last_page);
 $t->param(pages=>\@pages);
 $t->param(p=>$p);
+$t->param(total=>$articles);
+
+# The board list page (read.cgi's p=) this article appears on — pages are
+# reverse-numbered (tot_page = newest), matching get_tot_page/get_start in
+# Bawi::Board; read.cgi clamps if the denormalized c.articles has drifted.
+# CAST ... AS SIGNED: c.articles/c.article_per_page are UNSIGNED, so if the
+# counter has drifted low the CEIL-FLOOR difference goes negative and an
+# unsigned subtraction raises ER_DATA_OUT_OF_RANGE (1690) instead of letting
+# GREATEST clamp it — the SIGNED cast keeps the drift case a clamp, not a 500.
+my $board_page = qq(IF(c.article_per_page > 0,
+                       GREATEST(1, CAST(CEIL(c.articles / c.article_per_page) AS SIGNED) -
+                                   CAST(FLOOR((SELECT count(*) FROM bw_xboard_header as h
+                                          WHERE h.board_id=a.board_id && h.article_id > a.article_id)
+                                         / c.article_per_page) AS SIGNED)),
+                       1) as page);
 
 if ($board_id) {
 $sql = qq(SELECT a.board_id, a.article_id,
@@ -86,10 +101,11 @@ $sql = qq(SELECT a.board_id, a.article_id,
                  IF( a.created + INTERVAL 180 DAY > now(), DATE_FORMAT(a.created, '%m/%d'), DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
                  DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                  a.count, a.recom, a.scrap, a.comments, a.has_attach,
-                 a.has_poll, $page as page,
+                 a.has_poll, $board_page,
                  c.title as board_title
-                 FROM bw_xboard_header as a, bw_xboard_board as c
-                 WHERE a.board_id=c.board_id && a.uid=? && a.board_id=? 
+                 FROM bw_xboard_header as a
+                 LEFT JOIN bw_xboard_board as c ON a.board_id=c.board_id
+                 WHERE a.uid=? && a.board_id=?
                  ORDER BY a.article_id DESC
 		  LIMIT $start_limit, $article_per_page);
   $rv = $DBH->selectall_hashref($sql, "article_id", undef, $uid, $board_id);
@@ -100,10 +116,11 @@ $sql = qq(SELECT a.board_id, a.article_id,
                  IF( a.created + INTERVAL 180 DAY > now(), DATE_FORMAT(a.created, '%m/%d'), DATE_FORMAT(a.created, '%y/%m/%d') ) as created,
                  DATE_FORMAT(a.created, '%Y/%m/%d (%a) %H:%i:%s') as created_str,
                  a.count, a.recom, a.scrap, a.comments, a.has_attach,
-                 a.has_poll, $page as page,
+                 a.has_poll, $board_page,
                  c.title as board_title
-                 FROM bw_xboard_header as a, bw_xboard_board as c
-                 WHERE a.board_id=c.board_id && a.uid=?
+                 FROM bw_xboard_header as a
+                 LEFT JOIN bw_xboard_board as c ON a.board_id=c.board_id
+                 WHERE a.uid=?
                  ORDER BY a.article_id DESC
 		  LIMIT $start_limit, $article_per_page);
   $rv = $DBH->selectall_hashref($sql, "article_id", undef, $uid);

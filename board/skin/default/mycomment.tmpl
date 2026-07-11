@@ -4,7 +4,7 @@
 
 <div class="top-head">
 <h1><a href="mycomment.cgi">내가 쓴 짧은 답글 보기</a></h1>
-<span class="owner">: <tmpl_include _name_id.tmpl></span>
+<span class="owner">: <tmpl_include _name_id.tmpl> (총 <tmpl_var total>건)</span>
 <span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
 </div>
 
@@ -40,7 +40,7 @@
   <li class="comment"><a href="read.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>;p=<tmpl_var page>#c<tmpl_var comment_no>"><tmpl_var comment></a></li>
   <li class="date"><span title="<tmpl_var created_str>"><tmpl_var created></span></li>
   <li class="delete">
-  <a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var page><tmpl_if img>&img=1</tmpl_if>&redirect=mycomment" onclick="return window.confirm('Delete this comment?');">x</a></li>
+  <a href="comment.cgi?action=delete&bid=<tmpl_var board_id>&aid=<tmpl_var article_id>&cid=<tmpl_var comment_id>&p=<tmpl_var cur_page><tmpl_if img>&img=1</tmpl_if>&redirect=mycomment" onclick="return window.confirm('Delete this comment?');">x</a></li>
 </ul>
 </tmpl_loop>
 </div><!-- article-list wrapper -->
