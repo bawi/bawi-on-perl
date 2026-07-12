@@ -393,28 +393,34 @@ sub _HashHTMLBlocks {
     # block tag is O(tail) -- it rescans to end-of-string, recursing at
     # every block opener it passes -- so a body of repeated unclosed
     # "<pre>" lines is O(n^2) with a huge constant (50KB took ~120s per
-    # render: a stored DoS any poster can plant). Two output-preserving
-    # short-circuits:
-    #   1. closer guard: extraction can only succeed if the EXACT literal
-    #      "</tag>" occurs later (_match_tagged derives the closing
-    #      delimiter as quotemeta '</'.tagname.'>' -- no spaces, no case
-    #      folding); when index() finds none, skip the extractor. A
-    #      skipped line is pushed as plain text -- byte-identical to what
-    #      the guaranteed failure would produce.
-    #   2. failure budget: after 8 EXPENSIVE failures (line opens with a
-    #      block-level tag, so the O(tail) scan actually ran; cheap
-    #      failures on inline/non-tags don't count), stop attempting for
-    #      the rest of the document. Output diverges only when a would-
-    #      have-matched block sits after 8+ failing block openers in one
-    #      body -- not a real document shape, and the degraded rendering
-    #      (lines as text) equals the failure rendering.
-    # Also: local $^W silences Text::Balanced's "Deep recursion" warning
-    # (its scan recurses per opener passed; ModPerl::Registry honors the
-    # CGI's -w shebang, so a crafted body otherwise floods the error log
-    # with millions of lines per render). Lexical "use warnings" in this
-    # file is unaffected. Remove all three if this file is re-vendored.
+    # render: a stored DoS any poster can plant). $topname below is the
+    # line's first tag name; three guards, in the order the unless()
+    # evaluates them:
+    #   1. failure budget: once $failed_extracts reaches 8, stop
+    #      attempting extraction for the rest of the document. Only
+    #      failures on lines whose $topname is a block-level tag name
+    #      are counted (the expensive class -- inline/non-tag lines fail
+    #      cheaply and never count; a malformed block-named opener can
+    #      fail cheap yet still count, which only trips the budget
+    #      sooner, never later).
+    #   2. closer guard: extraction can only succeed if the EXACT literal
+    #      "</$topname>" occurs on this line or later (_match_tagged
+    #      derives the closing delimiter as quotemeta '</'.tagname.'>'
+    #      -- no spaces, no case folding); when both index() calls miss,
+    #      skip the extractor.
+    #   Both are output-preserving: a skipped line is pushed as plain
+    #   text, byte-identical to what its guaranteed failure would
+    #   produce. Divergence requires 8+ failing block openers followed
+    #   by a would-have-matched block in one body -- not a real document
+    #   shape; the class is pinned by a markdown_smoke.pl fixture.
+    #   3. local $^W=0 scoped to the extractor call: its scan recurses
+    #      once per opener passed, and ModPerl::Registry honors the
+    #      CGI's -w shebang, so a crafted body otherwise floods the
+    #      error log with millions of "Deep recursion" lines per render.
+    #      This file's lexical "use warnings" is unaffected.
+    # Remove all three (budget, closer guard, $^W scope) if this file is
+    # ever re-vendored.
     my $failed_extracts = 0;
-    local $^W = 0;
     # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
         my $cur_line = $1;
@@ -427,6 +433,7 @@ sub _HashHTMLBlocks {
                     or (defined $topname
                         and index($cur_line, "</$topname>") < 0
                         and index($text,     "</$topname>") < 0)) {
+                local $^W = 0;
                 ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
                 $failed_extracts++
                     if !$tag and defined $topname and $topname =~ /^$block_tags$/;

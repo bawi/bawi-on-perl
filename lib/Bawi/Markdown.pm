@@ -83,6 +83,7 @@ package Bawi::Markdown;
 
 use strict;
 use warnings;
+use Encode ();
 use Text::Markdown;
 
 sub render {
@@ -269,12 +270,33 @@ sub render {
     return $body;
 }
 
-# Pipeline version. Bawi::Board::format_article caches render() output in
-# the bw_xboard_body_html table keyed on md5("$CACHE_VERSION:$body") --
-# bump this whenever ANY rendering stage above (or the vendored
-# Text::Markdown) changes output, so every cached row goes stale and
-# re-renders lazily on next view. render() itself stays pure/uncached.
+# --- render cache contract (the ONE canonical statement of it) ----------
+# Bawi::Board::format_article caches render() output in bw_xboard_body_html,
+# one row per article; a row is valid iff its body_md5 equals
+# cache_key($body) below. So:
+#   * a body edit changes the key -> that article's row is overwritten on
+#     its next read (self-healing; no eviction anywhere)
+#   * ANY change that alters render() OUTPUT -- this module, the vendored
+#     lib/Text/Markdown.pm, or deeper (system Text::Balanced) -- MUST bump
+#     $CACHE_VERSION, or every already-cached article keeps serving the
+#     OLD rendering indefinitely. The smoke suite pins this mechanically:
+#     it renders a fixed corpus and fails when output changes without a
+#     version bump (see "render fingerprint" in markdown_smoke.pl).
+#   * the per-article dimension (footnote anchors fn-<id>-N) is carried by
+#     the row PK, not by this hash -- render()'s only inputs are
+#     ($body, $uniq=article_id), and both are in the row key. If render()
+#     ever gains another input, it must be folded into cache_key or the
+#     cache will serve output computed for other values of it.
 our $CACHE_VERSION = 1;
+
+sub cache_key {
+    my ($body) = @_;
+    require Digest::MD5;
+    # bodies are undecoded octets today; encode_utf8 is a no-op on them
+    # but keeps a future decoded-string caller from croaking md5_hex
+    # ("Wide character") -- same guard as Text::Markdown::_md5_utf8
+    return Digest::MD5::md5_hex(Encode::encode_utf8("$CACHE_VERSION:$body"));
+}
 
 sub _del {
     my $t = shift;

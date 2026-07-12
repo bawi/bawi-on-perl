@@ -1156,30 +1156,34 @@ sub format_article {
         require Bawi::Markdown;
         # render() is the expensive stage (~0.1-1s for a large body) and
         # runs at read time, up to ~15x per page -- cache its output in
-        # bw_xboard_body_html, one row per article (PK article_id).
-        # Validity = md5(CACHE_VERSION:body): a body edit changes the md5
-        # (the row is overwritten on the next read), a pipeline change is
-        # a CACHE_VERSION bump (every row goes stale, re-renders lazily).
-        # escape_tags/href-strip below stay OUTSIDE the cache so a
-        # per-board denylist change applies immediately, never frozen
-        # into a cached row.
+        # bw_xboard_body_html, one row per article (PK article_id). The
+        # validity model and the CACHE_VERSION bump rule live with
+        # Bawi::Markdown::cache_key -- the module that owns the pipeline.
+        # Site-specific notes: escape_tags/href-strip below stay OUTSIDE
+        # the cache so a per-board denylist change applies immediately;
+        # and Bawi::DBI runs without RaiseError, so a missing/crashed
+        # cache table degrades to an uncached render (PrintError logs it)
+        # rather than a 500 -- the SELECT and REPLACE are deliberately
+        # bare like every sibling $DBH call in this module.
         my $aid = $$article{article_id} || 0;
         my ($html, $md5);
         if ($aid) {
-            require Digest::MD5;
-            no warnings 'once';   # CACHE_VERSION lives in Bawi::Markdown
-            $md5 = Digest::MD5::md5_hex("$Bawi::Markdown::CACHE_VERSION:$body");
-            ($html) = $DBH->selectrow_array(
-                qq(SELECT html FROM $TBL{body_html} WHERE article_id=? && body_md5=?),
-                undef, $aid, $md5);
+            $md5 = Bawi::Markdown::cache_key($body);
+            my $sql = qq(SELECT html FROM $TBL{body_html}
+                         WHERE article_id=? && body_md5=?);
+            ($html) = $DBH->selectrow_array($sql, undef, $aid, $md5);
         }
         unless (defined $html) {
+            # render() uniq: '' (not 0) is its no-article sentinel, so
+            # anchors come out fn-N; the $aid gate above already skipped
+            # the cache for that case
             $html = Bawi::Markdown::render($body, $aid || '');
-            # a failed cache write must not kill the page render
-            eval {
-                $DBH->do(qq(REPLACE INTO $TBL{body_html} (article_id, body_md5, html)
-                            VALUES (?, ?, ?)), undef, $aid, $md5, $html);
-            } if $aid;
+            if ($aid) {
+                my $sql = qq(REPLACE INTO $TBL{body_html}
+                                 (article_id, body_md5, html)
+                             VALUES (?, ?, ?));
+                $DBH->do($sql, undef, $aid, $md5, $html);
+            }
         }
         $body = $html;
         $body = &escape_tags($self, $body);

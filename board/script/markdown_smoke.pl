@@ -401,20 +401,80 @@ $body = render(qq{```c#\nint x;\n```});
 &assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
 
 # --- render cache preconditions (Board.pm's bw_xboard_body_html rows) ---
-# Board.pm caches render() output in the DB keyed on
-# md5(CACHE_VERSION:body) + article_id. That is only sound if render()
-# is deterministic in (body, uniq) -- pin it, and pin that the version
-# knob Board.pm keys on still exists.
+# Board.pm caches render() output keyed on Bawi::Markdown::cache_key +
+# the article_id PK. Sound only while render() is deterministic in
+# (body, uniq) -- pinned here. The DB plumbing itself (SELECT/REPLACE,
+# hit-vs-miss) has no DB in this harness and is deliberately out of
+# smoke's scope; it is exercised end-to-end on the test mirror.
 {
     my $src = "# 캐시\n\n**굵게** \$x_i\$ 그리고 [^1] 참조.\n\n[^1]: 정의\n";
     die "render() not deterministic -- DB cache would serve stale variants\n"
         unless Bawi::Markdown::render($src, 42) eq Bawi::Markdown::render($src, 42);
-    die "CACHE_VERSION gone -- Board.pm keys cache rows on it\n"
-        unless defined $Bawi::Markdown::CACHE_VERSION;
+    die "cache_key broken -- Board.pm keys cache rows on it\n"
+        unless Bawi::Markdown::cache_key($src) =~ /^[0-9a-f]{32}$/;
+    die "cache_key ignores the body\n"
+        if Bawi::Markdown::cache_key($src) eq Bawi::Markdown::cache_key("$src ");
     # uniq must change the output (footnote anchors), so Board.pm must
     # never share a cached render across articles: the key includes
     # article_id via the row PK
     &assert_contains('uniq in anchors', Bawi::Markdown::render($src, 99), 'fn-99-1');
+}
+
+# --- render fingerprint: forces CACHE_VERSION bumps -----------------------
+# A pipeline change that alters render() output WITHOUT a CACHE_VERSION
+# bump makes every cached article silently serve the OLD rendering until
+# its next edit. This fixed-corpus fingerprint fails the suite in that
+# case. When it fires: if the output change was intentional, bump
+# $CACHE_VERSION in lib/Bawi/Markdown.pm AND record the new pair printed
+# in the message; if not, you have an accidental rendering change.
+# (Corpus has no email autolinks -- those are rand()-obfuscated.)
+{
+    require Digest::MD5;
+    my $corpus = join "\n\n",
+        '# 제목 heading',
+        '**bold** *em* `code` ~~del~~ 한국어',
+        "> quote\n>> nested",
+        "- [ ] task\n- [x] done",
+        "| a | b |\n|---|--:|\n| \$x\$ | [l](http://e.x/) |",
+        "```perl\nmy \$x = 1;\n```",
+        'inline $a_i$ and $$\int f$$ and \(c\)',
+        "cite[^f]\n\n[^f]: def **md**",
+        "<pre>\nraw &amp; block\n</pre>",
+        'text <span>inline html</span> &amp; entity';
+    my $fp = Digest::MD5::md5_hex(Bawi::Markdown::render($corpus, 7));
+    my ($want_ver, $want_fp) = (1, '3e048711f953cd0e5fbce12156a3e01d');
+    if ($Bawi::Markdown::CACHE_VERSION ne $want_ver or $fp ne $want_fp) {
+        die "render fingerprint mismatch: expected (v$want_ver, $want_fp),\n"
+          . "got (v$Bawi::Markdown::CACHE_VERSION, $fp).\n"
+          . "Intentional output change -> bump CACHE_VERSION and record the new pair here.\n"
+          . "Unintentional -> the rendering pipeline changed by accident.\n";
+    }
+}
+
+# --- failure-budget divergence class (documented tradeoff, pinned) --------
+# 8+ FAILING block openers (closers exist ahead, so the guard lets the
+# extractor run; nesting never balances, so every attempt fails) followed
+# by a block that WOULD have matched: the budget disables extraction, so
+# the trailing block degrades to text instead of raw block HTML. This is
+# the one accepted output divergence of the DoS patch -- if a re-vendor
+# or budget tweak changes it, this fixture must be revisited.
+{
+    # a raw-block extraction SUCCESS emits the block bare at top level; a
+    # degraded (budget-skipped) block goes through paragraph forming and
+    # comes out "<p><pre>"-wrapped -- that wrapper is the signature the
+    # two asserts below key on.
+    my $b = ("<div>\nfiller line\n\n" x 9)      # 9 unclosed <div> openers
+          . "</div>\n\n"                        # one closer: guard passes, attempts run+fail
+          . "<pre>\nbudget victim\n</pre>\n";   # would-have-matched block
+    $body = render($b);
+    &assert_contains('budget victim text survives', $body, 'budget victim');
+    &assert_contains('trailing block degraded (documented)', $body, '<p><pre>');
+    # control -- same shape below the budget (2 failing openers): the
+    # trailing block must still extract as bare raw block HTML
+    $body = render(("<div>\nfiller line\n\n" x 2)
+                   . "</div>\n\n<pre>\ncontrol block\n</pre>\n");
+    &assert_contains('control block raw', $body, "<pre>\ncontrol block\n</pre>");
+    &assert_not_contains('control block not degraded', $body, '<p><pre>');
 }
 
 # --- unclosed raw <pre> flood (stored DoS, Text::Markdown local patch) ---
