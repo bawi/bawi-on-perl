@@ -355,6 +355,10 @@ $body = render("\\[ x \\\\\n\n# 제목\n\n\\]");
 # bare-CR (classic-Mac) blank line must block too, not just LF/CRLF
 $body = render("\\[ x \\\\\r\r# 제목\r\r\\]");
 &assert_contains('bare-CR blank line not crossed', $body, '<h1>제목</h1>');
+# a SINGLE CRLF soft break inside a display span must still CROSS (shield)
+# -- browsers POST CRLF, so this is the normal multi-line-formula path
+$body = render("\\[\r\na + b\r\n\\]");
+&assert_contains('single CRLF soft break shields', $body, "\\[\r\na + b\r\n\\]");
 
 # display math with a real closer still shields
 $body = render('식은 \(a+b\) 이다');

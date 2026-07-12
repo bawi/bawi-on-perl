@@ -160,7 +160,13 @@ sub render {
     #    line would eat the first newline and the span would cross the
     #    paragraph break (the $nb guard is per-iteration, so a blank
     #    line must always fall to the one-char alternative to be seen).
-    my $nb = qr/(?!(?:\r\n?|\n)[ \t]*(?:\r\n?|\n))/;   # not a blank line (LF/CRLF/bare-CR)
+    # not a blank line. Atomic (?>...) is load-bearing: a plain
+    # (?:\r\n?|\n) lets a single CRLF re-split (\r matches, backtracks to
+    # give up \n, second alt takes the \n) so one CRLF would read as a
+    # blank line and wrongly block a normal multi-line formula. The
+    # atomic group forbids that backtrack, so CRLF is one indivisible
+    # ending -- matching LF, CRLF, and bare-CR blank lines, none else.
+    my $nb = qr/(?!(?>\r\n?|\n)[ \t]*(?>\r\n?|\n))/;
     $body =~ s{(
         \$\$ (?: $nb [^\x{1A}] )+? \$\$
       | \\\[ (?: $nb (?: \\\\[^\x{1A}\r\n] | (?!\\\[) [^\x{1A}] ) )+? \\\]
