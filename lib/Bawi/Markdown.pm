@@ -280,13 +280,9 @@ sub render {
 #   * ANY change that alters render() OUTPUT -- this module, the vendored
 #     lib/Text/Markdown.pm, or deeper (system Text::Balanced) -- MUST bump
 #     $CACHE_VERSION, or every already-cached article keeps serving the
-#     OLD rendering indefinitely. Backstop: the smoke suite fingerprints a
-#     fixed corpus and fails on an unbumped output change to any construct
-#     THAT CORPUS COVERS ("render fingerprint" in markdown_smoke.pl).
-#     Nothing runs it automatically -- it is a run-before-deploy check,
-#     and it cannot see a system-library (Text::Balanced/perl) upgrade
-#     that shifts output with no source diff. The bump stays a judgment
-#     the editor owns; the fingerprint only catches the accident.
+#     OLD rendering indefinitely. The bump is a judgment the editor owns;
+#     the "render fingerprint" backstop in markdown_smoke.pl catches the
+#     ACCIDENTAL case, within the limits documented there.
 #   * render() is deterministic in its two inputs ($body, $uniq=article_id)
 #     with ONE known exception: email autolinks (<x\@y.z>) are rand()-
 #     obfuscated by Text::Markdown::_EncodeEmailAddress. Caching freezes
@@ -305,11 +301,12 @@ sub cache_key {
     my $key = "$CACHE_VERSION:$body";
     # octet callers -- the only production class, DB bodies -- hash RAW,
     # so the stored body_md5 is hand-reproducible, e.g. a SQL audit via
-    # MD5(CONCAT('1:', body)). A decoded-string caller is encoded first,
-    # only so md5_hex cannot croak ("Wide character") -- the same
-    # conditional guard as Text::Markdown::_md5_utf8. NOT a
-    # canonicalization: decoded and octet forms of the same text hash
-    # differently, so every caller must pass the same representation
+    # MD5(CONCAT('1:', body)). A decoded-string caller is encoded to UTF-8
+    # first, only so md5_hex cannot croak ("Wide character") -- the same
+    # conditional guard as Text::Markdown::_md5_utf8. For UTF-8 text (this
+    # site's encoding) that encode makes the decoded and octet forms hash
+    # identically; the conditional exists to avoid the croak, not to
+    # canonicalize, and callers should still pass one representation
     # (today: raw DB octets, everywhere).
     $key = Encode::encode('utf8', $key) if Encode::is_utf8($key);
     return Digest::MD5::md5_hex($key);

@@ -3,6 +3,7 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../../lib";
 use Bawi::Markdown;
+use Digest::MD5 ();   # the render-fingerprint block calls md5_hex directly
 use Time::HiRes qw(time);
 
 # The denylist below mirrors escape_tags' CODE FALLBACK. Production
@@ -497,25 +498,48 @@ $body = render(qq{```c#\nint x;\n```});
     &assert_not_contains('control block not degraded', $body, '<p><pre>');
 }
 
-# --- unclosed raw <pre> flood (stored DoS, Text::Markdown local patch) ---
-# A body of repeated unclosed "<pre>" lines made Text::Balanced rescan
-# to end-of-string per opener (O(n^2), ~120s at 50KB, plus a deep-
-# recursion warning flood under -w). The vendored _HashHTMLBlocks now
-# skips extraction when no literal "</pre>" exists ahead and stops
-# attempting after 8 expensive failures. Healthy is ~0.2s at 50KB.
+# --- block-opener flood (stored DoS, Text::Markdown local patch) ----------
+# Floods of block-tag openers drove _HashHTMLBlocks O(n^2) (Text::Balanced
+# rescans to EOF per opener): ~120s at 50KB, plus a deep-recursion warning
+# flood under -w. The vendored guard now (1) memoizes the "no closer ahead"
+# skip so an unclosed flood is O(n), (2) skips any tag whose openers exceed
+# closers by >64 (catches floods whose closer is present-but-buried), and
+# (3) caps failed extractions at 8/pass. Each in-limit 64KB shape below
+# rendered multi-second before the fix; all are well under 1s now (assert
+# <2s for CI-load headroom). These shapes fit bw_xboard_body.body (TEXT,
+# 64KB) so any poster can plant one.
 {
-    my $flood = "<pre>\nsome text follows here on more lines\nmore text\n\n";
-    $flood x= int(50_000 / length($flood)) + 1;
-    my $t0 = time;
-    $body = render($flood);
-    die sprintf("unclosed-pre DoS regression: %.2fs (expected <2)\n", time - $t0)
-        if time - $t0 > 2;
-    # the lines still render (as text), nothing is swallowed
-    &assert_contains('unclosed pre lines survive', $body, 'some text follows');
-    # closed raw blocks still extract as raw block HTML (guard must not
-    # have broken the legit path)
+    my %flood = (
+        # sparse unclosed <pre> (the original round-1 shape)
+        'sparse-pre'      => "<pre>\nsome text follows here\nmore text\n\n"
+                             x (int(50_000 / 40) + 1),
+        # dense unclosed openers (guard 1: memoized no-closer skip)
+        'dense-noclose'   => "<p>\n" x 16000,
+        # dense openers with a trailing closer (guard 2: imbalance)
+        'dense-endcloser' => ("<p>\n" x 16000) . "</p>\n",
+        # closer BEFORE the flood -- defeats a naive no-closer memo, caught
+        # by the imbalance guard (openers - closers still > 64)
+        'closer-behind'   => "</div>\n" . ("<div>\n" x 16000),
+        # many openers then a far closer past a large tail (each attempt
+        # would recurse O(imbalance) deep over the whole tail)
+        'far-closer'      => ("<p>\n" x 16000) . ("word " x 12000) . "</p>\n",
+    );
+    for my $name (sort keys %flood) {
+        my $t0 = time;
+        render($flood{$name});
+        die sprintf("block-opener DoS regression [%s]: %.2fs (expected <2)\n",
+                    $name, time - $t0)
+            if time - $t0 > 2;
+    }
+    # the flooded lines still render (as text), nothing is swallowed
+    $body = render("<pre>\nsome text follows here\n\n" x 2000);
+    &assert_contains('flood lines survive', $body, 'some text follows');
+    # a balanced raw block among many still extracts (imbalance 0, guard
+    # must not touch well-formed HTML)
     $body = render("<pre>\nraw &amp; block\n</pre>\n\npara\n");
     &assert_contains('closed pre still raw block', $body, "<pre>\nraw &amp; block\n</pre>");
+    $body = render("<div>x</div>\n" x 500);
+    &assert_contains('balanced repeats still raw', $body, '<div>x</div>');
 }
 
 print "ok\n";

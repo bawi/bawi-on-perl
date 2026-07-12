@@ -1179,7 +1179,11 @@ sub format_article {
             # anchors come out fn-N; the $aid gate above already skipped
             # the cache for that case
             $html = Bawi::Markdown::render($body, $aid || '');
-            if ($aid) {
+            # defined $html guards a NULL-body article (render returns
+            # undef): caching NULL would miss on every later read (a NULL
+            # column is indistinguishable from "no row") and re-REPLACE
+            # each view -- a write per read. Skip the cache for it instead.
+            if ($aid && defined $html) {
                 my $sql = qq(REPLACE INTO $TBL{body_html}
                                  (article_id, body_md5, html)
                              VALUES (?, ?, ?));

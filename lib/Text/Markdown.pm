@@ -389,38 +389,46 @@ sub _HashHTMLBlocks {
     my $extract_block = gen_extract_tagged($open_tag, $close_tag, $prefix_pattern, { ignore => [$empty_tag] });
 
     my @chunks;
-    # PERF/DoS (Bawi local patch): Text::Balanced's FAILURE on an unclosed
-    # block tag is O(tail) -- it rescans to end-of-string, recursing at
-    # every block opener it passes -- so a body of repeated unclosed
-    # "<pre>" lines is O(n^2) with a huge constant (50KB took ~120s per
-    # render: a stored DoS any poster can plant). $topname below is the
-    # line's first tag name; three guards, in source order (1-2 are the
-    # unless() conditions in short-circuit order; 3 is a statement
-    # wrapping the extractor call itself):
-    #   1. failure budget: once $failed_extracts reaches 8, stop
-    #      attempting extraction for the rest of the document. Only
-    #      failures on lines whose $topname is a block-level tag name
-    #      are counted (the expensive class -- inline/non-tag lines fail
-    #      cheaply and never count; a malformed block-named opener can
-    #      fail cheap yet still count, which only trips the budget
-    #      sooner, never later).
-    #   2. closer guard: extraction can only succeed if the EXACT literal
-    #      "</$topname>" occurs on this line or later (_match_tagged
-    #      derives the closing delimiter as quotemeta '</'.tagname.'>'
-    #      -- no spaces, no case folding); when both index() calls miss,
-    #      skip the extractor.
-    #   3. local $^W=0 scoped to the extractor call: its scan recurses
-    #      once per opener passed, and ModPerl::Registry honors the
-    #      CGI's -w shebang, so a crafted body otherwise floods the
-    #      error log with millions of "Deep recursion" lines per render.
-    #      This file's lexical "use warnings" is unaffected.
-    # Guards 1-2 are output-preserving: a skipped line is pushed as
-    # plain text, byte-identical to what its guaranteed failure would
-    # produce (guard 3 only suppresses warnings). Divergence requires 8+
-    # failing block openers followed by a would-have-matched block in
-    # one body -- not a real document shape; the class is pinned by a
-    # markdown_smoke.pl fixture. Remove all three (budget, closer guard,
-    # $^W scope) if this file is ever re-vendored.
+    # PERF/DoS (Bawi local patch): Text::Balanced's extractor is O(tail)
+    # per FAILED block-tag match -- it rescans to end-of-string, recursing
+    # at every same-name opener it passes -- so floods of block openers
+    # ("<p>\n" x 16000, which fits a 64KB body) drove _HashHTMLBlocks to
+    # O(n^2): ~120s per render, a stored DoS any poster can plant.
+    # $topname is the line's first tag name; three guards skip the
+    # extractor when it cannot succeed or would be pathologically slow.
+    # A skipped line is pushed as plain text -- the same output the
+    # extractor's failure would have produced:
+    #   1. no-closer guard: skip if no "</$topname>" occurs at or after
+    #      this line (the exact condition _match_tagged needs to succeed --
+    #      it derives the closer as quotemeta '</'.tag.'>', no spaces/case
+    #      folding). Byte-for-byte output-preserving. The result is
+    #      MEMOIZED per tag in %no_closer_ahead: once no closer remains,
+    #      none ever will ($text only shrinks), so the O(tail) index() runs
+    #      at most once per tag instead of once per line -- that memo is
+    #      what makes an unclosed flood O(n), not O(n^2).
+    #   2. imbalance guard: skip if a tag's openers outnumber its closers
+    #      by more than $EXTRACT_IMBALANCE_CAP (precomputed once). This
+    #      catches the flood whose closer IS present but buried under
+    #      thousands of same-name openers (guard 1 can't skip it, and each
+    #      extractor attempt recurses O(imbalance) deep). CAP=64 sits far
+    #      above any real body (corpus max imbalance is 8) yet bounds an
+    #      attempt to O(64 x tail). Documented ceiling: a body with more
+    #      than CAP net-unclosed same-name block tags renders them as text.
+    #   3. failure budget: $failed_extracts caps ACTUAL failed block
+    #      extractions at 8 per pass (only block-tag-named failures count).
+    #      Divergence: a would-have-matched block after 8+ failing block
+    #      openers in one pass degrades to text -- pinned by a
+    #      markdown_smoke.pl fixture.
+    # local $^W=0 around the extractor call silences its per-opener "Deep
+    # recursion" warning (ModPerl::Registry honors the CGI's -w shebang, so
+    # a crafted body would otherwise flood the error log). This file's
+    # lexical "use warnings" is unaffected. Remove the precompute, all
+    # three guards, and the $^W scope if this file is ever re-vendored.
+    my $EXTRACT_IMBALANCE_CAP = 64;
+    my (%block_open, %block_close);
+    $block_open{$1}++  while $text =~ /<(\w+)/g;
+    $block_close{$1}++ while $text =~ m{</(\w+)}g;
+    my %no_closer_ahead;
     my $failed_extracts = 0;
     # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
@@ -430,10 +438,14 @@ sub _HashHTMLBlocks {
 
             my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag);
             my ($topname) = $cur_line =~ /^\s*<(\w+)/;
-            unless ($failed_extracts >= 8
-                    or (defined $topname
-                        and index($cur_line, "</$topname>") < 0
-                        and index($text,     "</$topname>") < 0)) {
+            my $skip_extract = defined($topname) && (
+                ($block_open{$topname} || 0) - ($block_close{$topname} || 0) > $EXTRACT_IMBALANCE_CAP
+                || $no_closer_ahead{$topname}
+                || (index($cur_line, "</$topname>") < 0
+                    && index($text,     "</$topname>") < 0
+                    && ($no_closer_ahead{$topname} = 1))
+            );
+            unless ($failed_extracts >= 8 or $skip_extract) {
                 local $^W = 0;
                 ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
                 $failed_extracts++
