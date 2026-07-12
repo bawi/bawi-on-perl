@@ -3,6 +3,7 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../../lib";
 use Bawi::Markdown;
+use Time::HiRes qw(time);
 
 # The denylist below mirrors escape_tags' CODE FALLBACK. Production
 # reads the per-board bw_xboard_board.escaped_tags column, whose schema
@@ -20,13 +21,16 @@ my $href_strip   = 's/\shref\s*=\s*(["\'])\s*(?:javascript|data|vbscript)\s*:[^"
         unless defined $bd_tags && $bd_tags eq $escaped_tags;
     # exact match, not substring: a tightened scheme list or a changed
     # replacement target must fail here (else this suite green-lights
-    # sanitization behavior production no longer has). $href_strip and
-    # the executable copy in render() below must stay byte-identical to
-    # this captured line.
+    # sanitization behavior production no longer has).
     my ($bd_href) = $src =~ /(s\/\\shref[^\n]*\/gi;)/;
     die "smoke href strip drifted from Board.pm format_article\n"
         unless defined $bd_href && $bd_href eq $href_strip;
 }
+
+# Single source of truth: compile the drift-checked $href_strip once and
+# run THAT in render(), so there is no third hand-maintained copy to drift.
+my $apply_href = eval "sub { local \$_ = shift; $href_strip return \$_; }"
+    or die "cannot compile href strip: $@";
 
 sub render {
     # 77 stands in for the article id Board.pm passes (footnote anchors
@@ -37,7 +41,7 @@ sub render {
     # applies after Bawi::Markdown::render().
     my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')';
     $body =~ s/<(\/?$tags)/&lt;$1/igox;
-    $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
+    $body = $apply_href->($body);
     return $body;
 }
 
@@ -314,14 +318,24 @@ $body = render('함수 $f = \(x\)$ 로 둔다');
 &assert_not_contains('inline around display no M0M', $body, 'M0M');
 &assert_contains('inner display math survives', $body, '\(x\)');
 
-# ReDoS guard: a big body of unmatched \( (no closer) must render fast
-# and clean. The closer-existence guard skips the \( branch entirely
-# (O(1)); Text::Markdown then unescapes \( -> ( as ordinary markdown.
-# (Correctness only; timing is checked out-of-band. Without the guard
-# + length bound this is O(n^2) -- ~37s for a 64KB body.)
-$body = render('\(x ' x 4000);
-&assert_contains('unmatched openers unescaped', $body, '(x ');
-&assert_not_contains('unmatched openers no sentinel', $body, "\x{1A}");
+# ReDoS guard: opener-exclusion makes a dangling \( / \[ fail at the
+# NEXT opener, so a body of unmatched openers is O(n), not O(n^2). This
+# must hold even when a SECOND delimiter family is present (which keeps
+# all alternation branches live). Wall-clock guard: the pre-fix code
+# took seconds on this input; healthy is well under a second.
+{
+    # coarse regression tripwire (healthy ~0.15s; pre-fix O(n^2) ~2.7s
+    # on this 64KB input). Generous 2s bound tolerates load spikes.
+    my $t0 = time;
+    $body = render(('\(x ' x 16000) . '\)\]');   # 64KB, two branches live
+    die sprintf("math ReDoS regression: render took %.2fs (expected <2)\n", time - $t0)
+        if time - $t0 > 2;
+}
+&assert_not_contains('mixed openers no sentinel', $body, "\x{1A}");
+# a large display formula (>2KB, past the old byte cap) shields intact
+$body = render('$$' . ('a & b & c & d \\\\ ' x 100) . '$$');
+&assert_contains('big formula shielded', $body, 'a & b & c & d \\\\ a');
+&assert_not_contains('big formula not em', $body, '<em>');
 
 # display math with a real closer still shields
 $body = render('식은 \(a+b\) 이다');

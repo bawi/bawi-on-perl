@@ -51,8 +51,10 @@ package Bawi::Markdown;
 #     reference-style links do not resolve there, and block syntax in
 #     a cell degrades
 #   - a $..$ span across two cells of one table row consumes the pipe;
-#     the row then mismatches the separator and the table degrades to
-#     a paragraph. Write literal dollars in table rows as \$.
+#     in the HEADER row the column count then mismatches the separator
+#     and the whole table degrades to a paragraph, in a BODY row the
+#     table survives with a mangled row. Write literal dollars in table
+#     rows as \$.
 #   - $..$ / [^ref] sitting entirely inside ONE inline `code span` or
 #     a 4-space indented block are still transformed (``` fences are
 #     fully immune; an inline $..$ can no longer MERGE two code spans,
@@ -67,8 +69,10 @@ package Bawi::Markdown;
 #     recognized
 #   - a fence's closing ``` may sit at any quote level (lazy
 #     continuation); the opening line's prefix decides the strip level
-#   - ~~..~~ cannot span an inline `code span` or a tag attribute (the
-#     pair is split at code-region/tag boundaries and left literal)
+#   - ~~..~~ cannot span an inline `code span` (the pair is split at
+#     code-region boundaries and left literal). A ~~a~~ pair INSIDE a
+#     tag attribute / URL is still rewritten to <del>, corrupting the
+#     attribute -- write such URLs without paired tildes.
 
 use strict;
 use warnings;
@@ -133,26 +137,23 @@ sub render {
     }egms;
 
     # 2. math spans. Display forms are shielded verbatim; a span may
-    #    cross line breaks but never a BLANK line (client MathJax
-    #    cannot typeset across a paragraph break anyway) and never a
-    #    shield token -- so an unbalanced "$$" stays literal instead
-    #    of swallowing the headings, lists, or fences after it.
-    #    The span is length-bounded, and a branch is tried only when
-    #    its CLOSING delimiter is present: the three distinct closers
-    #    ($$, ], ")") defeat perl's fast-fail optimizer, so WITHOUT
-    #    these two guards a body full of unmatched openers is an
-    #    O(n^2) scan -- a stored ReDoS (a 64 KB article of "\(" pinned
-    #    a worker ~37s per uncached view). A real formula is nowhere
-    #    near 2000 chars.
-    my $span = qr/(?:(?!\r?\n[ \t]*\r?\n)[^\x{1A}]){1,2000}?/;
-    my @disp;
-    push @disp, qr/\$\$$span\$\$/ if index($body, '$$') >= 0;
-    push @disp, qr/\\\[$span\\\]/ if index($body, '\]') >= 0;   # closer: \]
-    push @disp, qr/\\\($span\\\)/ if index($body, '\)') >= 0;   # closer: \)
-    if (@disp) {
-        my $disp = join '|', @disp;
-        $body =~ s/($disp)/$shield->($1)/egs;
-    }
+    #    cross line breaks but never a BLANK line (client MathJax cannot
+    #    typeset across a paragraph break anyway -- $nb below) and never
+    #    a shield token (\x1A) -- so an unbalanced delimiter stays
+    #    literal instead of swallowing the headings/lists/fences after
+    #    it. The asymmetric forms \(..\) and \[..\] additionally exclude
+    #    their OWN OPENER from the span content: a dangling \( / \[ then
+    #    fails at the NEXT opener (O(gap)) instead of scanning to end of
+    #    body from every opener (O(n^2) -- a stored ReDoS: 64 KB of "\("
+    #    pinned a worker for seconds per uncached view). $$ is symmetric
+    #    (openers pair with each other), so it needs no exclusion and no
+    #    length cap -- a formula of any size shields intact.
+    my $nb = qr/(?!\r?\n[ \t]*\r?\n)/;
+    $body =~ s{(
+        \$\$ (?: $nb [^\x{1A}] )+? \$\$
+      | \\\[ (?: $nb (?! \\\[ ) [^\x{1A}] )+? \\\]
+      | \\\( (?: $nb (?! \\\( ) [^\x{1A}] )+? \\\)
+    )}{$shield->($1)}egsx;
     #    Inline $..$ -> \(..\), pandoc rules: non-space inside; the
     #    opening $ not preceded by a digit (keeps postfix currency
     #    "5$짜리 ... 10$짜리" as text) and the closing $ not followed
@@ -248,11 +249,19 @@ sub _del {
 # `~~x~~` in a code span stays literal. Used by stage 7 and _span_md
 # (a cell/footnote-def may hold an inline <code> span too). A ~~ pair
 # cannot span a code region -- the split breaks it (documented limit).
+# The region body excludes further <pre/<code OPENERS so a dangling
+# (unclosed) one fails at the next opener instead of scanning to end of
+# string from every opener -- else this is the same O(n^2) stored ReDoS
+# as the math stage (a body of unclosed "<code" is plantable, since
+# escape_tags does not denylist pre/code).
 sub _del_outside_code {
     my $t = shift;
     return join '', map {
         /^<(?:pre|code)\b/i ? $_ : _del($_)
-    } split /(<pre\b.*?<\/pre>|<code\b.*?<\/code>)/si, $t;
+    } split /(
+        <pre\b  (?: (?! <pre\b ) (?! <code\b ) . )*? <\/pre>
+      | <code\b (?: (?! <code\b ) (?! <pre\b ) . )*? <\/code>
+    )/six, $t;
 }
 
 # span-level markdown for a single-line fragment (table cells,
