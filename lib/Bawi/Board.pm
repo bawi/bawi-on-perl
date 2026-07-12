@@ -1153,7 +1153,10 @@ sub format_article {
         # footnote anchors so thread/new-articles pages that render many
         # articles don't emit duplicate ids.
         require Bawi::Markdown;
-        $body = Bawi::Markdown::render($body, $$article{article_id} || '');
+        # render_cached memoizes render() output per worker (DRAFT — see
+        # MARKDOWN_CACHE_PLAN.md); escape_tags/href-strip stay outside the
+        # cache so per-board denylist changes apply immediately.
+        $body = Bawi::Markdown::render_cached($body, $$article{article_id} || '');
         $body = &escape_tags($self, $body);
         # keep in sync with board/script/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;

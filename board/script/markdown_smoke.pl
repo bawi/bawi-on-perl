@@ -400,4 +400,23 @@ $body = render(qq{```c++\nint x;\n```});
 $body = render(qq{```c#\nint x;\n```});
 &assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
 
+# --- render_cached (DRAFT caching layer) ---
+# a cache hit must be byte-identical to a direct render()
+{
+    my $src = "# 캐시\n\n**굵게** \$x_i\$ 그리고 [^1] 참조.\n\n[^1]: 정의\n";
+    my $direct = Bawi::Markdown::render($src, 42);
+    my $c1 = Bawi::Markdown::render_cached($src, 42);   # miss -> render + store
+    my $c2 = Bawi::Markdown::render_cached($src, 42);   # hit  -> stored copy
+    die "render_cached miss != render\n" unless $c1 eq $direct;
+    die "render_cached hit != render\n"  unless $c2 eq $direct;
+    # different uniq must not collide (footnote anchors differ)
+    my $c3 = Bawi::Markdown::render_cached($src, 99);
+    die "render_cached ignored uniq\n" if $c3 eq $c1;
+    &assert_contains('cached keys on uniq', $c3, 'fn-99-1');
+    # a CACHE_VERSION bump re-renders (still equals a direct render)
+    local $Bawi::Markdown::CACHE_VERSION = $Bawi::Markdown::CACHE_VERSION + 1;
+    die "version bump broke output\n"
+        unless Bawi::Markdown::render_cached($src, 42) eq $direct;
+}
+
 print "ok\n";
