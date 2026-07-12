@@ -1192,7 +1192,7 @@ sub format_article {
         }
         $body = $html;
         $body = &escape_tags($self, $body);
-        # keep in sync with board/script/markdown_smoke.pl (drift-checked there)
+        # keep in sync with t/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
         return $body;
     }
@@ -2765,7 +2765,7 @@ sub escape_tags {
     $_ = shift;
     # per-board bw_xboard_board.escaped_tags (schema default omits
     # head/style/link); the fallback below is drift-checked by
-    # board/script/markdown_smoke.pl -- keep them in sync
+    # t/markdown_smoke.pl -- keep them in sync
     my $escaped_tags = $self->{escaped_tags} || 'html body embed iframe applet script bgsound object meta head style link';
     my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')'; 
     $_ =~ s/<(\/?$tags)/&lt;$1/igox;
