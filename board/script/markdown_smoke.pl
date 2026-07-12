@@ -352,6 +352,9 @@ $body = render('\( a \\\\(x b \)');
 # the trailing \] , swallowing the heading.
 $body = render("\\[ x \\\\\n\n# 제목\n\n\\]");
 &assert_contains('blank line not crossed by escaped pair', $body, '<h1>제목</h1>');
+# bare-CR (classic-Mac) blank line must block too, not just LF/CRLF
+$body = render("\\[ x \\\\\r\r# 제목\r\r\\]");
+&assert_contains('bare-CR blank line not crossed', $body, '<h1>제목</h1>');
 
 # display math with a real closer still shields
 $body = render('식은 \(a+b\) 이다');

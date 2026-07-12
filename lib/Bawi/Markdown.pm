@@ -142,7 +142,8 @@ sub render {
 
     # 2. math spans. Display forms are shielded verbatim; a span may
     #    cross line breaks but never a BLANK line (client MathJax cannot
-    #    typeset across a paragraph break anyway -- $nb below) and never
+    #    typeset across a paragraph break anyway -- $nb below, which
+    #    recognizes LF, CRLF, and bare-CR blank lines) and never
     #    a shield token (\x1A) -- so an unbalanced delimiter stays
     #    literal instead of swallowing the headings/lists/fences after
     #    it. The asymmetric forms \(..\) and \[..\] additionally exclude
@@ -159,7 +160,7 @@ sub render {
     #    line would eat the first newline and the span would cross the
     #    paragraph break (the $nb guard is per-iteration, so a blank
     #    line must always fall to the one-char alternative to be seen).
-    my $nb = qr/(?!\r?\n[ \t]*\r?\n)/;
+    my $nb = qr/(?!(?:\r\n?|\n)[ \t]*(?:\r\n?|\n))/;   # not a blank line (LF/CRLF/bare-CR)
     $body =~ s{(
         \$\$ (?: $nb [^\x{1A}] )+? \$\$
       | \\\[ (?: $nb (?: \\\\[^\x{1A}\r\n] | (?!\\\[) [^\x{1A}] ) )+? \\\]
