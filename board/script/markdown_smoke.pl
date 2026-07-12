@@ -292,14 +292,21 @@ $body = render(qq{```html\n<a href="javascript:alert(1)">x</a>\n```});
 &assert_contains('js url in fence displayed', $body, 'href=&quot;javascript:alert(1)&quot;');
 &assert_not_contains('js url in fence not stripped', $body, 'href="#"');
 
-# deep quote prefixes are capped, not fatal ({0,$lvl} would die past
-# 65534). Text::Markdown itself warns about deep blockquote recursion
-# on such input (pre-existing) -- silence that, we only assert no die.
+# deep quote nesting is clamped to 32 levels: renders fast (no super-
+# linear Text::Markdown recursion) and emits at most 32 nested
+# blockquotes, not 150. Also a fence still renders inside the (clamped)
+# quote. Timing tripwire: pre-cap this hung for seconds.
 {
-    local $SIG{__WARN__} = sub {};
+    my $t0 = time;
     $body = render((">" x 150) . " ```\n" . (">" x 150) . " deep\n" . (">" x 150) . " ```");
+    die sprintf("deep-quote perf regression: %.2fs (expected <1)\n", time - $t0)
+        if time - $t0 > 1;
 }
 &assert_contains('deep quote fence renders', $body, '<pre><code>');
+{
+    my $n = () = $body =~ /<blockquote>/g;
+    die "quote depth not clamped (got $n nested blockquotes)\n" if $n > 32;
+}
 
 # CRLF input end-to-end
 $body = render("| a | b |\r\n|---|---|\r\n| 1 | 2 |\r\n");

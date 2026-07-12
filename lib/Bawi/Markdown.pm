@@ -43,6 +43,9 @@ package Bawi::Markdown;
 #     code at top level (that needs real block parsing). 8-space-
 #     indented code inside a list item is native classic markdown and
 #     works.
+#   - blockquote nesting is capped at 32 levels (excess '>' markers are
+#     dropped) to bound Text::Markdown's super-linear deep-quote cost; no
+#     real quote nests that deep
 #   - footnote definitions are top-level and single-line
 #   - a pipe-table lookalike inside 4-space-indented code is parsed as
 #     a table (use a ``` fence for code instead)
@@ -93,6 +96,15 @@ sub render {
     # a UTF-8 sequence), so strip them up front: a user-typed token
     # would otherwise be substituted -- or deleted -- by stage 9.
     $body =~ tr/\x{1A}\x{1B}//d;
+
+    # Cap blockquote nesting depth. Text::Markdown's _DoBlockQuotes
+    # recurses once per '>' level and re-processes the cumulative HTML at
+    # each level, so deep nesting is super-linear (a crafted 200-deep
+    # quote took ~20s per uncached render -- a stored DoS). Real quoting
+    # is never more than a few deep; clamp a leading run of '>' markers to
+    # 32, dropping the excess. Linear one-pass; downstream stages then
+    # never see more than 32 levels.
+    $body =~ s/^((?:>[ \t]?){32})(?:>[ \t]?)+/$1/mg;
 
     my @shielded;
     my $shield = sub {
