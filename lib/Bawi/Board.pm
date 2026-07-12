@@ -1168,7 +1168,11 @@ sub format_article {
         # bare like every sibling $DBH call in this module.
         my $aid = $$article{article_id} || 0;
         my ($html, $md5);
-        if ($aid) {
+        # defined $body gates a NULL-body article out of the cache on BOTH
+        # sides: cache_key(undef) would warn under -w, and caching the undef
+        # render would miss on every later read (a NULL column reads back
+        # like "no row") and re-REPLACE each view -- a write per read.
+        if ($aid && defined $body) {
             $md5 = Bawi::Markdown::cache_key($body);
             my $sql = qq(SELECT html FROM $TBL{body_html}
                          WHERE article_id=? && body_md5=?);
@@ -1179,10 +1183,6 @@ sub format_article {
             # anchors come out fn-N; the $aid gate above already skipped
             # the cache for that case
             $html = Bawi::Markdown::render($body, $aid || '');
-            # defined $html guards a NULL-body article (render returns
-            # undef): caching NULL would miss on every later read (a NULL
-            # column is indistinguishable from "no row") and re-REPLACE
-            # each view -- a write per read. Skip the cache for it instead.
             if ($aid && defined $html) {
                 my $sql = qq(REPLACE INTO $TBL{body_html}
                                  (article_id, body_md5, html)

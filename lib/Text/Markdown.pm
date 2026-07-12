@@ -393,27 +393,33 @@ sub _HashHTMLBlocks {
     # per FAILED block-tag match -- it rescans to end-of-string, recursing
     # at every same-name opener it passes -- so floods of block openers
     # ("<p>\n" x 16000, which fits a 64KB body) drove _HashHTMLBlocks to
-    # O(n^2): ~120s per render, a stored DoS any poster can plant.
-    # $topname is the line's first tag name; three guards skip the
-    # extractor when it cannot succeed or would be pathologically slow.
-    # A skipped line is pushed as plain text -- the same output the
-    # extractor's failure would have produced:
-    #   1. no-closer guard: skip if no "</$topname>" occurs at or after
-    #      this line (the exact condition _match_tagged needs to succeed --
-    #      it derives the closer as quotemeta '</'.tag.'>', no spaces/case
-    #      folding). Byte-for-byte output-preserving. The result is
-    #      MEMOIZED per tag in %no_closer_ahead: once no closer remains,
-    #      none ever will ($text only shrinks), so the O(tail) index() runs
-    #      at most once per tag instead of once per line -- that memo is
-    #      what makes an unclosed flood O(n), not O(n^2).
-    #   2. imbalance guard: skip if a tag's openers outnumber its closers
-    #      by more than $EXTRACT_IMBALANCE_CAP (precomputed once). This
-    #      catches the flood whose closer IS present but buried under
-    #      thousands of same-name openers (guard 1 can't skip it, and each
-    #      extractor attempt recurses O(imbalance) deep). CAP=64 sits far
-    #      above any real body (corpus max imbalance is 8) yet bounds an
-    #      attempt to O(64 x tail). Documented ceiling: a body with more
-    #      than CAP net-unclosed same-name block tags renders them as text.
+    # O(n^2): ~120s per render, a stored DoS any poster can plant. Worse,
+    # each FAILED attempt scans (super-linearly, via the $empty_tag ignore
+    # pattern and _match_tagged's paragraph fallback) the whole remaining
+    # tail -- so even a handful of net-unclosed openers in front of a large
+    # tail costs seconds. The per-attempt cost lives in the SYSTEM
+    # Text::Balanced, which we cannot patch; the only lever here is to not
+    # CALL the extractor on the doomed-and-expensive cases. Three skips,
+    # each pushing the line as plain text -- the same output the extractor's
+    # eventual failure would have produced:
+    #   $skip_tag = tag is net-unclosed over the body (openers > closers,
+    #     precomputed once): the extraction cannot balance, so every attempt
+    #     for that tag fails after scanning ahead.
+    #   1. large-tail guard: skip a $skip_tag opener when the REMAINING
+    #      body is big ($text > $EXTRACT_TAIL_CAP). That is the whole DoS:
+    #      the doomed attempt would scan a large tail. A small tail (e.g.
+    #      the end of any normal body, and every corpus/fuzz doc, all
+    #      << CAP) is left to run exactly as stock -- so output is
+    #      byte-identical except for LARGE malformed bodies. Documented
+    #      ceiling: in a body over CAP bytes that is net-unclosed for a tag,
+    #      even a well-formed instance of that tag renders as paragraph text.
+    #   2. no-closer guard: skip if no "</$topname>" occurs at or after this
+    #      line -- the exact condition _match_tagged needs to succeed (it
+    #      derives the closer as quotemeta '</'.tag.'>', no spaces/case
+    #      folding), so this is byte-for-byte output-preserving at ANY size.
+    #      MEMOIZED in %no_closer_ahead: once no closer remains, none ever
+    #      will ($text only shrinks), so the O(tail) index() runs at most
+    #      once per tag -- what makes a small unclosed flood O(n), not O(n^2).
     #   3. failure budget: $failed_extracts caps ACTUAL failed block
     #      extractions at 8 per pass (only block-tag-named failures count).
     #      Divergence: a would-have-matched block after 8+ failing block
@@ -424,7 +430,14 @@ sub _HashHTMLBlocks {
     # a crafted body would otherwise flood the error log). This file's
     # lexical "use warnings" is unaffected. Remove the precompute, all
     # three guards, and the $^W scope if this file is ever re-vendored.
-    my $EXTRACT_IMBALANCE_CAP = 64;
+    #
+    # NOT fully fixed here: a net-unclosed flood whose expensive tail sits
+    # in the LAST <=CAP bytes still runs up to 8 O(CAP)/O(CAP^2) attempts
+    # (bounded, sub-second at CAP=4096, but not free). The real fix is a
+    # per-render wall-clock/work budget around the whole parse -- deferred
+    # (SIGALRM vs mod_perl needs its own soak); see IMPROVEMENTS_PLAN.md.
+    my $EXTRACT_TAIL_CAP       = 4096;   # "large" remaining body (guard 1)
+    my $EXTRACT_FAILURE_BUDGET = 8;      # failed block extractions / pass (guard 3)
     my (%block_open, %block_close);
     $block_open{$1}++  while $text =~ /<(\w+)/g;
     $block_close{$1}++ while $text =~ m{</(\w+)}g;
@@ -438,14 +451,16 @@ sub _HashHTMLBlocks {
 
             my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag);
             my ($topname) = $cur_line =~ /^\s*<(\w+)/;
+            my $net_unclosed = defined($topname)
+                && ($block_open{$topname} || 0) > ($block_close{$topname} || 0);
             my $skip_extract = defined($topname) && (
-                ($block_open{$topname} || 0) - ($block_close{$topname} || 0) > $EXTRACT_IMBALANCE_CAP
-                || $no_closer_ahead{$topname}
+                ($net_unclosed && length($text) > $EXTRACT_TAIL_CAP)   # large-tail guard
+                || $no_closer_ahead{$topname}                          # memoized no-closer
                 || (index($cur_line, "</$topname>") < 0
                     && index($text,     "</$topname>") < 0
                     && ($no_closer_ahead{$topname} = 1))
             );
-            unless ($failed_extracts >= 8 or $skip_extract) {
+            unless ($failed_extracts >= $EXTRACT_FAILURE_BUDGET or $skip_extract) {
                 local $^W = 0;
                 ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
                 $failed_extracts++

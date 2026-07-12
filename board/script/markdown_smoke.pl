@@ -513,16 +513,23 @@ $body = render(qq{```c#\nint x;\n```});
         # sparse unclosed <pre> (the original round-1 shape)
         'sparse-pre'      => "<pre>\nsome text follows here\nmore text\n\n"
                              x (int(50_000 / 40) + 1),
-        # dense unclosed openers (guard 1: memoized no-closer skip)
+        # dense unclosed openers (memoized no-closer skip)
         'dense-noclose'   => "<p>\n" x 16000,
-        # dense openers with a trailing closer (guard 2: imbalance)
+        # dense openers with a trailing closer (net-unclosed + large tail)
         'dense-endcloser' => ("<p>\n" x 16000) . "</p>\n",
-        # closer BEFORE the flood -- defeats a naive no-closer memo, caught
-        # by the imbalance guard (openers - closers still > 64)
+        # closer BEFORE the flood -- defeats a naive no-closer memo
         'closer-behind'   => "</div>\n" . ("<div>\n" x 16000),
-        # many openers then a far closer past a large tail (each attempt
-        # would recurse O(imbalance) deep over the whole tail)
-        'far-closer'      => ("<p>\n" x 16000) . ("word " x 12000) . "</p>\n",
+        # SUB-CAP imbalance (only 8 net-unclosed) but a large tail: the
+        # round-3 fixed-cap guard MISSED this (imbalance 8 < 64) -> ~4s.
+        # The large-tail guard catches it. (Round-4 HIGH.)
+        'subcap-far'      => ("<p>\n" x 9) . "</p>\n" . ("word " x 13000),
+        'subcap-midband'  => ("<p>\n" x 64) . "</p>\n" . ("word " x 12000),
+        # attribute-hostile tail (no '>'): each doomed attempt scanned it
+        # super-linearly -- >20s before the large-tail guard. (Round-4 HIGH.)
+        'attr-hostile'    => ("<p>\n" x 9) . "</p>\n" . ("<x a=" x 12500),
+        # the documented residual: a net-unclosed flood whose expensive tail
+        # is in the LAST <CAP bytes still runs, but is budget+CAP bounded
+        'residual-tail'   => ("word " x 12000) . "\n" . ("<x a=" x 800),
     );
     for my $name (sort keys %flood) {
         my $t0 = time;
