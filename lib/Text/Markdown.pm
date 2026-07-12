@@ -389,13 +389,48 @@ sub _HashHTMLBlocks {
     my $extract_block = gen_extract_tagged($open_tag, $close_tag, $prefix_pattern, { ignore => [$empty_tag] });
 
     my @chunks;
+    # PERF/DoS (Bawi local patch): Text::Balanced's FAILURE on an unclosed
+    # block tag is O(tail) -- it rescans to end-of-string, recursing at
+    # every block opener it passes -- so a body of repeated unclosed
+    # "<pre>" lines is O(n^2) with a huge constant (50KB took ~120s per
+    # render: a stored DoS any poster can plant). Two output-preserving
+    # short-circuits:
+    #   1. closer guard: extraction can only succeed if the EXACT literal
+    #      "</tag>" occurs later (_match_tagged derives the closing
+    #      delimiter as quotemeta '</'.tagname.'>' -- no spaces, no case
+    #      folding); when index() finds none, skip the extractor. A
+    #      skipped line is pushed as plain text -- byte-identical to what
+    #      the guaranteed failure would produce.
+    #   2. failure budget: after 8 EXPENSIVE failures (line opens with a
+    #      block-level tag, so the O(tail) scan actually ran; cheap
+    #      failures on inline/non-tags don't count), stop attempting for
+    #      the rest of the document. Output diverges only when a would-
+    #      have-matched block sits after 8+ failing block openers in one
+    #      body -- not a real document shape, and the degraded rendering
+    #      (lines as text) equals the failure rendering.
+    # Also: local $^W silences Text::Balanced's "Deep recursion" warning
+    # (its scan recurses per opener passed; ModPerl::Registry honors the
+    # CGI's -w shebang, so a crafted body otherwise floods the error log
+    # with millions of lines per render). Lexical "use warnings" in this
+    # file is unaffected. Remove all three if this file is re-vendored.
+    my $failed_extracts = 0;
+    local $^W = 0;
     # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
         my $cur_line = $1;
         if (defined $2) {
             # current line could be start of code block
 
-            my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
+            my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag);
+            my ($topname) = $cur_line =~ /^\s*<(\w+)/;
+            unless ($failed_extracts >= 8
+                    or (defined $topname
+                        and index($cur_line, "</$topname>") < 0
+                        and index($text,     "</$topname>") < 0)) {
+                ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
+                $failed_extracts++
+                    if !$tag and defined $topname and $topname =~ /^$block_tags$/;
+            }
             if ($tag) {
                 if ($options->{interpret_markdown_on_attribute} and $opening_tag =~ s/$markdown_attr//i) {
                     my $markdown = $2;
