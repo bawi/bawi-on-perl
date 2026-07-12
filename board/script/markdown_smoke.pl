@@ -18,9 +18,14 @@ my $href_strip   = 's/\shref\s*=\s*(["\'])\s*(?:javascript|data|vbscript)\s*:[^"
     my ($bd_tags) = $src =~ /\$self->\{escaped_tags\} \|\| '([^']+)'/;
     die "smoke denylist drifted from Board.pm escape_tags fallback\n"
         unless defined $bd_tags && $bd_tags eq $escaped_tags;
+    # exact match, not substring: a tightened scheme list or a changed
+    # replacement target must fail here (else this suite green-lights
+    # sanitization behavior production no longer has). $href_strip and
+    # the executable copy in render() below must stay byte-identical to
+    # this captured line.
     my ($bd_href) = $src =~ /(s\/\\shref[^\n]*\/gi;)/;
     die "smoke href strip drifted from Board.pm format_article\n"
-        unless defined $bd_href && index($bd_href, 'javascript|data|vbscript') >= 0;
+        unless defined $bd_href && $bd_href eq $href_strip;
 }
 
 sub render {
@@ -232,9 +237,10 @@ $body = render("> | a | b |\n> |---|---|\n> | 1 | 2 |\n| 3 | 4 |\n");
 
 # --- deep-review round 1 fixtures ---
 
-# fence info strings beyond \w: c++, c#, objective-c
+# fence info strings beyond \w: c++/c# map to prism grammar names,
+# hyphenated tags pass through
 $body = render(qq{```c++\nint x = v.size();\n```});
-&assert_contains('c++ fence class', $body, '<pre><code class="language-c++">int x = v.size();');
+&assert_contains('c++ fence class', $body, '<pre><code class="language-cpp">int x = v.size();');
 $body = render(qq{```objective-c\nid obj;\n```});
 &assert_contains('hyphenated fence class', $body, 'class="language-objective-c"');
 
@@ -298,5 +304,51 @@ $body = render("| a | b |\r\n|---|---|\r\n| 1 | 2 |\r\n");
 # loose task list (blank line between items -> <li><p>)
 $body = render("- [ ] 하나\n\n- [x] 둘\n");
 &assert_contains('loose task checkbox', $body, '<input type="checkbox" disabled');
+&assert_contains('loose task keeps p', $body, '<li style="list-style-type:none"><p><input');
+
+# --- deep-review round 2 fixtures ---
+
+# inline $..$ wrapping a display token must not nest (would leak \x1A)
+$body = render('함수 $f = \(x\)$ 로 둔다');
+&assert_not_contains('inline around display no sentinel leak', $body, "\x{1A}");
+&assert_not_contains('inline around display no M0M', $body, 'M0M');
+&assert_contains('inner display math survives', $body, '\(x\)');
+
+# ReDoS guard: a big body of unmatched \( (no closer) must render fast
+# and clean. The closer-existence guard skips the \( branch entirely
+# (O(1)); Text::Markdown then unescapes \( -> ( as ordinary markdown.
+# (Correctness only; timing is checked out-of-band. Without the guard
+# + length bound this is O(n^2) -- ~37s for a 64KB body.)
+$body = render('\(x ' x 4000);
+&assert_contains('unmatched openers unescaped', $body, '(x ');
+&assert_not_contains('unmatched openers no sentinel', $body, "\x{1A}");
+
+# display math with a real closer still shields
+$body = render('식은 \(a+b\) 이다');
+&assert_contains('paren display shielded', $body, '\(a+b\)');
+
+# same footnote cited twice: ref ids must be unique (valid HTML)
+$body = render("처음[^1] 그리고 다시[^1] 참조.\n\n[^1]: 정의\n");
+&assert_contains('fn first ref id', $body, 'id="fnref-77-1"');
+&assert_contains('fn repeat ref id suffixed', $body, 'id="fnref-77-1-2"');
+{
+    my $n = () = $body =~ /id="fnref-77-1"/g;
+    die "duplicate fnref id (got $n)\n" unless $n == 1;
+}
+
+# ~~x~~ inside a table cell code span stays literal (guarded like top level)
+$body = render("| a | b |\n|---|---|\n| `~~x~~` | 2 |\n");
+&assert_contains('cell code keeps tildes', $body, '<code>~~x~~</code>');
+&assert_not_contains('cell code no del', $body, '<del>x</del>');
+
+# ~~x~~ inside a footnote-def code span stays literal too
+$body = render("본문[^1] 참조.\n\n[^1]: 코드 `~~y~~` 유지\n");
+&assert_contains('fn def code keeps tildes', $body, '<code>~~y~~</code>');
+
+# c++ / c# fences map to prism's canonical grammar names
+$body = render(qq{```c++\nint x;\n```});
+&assert_contains('cpp alias class', $body, '<pre><code class="language-cpp">');
+$body = render(qq{```c#\nint x;\n```});
+&assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
 
 print "ok\n";
