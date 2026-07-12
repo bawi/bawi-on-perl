@@ -342,8 +342,16 @@ $body = render('$$' . ('a & b & c & d \\\\ ' x 250) . '$$');
 # opener (else the span opener is corrupted and MathJax can't render)
 $body = render('\[ x_1 = 1 \\\\[1ex] y_2 = 2 \]');
 &assert_contains('rowbreak bracket intact', $body, '\[ x_1 = 1 \\\\[1ex] y_2 = 2 \]');
-$body = render('\( a \\\\[0.5em] b \)');
-&assert_contains('rowbreak paren intact', $body, '\( a \\\\[0.5em] b \)');
+# an ESCAPED open-paren \\( inside \(..\) must survive (pins the paren
+# branch's escaped-pair -- a \\[ here would not, it never trips (?!\\\())
+$body = render('\( a \\\\(x b \)');
+&assert_contains('rowbreak paren intact', $body, '\( a \\\\(x b \)');
+# a \\ row break right before a BLANK line must NOT let the span cross
+# it (else a following heading is swallowed into shielded math source).
+# Pre-fix the escaped pair ate the first newline and the span reached
+# the trailing \] , swallowing the heading.
+$body = render("\\[ x \\\\\n\n# 제목\n\n\\]");
+&assert_contains('blank line not crossed by escaped pair', $body, '<h1>제목</h1>');
 
 # display math with a real closer still shields
 $body = render('식은 \(a+b\) 이다');

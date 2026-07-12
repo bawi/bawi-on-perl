@@ -61,7 +61,11 @@ package Bawi::Markdown;
 #     since its content excludes backticks)
 #   - an odd number of $$ within one paragraph mis-pairs: a stray $$
 #     grabs the opening $$ of the next real display span (unbalanced-
-#     delimiter matching, no balance tracking)
+#     delimiter matching, no balance tracking). Likewise a \[..\] /
+#     \(..\) whose content ends in a backslash, when an UNBALANCED
+#     same-family closer sits further downstream, can over-shield to
+#     that stray closer. Both are malformed-input only; well-formed
+#     (balanced) math is unaffected.
 #   - a literal $$..$$ typed as \$\$..\$\$ still renders as display
 #     math (the \$ unescape re-forms $$); there is no way to show a
 #     literal $$ pair in markdown mode
@@ -150,12 +154,16 @@ sub render {
     #    length cap -- a formula of any size shields intact.
     #    An escaped pair \\<char> is consumed as a unit FIRST, so the
     #    LaTeX row break \\[1ex] (backslash-backslash-bracket, common in
-    #    matrix/aligned) is not mistaken for a nested \[ opener.
+    #    matrix/aligned) is not mistaken for a nested \[ opener. That
+    #    trailing char excludes \r\n: otherwise \\ right before a blank
+    #    line would eat the first newline and the span would cross the
+    #    paragraph break (the $nb guard is per-iteration, so a blank
+    #    line must always fall to the one-char alternative to be seen).
     my $nb = qr/(?!\r?\n[ \t]*\r?\n)/;
     $body =~ s{(
         \$\$ (?: $nb [^\x{1A}] )+? \$\$
-      | \\\[ (?: $nb (?: \\\\[^\x{1A}] | (?!\\\[) [^\x{1A}] ) )+? \\\]
-      | \\\( (?: $nb (?: \\\\[^\x{1A}] | (?!\\\() [^\x{1A}] ) )+? \\\)
+      | \\\[ (?: $nb (?: \\\\[^\x{1A}\r\n] | (?!\\\[) [^\x{1A}] ) )+? \\\]
+      | \\\( (?: $nb (?: \\\\[^\x{1A}\r\n] | (?!\\\() [^\x{1A}] ) )+? \\\)
     )}{$shield->($1)}egsx;
     #    Inline $..$ -> \(..\), pandoc rules: non-space inside; the
     #    opening $ not preceded by a digit (keeps postfix currency
