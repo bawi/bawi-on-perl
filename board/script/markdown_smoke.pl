@@ -4,13 +4,33 @@ use FindBin;
 use lib "$FindBin::Bin/../../lib";
 use Bawi::Markdown;
 
+# The denylist below mirrors escape_tags' CODE FALLBACK. Production
+# reads the per-board bw_xboard_board.escaped_tags column, whose schema
+# default omits "head style link" -- so keep sanitization assertions to
+# tags present in BOTH lists (script, iframe). The drift check below
+# fails this suite if Board.pm's fallback list or href strip changes.
+my $escaped_tags = 'html body embed iframe applet script bgsound object meta head style link';
+my $href_strip   = 's/\shref\s*=\s*(["\'])\s*(?:javascript|data|vbscript)\s*:[^"\']*\1/ href="#"/gi;';
+
+{
+    open my $fh, '<', "$FindBin::Bin/../../lib/Bawi/Board.pm" or die "Board.pm: $!";
+    local $/; my $src = <$fh>;
+    my ($bd_tags) = $src =~ /\$self->\{escaped_tags\} \|\| '([^']+)'/;
+    die "smoke denylist drifted from Board.pm escape_tags fallback\n"
+        unless defined $bd_tags && $bd_tags eq $escaped_tags;
+    my ($bd_href) = $src =~ /(s\/\\shref[^\n]*\/gi;)/;
+    die "smoke href strip drifted from Board.pm format_article\n"
+        unless defined $bd_href && index($bd_href, 'javascript|data|vbscript') >= 0;
+}
+
 sub render {
-    my $body = Bawi::Markdown::render(shift);
+    # 77 stands in for the article id Board.pm passes (footnote anchors
+    # come out as fn-77-N)
+    my $body = Bawi::Markdown::render(shift, 77);
 
     # escape_tags denylist + href strip, as Bawi::Board::format_article
     # applies after Bawi::Markdown::render().
-    my $escaped_tags = 'html body embed iframe applet script bgsound object meta head style link';
-    my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')'; 
+    my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')';
     $body =~ s/<(\/?$tags)/&lt;$1/igox;
     $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
     return $body;
@@ -163,12 +183,20 @@ $body = render('[ ] 목록 아님');
 # --- footnote fixtures ---
 
 $body = render("본문[^1] 이고 다시[^note] 참조.\n\n[^1]: 첫 각주 **강조**\n[^note]: 둘째 \$E=mc^2\$ 각주\n");
-&assert_contains('fn ref sup', $body, '<sup id="fnref-1"><a href="#fn-1">1</a></sup>');
-&assert_contains('fn ref second number', $body, '<a href="#fn-note">2</a>');
-&assert_contains('fn list item', $body, '<li id="fn-1">첫 각주 <strong>강조</strong>');
-&assert_contains('fn backlink', $body, '<a href="#fnref-1">&#8617;</a>');
+&assert_contains('fn ref sup', $body, '<sup id="fnref-77-1"><a href="#fn-77-1">1</a></sup>');
+&assert_contains('fn ref second number', $body, '<a href="#fn-77-2">2</a>');
+&assert_contains('fn list item', $body, '<li id="fn-77-1">첫 각주 <strong>강조</strong>');
+&assert_contains('fn backlink', $body, '<a href="#fnref-77-1">&#8617;</a>');
 &assert_contains('fn math in def', $body, '\(E=mc^2\)');
 &assert_not_contains('fn def line removed', $body, '[^1]:');
+
+# Korean footnote labels: anchors key on the NUMBER (byte-mode \w
+# would strip hangul labels to "", colliding every anchor)
+$body = render("트위스터[^주석] 그리고 구글리[^참고] 문제.\n\n[^주석]: 첫째\n[^참고]: 둘째\n");
+&assert_contains('korean fn first anchor', $body, '<sup id="fnref-77-1"><a href="#fn-77-1">1</a></sup>');
+&assert_contains('korean fn second anchor', $body, '<sup id="fnref-77-2"><a href="#fn-77-2">2</a></sup>');
+&assert_contains('korean fn list items', $body, '<li id="fn-77-2">둘째');
+&assert_not_contains('korean fn no empty anchor', $body, 'id="fn-77-"');
 
 # unknown reference stays literal; no footnote section without defs
 $body = render('허공[^nope] 참조');
@@ -201,5 +229,74 @@ die "quoted table not inside blockquote:\n$body"
 # a quoted table stops at a quote-level change
 $body = render("> | a | b |\n> |---|---|\n> | 1 | 2 |\n| 3 | 4 |\n");
 &assert_not_contains('level change ends table', $body, '<td>3</td>');
+
+# --- deep-review round 1 fixtures ---
+
+# fence info strings beyond \w: c++, c#, objective-c
+$body = render(qq{```c++\nint x = v.size();\n```});
+&assert_contains('c++ fence class', $body, '<pre><code class="language-c++">int x = v.size();');
+$body = render(qq{```objective-c\nid obj;\n```});
+&assert_contains('hyphenated fence class', $body, 'class="language-objective-c"');
+
+# fences are no longer <p>-wrapped (tables already were not)
+$body = render(qq{```\nplain\n```});
+&assert_not_contains('fence not p-wrapped', $body, '<p><pre');
+$body = render(qq{> ```\n> quoted\n> ```});
+&assert_not_contains('quoted fence not p-wrapped', $body, '<p><pre');
+
+# an unbalanced $$ stays literal: the fence after it survives and
+# blocks in between keep their structure
+$body = render(qq{비용은 \$\$ 큽니다.\n\n## 소제목\n\n```perl\nmy \$x;\n```\n});
+&assert_contains('unbalanced dollars keep heading', $body, '<h2>소제목</h2>');
+&assert_contains('unbalanced dollars keep fence', $body, '<pre><code class="language-perl">');
+&assert_not_contains('no leaked sentinel bytes', $body, "\x{1A}");
+
+# display math still crosses plain line breaks (one paragraph)...
+$body = render("\$\$\na + b = c\n\$\$");
+&assert_contains('multiline display math', $body, "\$\$\na + b = c\n\$\$");
+# ...but never a blank line
+$body = render("\$\$ 시작\n\n끝 \$\$ 그리고 \$\$x\$\$");
+&assert_not_contains('display math stops at blank line', $body, '시작' . "\n\n" . '끝');
+
+# postfix currency: digit before the opening $ blocks inline math
+$body = render('이건 5$짜리와 10$짜리 입니다.');
+&assert_not_contains('postfix currency not math', $body, '\(');
+
+# one $..$ cannot merge two inline code spans (content excludes `)
+$body = render('변수 `$total` 과 `$price` 비교');
+&assert_contains('code spans intact', $body, '<code>$total</code>');
+&assert_not_contains('code spans not merged', $body, '\(total');
+
+# \$ is a literal dollar (pandoc parity)
+$body = render('세금은 \$100 정도입니다.');
+&assert_contains('escaped dollar literal', $body, '세금은 $100 정도입니다.');
+
+# user-typed sentinel bytes are stripped, not honored as tokens
+$body = render("위조 \x{1A}M0M\x{1A} 토큰과 \$x\$ 수식");
+&assert_contains('forged token neutralized', $body, '위조 M0M 토큰과');
+&assert_contains('real math still works', $body, '\(x\)');
+
+# javascript: URLs DISPLAYED inside a fence stay verbatim (quotes are
+# entity-escaped, so the href strip cannot rewrite them)
+$body = render(qq{```html\n<a href="javascript:alert(1)">x</a>\n```});
+&assert_contains('js url in fence displayed', $body, 'href=&quot;javascript:alert(1)&quot;');
+&assert_not_contains('js url in fence not stripped', $body, 'href="#"');
+
+# deep quote prefixes are capped, not fatal ({0,$lvl} would die past
+# 65534). Text::Markdown itself warns about deep blockquote recursion
+# on such input (pre-existing) -- silence that, we only assert no die.
+{
+    local $SIG{__WARN__} = sub {};
+    $body = render((">" x 150) . " ```\n" . (">" x 150) . " deep\n" . (">" x 150) . " ```");
+}
+&assert_contains('deep quote fence renders', $body, '<pre><code>');
+
+# CRLF input end-to-end
+$body = render("| a | b |\r\n|---|---|\r\n| 1 | 2 |\r\n");
+&assert_contains('crlf table', $body, '<td>1</td>');
+
+# loose task list (blank line between items -> <li><p>)
+$body = render("- [ ] 하나\n\n- [x] 둘\n");
+&assert_contains('loose task checkbox', $body, '<input type="checkbox" disabled');
 
 print "ok\n";
