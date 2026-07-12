@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use FindBin;
-use lib "$FindBin::Bin/../../lib";
+use lib "$FindBin::Bin/../lib";
 use Bawi::Markdown;
 use Digest::MD5 ();   # the render-fingerprint block calls md5_hex directly
 use Time::HiRes qw(time);
@@ -15,7 +15,7 @@ my $escaped_tags = 'html body embed iframe applet script bgsound object meta hea
 my $href_strip   = 's/\shref\s*=\s*(["\'])\s*(?:javascript|data|vbscript)\s*:[^"\']*\1/ href="#"/gi;';
 
 {
-    open my $fh, '<', "$FindBin::Bin/../../lib/Bawi/Board.pm" or die "Board.pm: $!";
+    open my $fh, '<', "$FindBin::Bin/../lib/Bawi/Board.pm" or die "Board.pm: $!";
     local $/; my $src = <$fh>;
     my ($bd_tags) = $src =~ /\$self->\{escaped_tags\} \|\| '([^']+)'/;
     die "smoke denylist drifted from Board.pm escape_tags fallback\n"
