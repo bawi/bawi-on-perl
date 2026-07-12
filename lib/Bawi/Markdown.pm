@@ -148,11 +148,14 @@ sub render {
     #    pinned a worker for seconds per uncached view). $$ is symmetric
     #    (openers pair with each other), so it needs no exclusion and no
     #    length cap -- a formula of any size shields intact.
+    #    An escaped pair \\<char> is consumed as a unit FIRST, so the
+    #    LaTeX row break \\[1ex] (backslash-backslash-bracket, common in
+    #    matrix/aligned) is not mistaken for a nested \[ opener.
     my $nb = qr/(?!\r?\n[ \t]*\r?\n)/;
     $body =~ s{(
         \$\$ (?: $nb [^\x{1A}] )+? \$\$
-      | \\\[ (?: $nb (?! \\\[ ) [^\x{1A}] )+? \\\]
-      | \\\( (?: $nb (?! \\\( ) [^\x{1A}] )+? \\\)
+      | \\\[ (?: $nb (?: \\\\[^\x{1A}] | (?!\\\[) [^\x{1A}] ) )+? \\\]
+      | \\\( (?: $nb (?: \\\\[^\x{1A}] | (?!\\\() [^\x{1A}] ) )+? \\\)
     )}{$shield->($1)}egsx;
     #    Inline $..$ -> \(..\), pandoc rules: non-space inside; the
     #    opening $ not preceded by a digit (keeps postfix currency
@@ -249,18 +252,21 @@ sub _del {
 # `~~x~~` in a code span stays literal. Used by stage 7 and _span_md
 # (a cell/footnote-def may hold an inline <code> span too). A ~~ pair
 # cannot span a code region -- the split breaks it (documented limit).
-# The region body excludes further <pre/<code OPENERS so a dangling
-# (unclosed) one fails at the next opener instead of scanning to end of
-# string from every opener -- else this is the same O(n^2) stored ReDoS
-# as the math stage (a body of unclosed "<code" is plantable, since
-# escape_tags does not denylist pre/code).
+# A region body excludes its OWN further opener so a dangling (unclosed)
+# one fails at the next opener instead of scanning to end of string from
+# every opener -- else this is the same O(n^2) stored ReDoS as the math
+# stage (a body of unclosed "<code" is plantable, since escape_tags does
+# not denylist pre/code). It must NOT exclude the sibling opener: a
+# <pre> body legitimately contains a nested <code> (the canonical
+# <pre><code>..</code></pre> shape), which must be captured as one
+# region so ~~ after the inner </code> stays literal.
 sub _del_outside_code {
     my $t = shift;
     return join '', map {
         /^<(?:pre|code)\b/i ? $_ : _del($_)
     } split /(
-        <pre\b  (?: (?! <pre\b ) (?! <code\b ) . )*? <\/pre>
-      | <code\b (?: (?! <code\b ) (?! <pre\b ) . )*? <\/code>
+        <pre\b  (?: (?! <pre\b ) . )*? <\/pre>
+      | <code\b (?: (?! <code\b ) . )*? <\/code>
     )/six, $t;
 }
 

@@ -332,10 +332,18 @@ $body = render('함수 $f = \(x\)$ 로 둔다');
         if time - $t0 > 2;
 }
 &assert_not_contains('mixed openers no sentinel', $body, "\x{1A}");
-# a large display formula (>2KB, past the old byte cap) shields intact
-$body = render('$$' . ('a & b & c & d \\\\ ' x 100) . '$$');
+# a large display formula (~4KB, well past round-2's removed 2000-byte
+# cap) shields intact -- pins the "no length cap" property
+$body = render('$$' . ('a & b & c & d \\\\ ' x 250) . '$$');
 &assert_contains('big formula shielded', $body, 'a & b & c & d \\\\ a');
 &assert_not_contains('big formula not em', $body, '<em>');
+
+# LaTeX row break \\[1ex] inside \[..\] must not be read as a nested \[
+# opener (else the span opener is corrupted and MathJax can't render)
+$body = render('\[ x_1 = 1 \\\\[1ex] y_2 = 2 \]');
+&assert_contains('rowbreak bracket intact', $body, '\[ x_1 = 1 \\\\[1ex] y_2 = 2 \]');
+$body = render('\( a \\\\[0.5em] b \)');
+&assert_contains('rowbreak paren intact', $body, '\( a \\\\[0.5em] b \)');
 
 # display math with a real closer still shields
 $body = render('식은 \(a+b\) 이다');
@@ -358,6 +366,11 @@ $body = render("| a | b |\n|---|---|\n| `~~x~~` | 2 |\n");
 # ~~x~~ inside a footnote-def code span stays literal too
 $body = render("본문[^1] 참조.\n\n[^1]: 코드 `~~y~~` 유지\n");
 &assert_contains('fn def code keeps tildes', $body, '<code>~~y~~</code>');
+
+# raw <pre> with a nested <code>: ~~ after the inner </code> but still
+# inside <pre> must stay literal (region captured as one unit)
+$body = render('<pre>~~a~~ <code>b</code> ~~c~~</pre>');
+&assert_not_contains('pre-nested-code no del', $body, '<del>');
 
 # c++ / c# fences map to prism's canonical grammar names
 $body = render(qq{```c++\nint x;\n```});
