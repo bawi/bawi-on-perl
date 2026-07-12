@@ -1154,8 +1154,9 @@ sub format_article {
         # footnote anchors so thread/new-articles pages that render many
         # articles don't emit duplicate ids.
         require Bawi::Markdown;
-        # render() is the expensive stage (~0.1-1s for a large body) and
-        # runs at read time, up to ~15x per page -- cache its output in
+        # render() is the expensive stage (measured 0.10-0.92s across
+        # 50KB body shapes -- PR #15 bench; typical small bodies are ms)
+        # and runs at read time, up to ~15x per page -- cache its output in
         # bw_xboard_body_html, one row per article (PK article_id). The
         # validity model and the CACHE_VERSION bump rule live with
         # Bawi::Markdown::cache_key -- the module that owns the pipeline.

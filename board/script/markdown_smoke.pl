@@ -403,9 +403,11 @@ $body = render(qq{```c#\nint x;\n```});
 # --- render cache preconditions (Board.pm's bw_xboard_body_html rows) ---
 # Board.pm caches render() output keyed on Bawi::Markdown::cache_key +
 # the article_id PK. Sound only while render() is deterministic in
-# (body, uniq) -- pinned here. The DB plumbing itself (SELECT/REPLACE,
-# hit-vs-miss) has no DB in this harness and is deliberately out of
-# smoke's scope; it is exercised end-to-end on the test mirror.
+# (body, uniq) -- pinned here (modulo the documented rand() email-
+# autolink exception; see the validity model in Bawi/Markdown.pm). The
+# DB plumbing itself (SELECT/REPLACE, hit-vs-miss) has no DB in this
+# harness and is deliberately out of smoke's scope; verify it on the
+# test mirror when the cache path changes (PR #15 records such a run).
 {
     my $src = "# 캐시\n\n**굵게** \$x_i\$ 그리고 [^1] 참조.\n\n[^1]: 정의\n";
     die "render() not deterministic -- DB cache would serve stale variants\n"
@@ -420,34 +422,52 @@ $body = render(qq{```c#\nint x;\n```});
     &assert_contains('uniq in anchors', Bawi::Markdown::render($src, 99), 'fn-99-1');
 }
 
-# --- render fingerprint: forces CACHE_VERSION bumps -----------------------
+# --- render fingerprint: backstop for CACHE_VERSION bumps -----------------
 # A pipeline change that alters render() output WITHOUT a CACHE_VERSION
 # bump makes every cached article silently serve the OLD rendering until
-# its next edit. This fixed-corpus fingerprint fails the suite in that
-# case. When it fires: if the output change was intentional, bump
-# $CACHE_VERSION in lib/Bawi/Markdown.pm AND record the new pair printed
-# in the message; if not, you have an accidental rendering change.
+# its next edit. This fingerprint catches the ACCIDENTAL form of that,
+# with known limits (be honest with yourself about them):
+#   * it covers exactly the constructs in THIS corpus -- an output change
+#     to an uncovered edge passes green. Extending pipeline features
+#     should extend the corpus.
+#   * nothing runs this automatically (no CI in this repo): it is a
+#     run-before-deploy check.
+#   * a mismatch can also mean this HOST differs (system Text::Balanced /
+#     perl version), not that someone edited the pipeline.
+#   * it cannot force the bump: greening it by recording a new
+#     fingerprint while leaving CACHE_VERSION alone ships the stale-cache
+#     bug anyway. Reviewers: a $want_fp change and a CACHE_VERSION bump
+#     must land in the same diff.
+# When it fires on an intentional change: 1) bump $CACHE_VERSION in
+# lib/Bawi/Markdown.pm, 2) RE-RUN this suite, 3) record the (version,
+# fingerprint) pair the re-run prints -- the pair printed by the FIRST
+# failure still carries the pre-bump version.
 # (Corpus has no email autolinks -- those are rand()-obfuscated.)
 {
-    require Digest::MD5;
     my $corpus = join "\n\n",
         '# 제목 heading',
         '**bold** *em* `code` ~~del~~ 한국어',
         "> quote\n>> nested",
+        ('>' x 33) . ' deep quote at the 32-level clamp boundary',
         "- [ ] task\n- [x] done",
         "| a | b |\n|---|--:|\n| \$x\$ | [l](http://e.x/) |",
+        "```c++\nint x;\n```",
         "```perl\nmy \$x = 1;\n```",
         'inline $a_i$ and $$\int f$$ and \(c\)',
+        '\[ x_1 \\\\[1ex] y_2 \]',
+        '가격은 5$ 그리고 $5 (currency stays text)',
         "cite[^f]\n\n[^f]: def **md**",
         "<pre>\nraw &amp; block\n</pre>",
         'text <span>inline html</span> &amp; entity';
     my $fp = Digest::MD5::md5_hex(Bawi::Markdown::render($corpus, 7));
-    my ($want_ver, $want_fp) = (1, '3e048711f953cd0e5fbce12156a3e01d');
+    my ($want_ver, $want_fp) = (1, '874b937320c9740e34cc091ca6a8ab57');
     if ($Bawi::Markdown::CACHE_VERSION ne $want_ver or $fp ne $want_fp) {
         die "render fingerprint mismatch: expected (v$want_ver, $want_fp),\n"
           . "got (v$Bawi::Markdown::CACHE_VERSION, $fp).\n"
-          . "Intentional output change -> bump CACHE_VERSION and record the new pair here.\n"
-          . "Unintentional -> the rendering pipeline changed by accident.\n";
+          . "Intentional output change -> bump CACHE_VERSION in Bawi/Markdown.pm,\n"
+          . "re-run this suite, and record the pair the RE-RUN prints (the pair\n"
+          . "above still carries the pre-bump version). Unintentional -> the\n"
+          . "rendering pipeline changed by accident.\n";
     }
 }
 

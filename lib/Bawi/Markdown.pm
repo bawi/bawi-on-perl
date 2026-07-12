@@ -83,6 +83,7 @@ package Bawi::Markdown;
 
 use strict;
 use warnings;
+use Digest::MD5 ();
 use Encode ();
 use Text::Markdown;
 
@@ -270,7 +271,7 @@ sub render {
     return $body;
 }
 
-# --- render cache contract (the ONE canonical statement of it) ----------
+# --- render cache validity model (the ONE canonical statement of it) ----
 # Bawi::Board::format_article caches render() output in bw_xboard_body_html,
 # one row per article; a row is valid iff its body_md5 equals
 # cache_key($body) below. So:
@@ -279,23 +280,39 @@ sub render {
 #   * ANY change that alters render() OUTPUT -- this module, the vendored
 #     lib/Text/Markdown.pm, or deeper (system Text::Balanced) -- MUST bump
 #     $CACHE_VERSION, or every already-cached article keeps serving the
-#     OLD rendering indefinitely. The smoke suite pins this mechanically:
-#     it renders a fixed corpus and fails when output changes without a
-#     version bump (see "render fingerprint" in markdown_smoke.pl).
-#   * the per-article dimension (footnote anchors fn-<id>-N) is carried by
-#     the row PK, not by this hash -- render()'s only inputs are
-#     ($body, $uniq=article_id), and both are in the row key. If render()
-#     ever gains another input, it must be folded into cache_key or the
-#     cache will serve output computed for other values of it.
-our $CACHE_VERSION = 1;
+#     OLD rendering indefinitely. Backstop: the smoke suite fingerprints a
+#     fixed corpus and fails on an unbumped output change to any construct
+#     THAT CORPUS COVERS ("render fingerprint" in markdown_smoke.pl).
+#     Nothing runs it automatically -- it is a run-before-deploy check,
+#     and it cannot see a system-library (Text::Balanced/perl) upgrade
+#     that shifts output with no source diff. The bump stays a judgment
+#     the editor owns; the fingerprint only catches the accident.
+#   * render() is deterministic in its two inputs ($body, $uniq=article_id)
+#     with ONE known exception: email autolinks (<x\@y.z>) are rand()-
+#     obfuscated by Text::Markdown::_EncodeEmailAddress. Caching freezes
+#     one obfuscation per article -- display-equivalent and still
+#     harvester-hostile, so deliberately NOT folded into the key. The
+#     per-article dimension (footnote anchors fn-<id>-N) is carried by
+#     the row PK, not by this hash; both inputs are thus in the row key.
+#     If render() ever gains another input, it must be folded into
+#     cache_key or the cache will serve output computed for other values
+#     of it.
+our $CACHE_VERSION = 1;   # paired with ($want_ver,$want_fp) in
+                          # markdown_smoke.pl -- a bump must update BOTH
 
 sub cache_key {
     my ($body) = @_;
-    require Digest::MD5;
-    # bodies are undecoded octets today; encode_utf8 is a no-op on them
-    # but keeps a future decoded-string caller from croaking md5_hex
-    # ("Wide character") -- same guard as Text::Markdown::_md5_utf8
-    return Digest::MD5::md5_hex(Encode::encode_utf8("$CACHE_VERSION:$body"));
+    my $key = "$CACHE_VERSION:$body";
+    # octet callers -- the only production class, DB bodies -- hash RAW,
+    # so the stored body_md5 is hand-reproducible, e.g. a SQL audit via
+    # MD5(CONCAT('1:', body)). A decoded-string caller is encoded first,
+    # only so md5_hex cannot croak ("Wide character") -- the same
+    # conditional guard as Text::Markdown::_md5_utf8. NOT a
+    # canonicalization: decoded and octet forms of the same text hash
+    # differently, so every caller must pass the same representation
+    # (today: raw DB octets, everywhere).
+    $key = Encode::encode('utf8', $key) if Encode::is_utf8($key);
+    return Digest::MD5::md5_hex($key);
 }
 
 sub _del {

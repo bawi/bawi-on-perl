@@ -394,8 +394,9 @@ sub _HashHTMLBlocks {
     # every block opener it passes -- so a body of repeated unclosed
     # "<pre>" lines is O(n^2) with a huge constant (50KB took ~120s per
     # render: a stored DoS any poster can plant). $topname below is the
-    # line's first tag name; three guards, in the order the unless()
-    # evaluates them:
+    # line's first tag name; three guards, in source order (1-2 are the
+    # unless() conditions in short-circuit order; 3 is a statement
+    # wrapping the extractor call itself):
     #   1. failure budget: once $failed_extracts reaches 8, stop
     #      attempting extraction for the rest of the document. Only
     #      failures on lines whose $topname is a block-level tag name
@@ -408,18 +409,18 @@ sub _HashHTMLBlocks {
     #      derives the closing delimiter as quotemeta '</'.tagname.'>'
     #      -- no spaces, no case folding); when both index() calls miss,
     #      skip the extractor.
-    #   Both are output-preserving: a skipped line is pushed as plain
-    #   text, byte-identical to what its guaranteed failure would
-    #   produce. Divergence requires 8+ failing block openers followed
-    #   by a would-have-matched block in one body -- not a real document
-    #   shape; the class is pinned by a markdown_smoke.pl fixture.
     #   3. local $^W=0 scoped to the extractor call: its scan recurses
     #      once per opener passed, and ModPerl::Registry honors the
     #      CGI's -w shebang, so a crafted body otherwise floods the
     #      error log with millions of "Deep recursion" lines per render.
     #      This file's lexical "use warnings" is unaffected.
-    # Remove all three (budget, closer guard, $^W scope) if this file is
-    # ever re-vendored.
+    # Guards 1-2 are output-preserving: a skipped line is pushed as
+    # plain text, byte-identical to what its guaranteed failure would
+    # produce (guard 3 only suppresses warnings). Divergence requires 8+
+    # failing block openers followed by a would-have-matched block in
+    # one body -- not a real document shape; the class is pinned by a
+    # markdown_smoke.pl fixture. Remove all three (budget, closer guard,
+    # $^W scope) if this file is ever re-vendored.
     my $failed_extracts = 0;
     # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {

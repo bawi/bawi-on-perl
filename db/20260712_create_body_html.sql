@@ -27,6 +27,12 @@
 -- CHARSET must track bw_xboard_body's: a future utf8 -> utf8mb4 migration
 -- of the body table must include this table, or 4-byte characters in
 -- bodies would silently truncate the cached render.
+--
+-- Upgrading an environment that ran the earlier MyISAM draft of this
+-- table (e.g. a test mirror): a bare CREATE TABLE errors "already
+-- exists" and does NOT convert the engine -- run
+--   ALTER TABLE bw_xboard_body_html ENGINE=InnoDB;
+-- there instead.
 
 CREATE TABLE bw_xboard_body_html (
   article_id mediumint(8) unsigned NOT NULL,
