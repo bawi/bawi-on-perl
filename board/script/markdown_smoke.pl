@@ -3,6 +3,7 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin/../../lib";
 use Bawi::Markdown;
+use Digest::MD5 ();   # the render-fingerprint block calls md5_hex directly
 use Time::HiRes qw(time);
 
 # The denylist below mirrors escape_tags' CODE FALLBACK. Production
@@ -399,5 +400,165 @@ $body = render(qq{```c++\nint x;\n```});
 &assert_contains('cpp alias class', $body, '<pre><code class="language-cpp">');
 $body = render(qq{```c#\nint x;\n```});
 &assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
+
+# --- render cache preconditions (Board.pm's bw_xboard_body_html rows) ---
+# Board.pm caches render() output keyed on Bawi::Markdown::cache_key +
+# the article_id PK. Sound only while render() is deterministic in
+# (body, uniq) -- pinned here (modulo the documented rand() email-
+# autolink exception; see the validity model in Bawi/Markdown.pm). The
+# DB plumbing itself (SELECT/REPLACE, hit-vs-miss) has no DB in this
+# harness and is deliberately out of smoke's scope; verify it on the
+# test mirror when the cache path changes (PR #15 records such a run).
+{
+    my $src = "# 캐시\n\n**굵게** \$x_i\$ 그리고 [^1] 참조.\n\n[^1]: 정의\n";
+    die "render() not deterministic -- DB cache would serve stale variants\n"
+        unless Bawi::Markdown::render($src, 42) eq Bawi::Markdown::render($src, 42);
+    die "cache_key broken -- Board.pm keys cache rows on it\n"
+        unless Bawi::Markdown::cache_key($src) =~ /^[0-9a-f]{32}$/;
+    die "cache_key ignores the body\n"
+        if Bawi::Markdown::cache_key($src) eq Bawi::Markdown::cache_key("$src ");
+    # uniq must change the output (footnote anchors), so Board.pm must
+    # never share a cached render across articles: the key includes
+    # article_id via the row PK
+    &assert_contains('uniq in anchors', Bawi::Markdown::render($src, 99), 'fn-99-1');
+}
+
+# --- render fingerprint: backstop for CACHE_VERSION bumps -----------------
+# A pipeline change that alters render() output WITHOUT a CACHE_VERSION
+# bump makes every cached article silently serve the OLD rendering until
+# its next edit. This fingerprint catches the ACCIDENTAL form of that,
+# with known limits (be honest with yourself about them):
+#   * it covers exactly the constructs in THIS corpus -- an output change
+#     to an uncovered edge passes green. Extending pipeline features
+#     should extend the corpus.
+#   * nothing runs this automatically (no CI in this repo): it is a
+#     run-before-deploy check.
+#   * a mismatch can also mean this HOST differs (system Text::Balanced /
+#     perl version), not that someone edited the pipeline.
+#   * it cannot force the bump: greening it by recording a new
+#     fingerprint while leaving CACHE_VERSION alone ships the stale-cache
+#     bug anyway. Reviewers: a $want_fp change and a CACHE_VERSION bump
+#     must land in the same diff.
+# When it fires on an intentional change: 1) bump $CACHE_VERSION in
+# lib/Bawi/Markdown.pm, 2) RE-RUN this suite, 3) record the (version,
+# fingerprint) pair the re-run prints -- the pair printed by the FIRST
+# failure still carries the pre-bump version.
+# (Corpus has no email autolinks -- those are rand()-obfuscated.)
+{
+    my $corpus = join "\n\n",
+        '# 제목 heading',
+        '**bold** *em* `code` ~~del~~ 한국어',
+        "> quote\n>> nested",
+        ('>' x 33) . ' deep quote at the 32-level clamp boundary',
+        "- [ ] task\n- [x] done",
+        "| a | b |\n|---|--:|\n| \$x\$ | [l](http://e.x/) |",
+        "```c++\nint x;\n```",
+        "```perl\nmy \$x = 1;\n```",
+        'inline $a_i$ and $$\int f$$ and \(c\)',
+        '\[ x_1 \\\\[1ex] y_2 \]',
+        '가격은 5$ 그리고 $5 (currency stays text)',
+        "cite[^f]\n\n[^f]: def **md**",
+        "<pre>\nraw &amp; block\n</pre>",
+        'text <span>inline html</span> &amp; entity';
+    my $fp = Digest::MD5::md5_hex(Bawi::Markdown::render($corpus, 7));
+    my ($want_ver, $want_fp) = (1, '874b937320c9740e34cc091ca6a8ab57');
+    if ($Bawi::Markdown::CACHE_VERSION ne $want_ver or $fp ne $want_fp) {
+        die "render fingerprint mismatch: expected (v$want_ver, $want_fp),\n"
+          . "got (v$Bawi::Markdown::CACHE_VERSION, $fp).\n"
+          . "Intentional output change -> bump CACHE_VERSION in Bawi/Markdown.pm,\n"
+          . "re-run this suite, and record the pair the RE-RUN prints (the pair\n"
+          . "above still carries the pre-bump version). Unintentional -> the\n"
+          . "rendering pipeline changed by accident.\n";
+    }
+}
+
+# --- failure-budget divergence class (documented tradeoff, pinned) --------
+# 8+ FAILING block openers (closers exist ahead, so the guard lets the
+# extractor run; nesting never balances, so every attempt fails) followed
+# by a block that WOULD have matched: the budget disables extraction, so
+# the trailing block degrades to text instead of raw block HTML. This is
+# the one accepted output divergence of the DoS patch -- if a re-vendor
+# or budget tweak changes it, this fixture must be revisited.
+{
+    # a raw-block extraction SUCCESS emits the block bare at top level; a
+    # degraded (budget-skipped) block goes through paragraph forming and
+    # comes out "<p><pre>"-wrapped -- that wrapper is the signature the
+    # two asserts below key on.
+    my $b = ("<div>\nfiller line\n\n" x 9)      # 9 unclosed <div> openers
+          . "</div>\n\n"                        # one closer: guard passes, attempts run+fail
+          . "<pre>\nbudget victim\n</pre>\n";   # would-have-matched block
+    $body = render($b);
+    &assert_contains('budget victim text survives', $body, 'budget victim');
+    &assert_contains('trailing block degraded (documented)', $body, '<p><pre>');
+    # control -- same shape below the budget (2 failing openers): the
+    # trailing block must still extract as bare raw block HTML
+    $body = render(("<div>\nfiller line\n\n" x 2)
+                   . "</div>\n\n<pre>\ncontrol block\n</pre>\n");
+    &assert_contains('control block raw', $body, "<pre>\ncontrol block\n</pre>");
+    &assert_not_contains('control block not degraded', $body, '<p><pre>');
+}
+
+# --- block-opener flood (stored DoS, Text::Markdown local patch) ----------
+# Floods of block-tag openers drove _HashHTMLBlocks SUPER-linear
+# (Text::Balanced rescans/recurses to EOF per opener): ~120s at 50KB, plus
+# a deep-recursion warning flood under -w. The vendored guard now (1)
+# memoizes the "no closer ahead" skip so an unclosed flood is O(n), (2)
+# skips a NET-UNCLOSED tag when the remaining body exceeds $EXTRACT_TAIL_CAP
+# (4096 B), and (3) caps failed extractions at 8/pass. Each shape below was
+# super-linear (multi-second to minutes) before the fix and is now well
+# under 1s -- these fixtures pin the SKIP paths, so <2s is a real bound with
+# margin. (Note: the parser's INHERENT cost for any ~64KB body is ~2.5-3.4s
+# regardless of guards -- benign "x\n\n" x21000 is 2.6s in stock -- so <2s
+# is NOT a general 64KB bound, only a bound on these guarded skip shapes.
+# The inherent linear floor is deferred to the systemic budget; see
+# IMPROVEMENTS_PLAN.md parking lot.) All fit bw_xboard_body.body (TEXT, 64KB).
+{
+    my %flood = (
+        # sparse unclosed <pre> (the original round-1 shape)
+        'sparse-pre'      => "<pre>\nsome text follows here\nmore text\n\n"
+                             x (int(50_000 / 40) + 1),
+        # dense net-unclosed openers + large tail (large-tail guard)
+        'dense-noclose'   => "<p>\n" x 16000,
+        'dense-endcloser' => ("<p>\n" x 16000) . "</p>\n",
+        'closer-behind'   => "</div>\n" . ("<div>\n" x 16000),
+        # balanced open/close COUNT but every closer is BEHIND the openers,
+        # so none is ahead: net_unclosed is FALSE (large-tail guard does NOT
+        # fire), so the no-closer index() SKIP (guard 2) is the only thing
+        # that keeps this off the extractor. Removing that skip -> stock
+        # >20s (this <2s bound hard-pins it on any host). The memo on top is
+        # an O(n)-vs-O(n^2) polish on the (already-skipped, already-safe)
+        # index probe: without it the probe reruns per line (~3.1s at 63KB
+        # on the slow deploy host; only ~0.7s on a fast dev box, so this
+        # wall-clock bound pins the memo only where it renders slowly).
+        'noclose-behind'  => ("</p>\n" x 7000) . ("<p>\n" x 7000),
+        # SUB-CAP imbalance (only 8 net-unclosed) but a large tail: the
+        # round-3 fixed-cap guard MISSED this (imbalance 8 < 64) -> ~4s.
+        # The large-tail guard catches it. (Round-4 HIGH.)
+        'subcap-far'      => ("<p>\n" x 9) . "</p>\n" . ("word " x 13000),
+        'subcap-midband'  => ("<p>\n" x 64) . "</p>\n" . ("word " x 12000),
+        # attribute-hostile tail (no '>'): each doomed attempt scanned it
+        # super-linearly -- >20s before the large-tail guard. (Round-4 HIGH.)
+        'attr-hostile'    => ("<p>\n" x 9) . "</p>\n" . ("<x a=" x 12500),
+        # the documented residual: a net-unclosed flood whose expensive tail
+        # is in the LAST <CAP bytes still runs, but is budget+CAP bounded
+        'residual-tail'   => ("word " x 12000) . "\n" . ("<x a=" x 800),
+    );
+    for my $name (sort keys %flood) {
+        my $t0 = time;
+        render($flood{$name});
+        die sprintf("block-opener DoS regression [%s]: %.2fs (expected <2)\n",
+                    $name, time - $t0)
+            if time - $t0 > 2;
+    }
+    # the flooded lines still render (as text), nothing is swallowed
+    $body = render("<pre>\nsome text follows here\n\n" x 2000);
+    &assert_contains('flood lines survive', $body, 'some text follows');
+    # a balanced raw block among many still extracts (imbalance 0, guard
+    # must not touch well-formed HTML)
+    $body = render("<pre>\nraw &amp; block\n</pre>\n\npara\n");
+    &assert_contains('closed pre still raw block', $body, "<pre>\nraw &amp; block\n</pre>");
+    $body = render("<div>x</div>\n" x 500);
+    &assert_contains('balanced repeats still raw', $body, '<div>x</div>');
+}
 
 print "ok\n";

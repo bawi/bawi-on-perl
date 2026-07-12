@@ -10,6 +10,7 @@ use Bawi::ImageSig;
 use vars qw(%CONF $DBH %TBL);
 $TBL{head}      = 'bw_xboard_header';
 $TBL{body}      = 'bw_xboard_body';
+$TBL{body_html} = 'bw_xboard_body_html';
 $TBL{board}     = 'bw_xboard_board';
 $TBL{comment}   = 'bw_xboard_comment';
 $TBL{commentref}= 'bw_xboard_commentref';
@@ -1153,7 +1154,43 @@ sub format_article {
         # footnote anchors so thread/new-articles pages that render many
         # articles don't emit duplicate ids.
         require Bawi::Markdown;
-        $body = Bawi::Markdown::render($body, $$article{article_id} || '');
+        # render() is the expensive stage (measured 0.10-0.92s across
+        # 50KB body shapes -- PR #15 bench; typical small bodies are ms)
+        # and runs at read time, up to ~15x per page -- cache its output in
+        # bw_xboard_body_html, one row per article (PK article_id). The
+        # validity model and the CACHE_VERSION bump rule live with
+        # Bawi::Markdown::cache_key -- the module that owns the pipeline.
+        # Site-specific notes: escape_tags/href-strip below stay OUTSIDE
+        # the cache so a per-board denylist change applies immediately;
+        # and Bawi::DBI runs without RaiseError, so a missing/crashed
+        # cache table degrades to an uncached render (PrintError logs it)
+        # rather than a 500 -- the SELECT and REPLACE are deliberately
+        # bare like every sibling $DBH call in this module.
+        my $aid = $$article{article_id} || 0;
+        my ($html, $md5);
+        # defined $body gates a NULL-body article out of the cache on BOTH
+        # sides: cache_key(undef) would warn under -w, and caching the undef
+        # render would miss on every later read (a NULL column reads back
+        # like "no row") and re-REPLACE each view -- a write per read.
+        if ($aid && defined $body) {
+            $md5 = Bawi::Markdown::cache_key($body);
+            my $sql = qq(SELECT html FROM $TBL{body_html}
+                         WHERE article_id=? && body_md5=?);
+            ($html) = $DBH->selectrow_array($sql, undef, $aid, $md5);
+        }
+        unless (defined $html) {
+            # render() uniq: '' (not 0) is its no-article sentinel, so
+            # anchors come out fn-N; the $aid gate above already skipped
+            # the cache for that case
+            $html = Bawi::Markdown::render($body, $aid || '');
+            if ($aid && defined $html) {
+                my $sql = qq(REPLACE INTO $TBL{body_html}
+                                 (article_id, body_md5, html)
+                             VALUES (?, ?, ?));
+                $DBH->do($sql, undef, $aid, $md5, $html);
+            }
+        }
+        $body = $html;
         $body = &escape_tags($self, $body);
         # keep in sync with board/script/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;

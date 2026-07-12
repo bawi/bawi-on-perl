@@ -389,13 +389,96 @@ sub _HashHTMLBlocks {
     my $extract_block = gen_extract_tagged($open_tag, $close_tag, $prefix_pattern, { ignore => [$empty_tag] });
 
     my @chunks;
+    # PERF/DoS (Bawi local patch): Text::Balanced's extractor is O(tail)
+    # per FAILED block-tag match -- it rescans to end-of-string, recursing
+    # at every same-name opener it passes -- so floods of block openers
+    # ("<p>\n" x 16000, which fits a 64KB body) drove _HashHTMLBlocks to
+    # O(n^2): ~120s per render, a stored DoS any poster can plant. Worse,
+    # each FAILED attempt scans (super-linearly, via the $empty_tag ignore
+    # pattern and _match_tagged's paragraph fallback) the whole remaining
+    # tail -- so even a handful of net-unclosed openers in front of a large
+    # tail costs seconds. The per-attempt cost lives in the SYSTEM
+    # Text::Balanced, which we cannot patch; the only lever here is to not
+    # CALL the extractor on the doomed-and-expensive cases. Three skips,
+    # each pushing the line as plain text -- the same output the extractor's
+    # eventual failure would have produced:
+    #   $skip_tag = tag is net-unclosed over the body (openers > closers,
+    #     precomputed once): the extraction cannot balance, so every attempt
+    #     for that tag fails after scanning ahead.
+    #   1. large-tail guard: skip a $skip_tag opener when the REMAINING
+    #      body is big ($text > $EXTRACT_TAIL_CAP). That is the whole DoS:
+    #      the doomed attempt would scan a large tail. A small tail (e.g.
+    #      the end of any normal body, and every corpus/fuzz doc, all
+    #      << CAP) is left to run exactly as stock -- so output is
+    #      byte-identical except for LARGE malformed bodies. Documented
+    #      ceiling: in a body over CAP bytes that is net-unclosed for a tag,
+    #      even a well-formed instance of that tag renders as paragraph text.
+    #   2. no-closer guard: skip if no "</$topname>" occurs at or after this
+    #      line -- the exact condition _match_tagged needs to succeed (it
+    #      derives the closer as quotemeta '</'.tag.'>', no spaces/case
+    #      folding), so this is byte-for-byte output-preserving at ANY size.
+    #      MEMOIZED in %no_closer_ahead: once no closer remains, none ever
+    #      will ($text only shrinks), so the O(tail) index() runs at most
+    #      once per tag -- what makes a small unclosed flood O(n), not O(n^2).
+    #   3. failure budget: $failed_extracts caps ACTUAL failed block
+    #      extractions at 8 per pass (only block-tag-named failures count).
+    #      Divergence: a would-have-matched block after 8+ failing block
+    #      openers in one pass degrades to text -- pinned by a
+    #      markdown_smoke.pl fixture.
+    # local $^W=0 around the extractor call silences its per-opener "Deep
+    # recursion" warning (ModPerl::Registry honors the CGI's -w shebang, so
+    # a crafted body would otherwise flood the error log). This file's
+    # lexical "use warnings" is unaffected. Remove the precompute, all
+    # three guards, and the $^W scope if this file is ever re-vendored.
+    #
+    # These guards stop the SUPER-linear (O(n^2), 100s+) blowups only. They
+    # do NOT (and cannot, from here) beat the vendored parser's INHERENT
+    # linear cost: any ~64KB body is ~2.5-3.4s in stock regardless of
+    # content (benign "x\n\n" x21000 is 2.6s), and a balanced wrapper around
+    # an inner flood, or a flood whose expensive tail sits in the LAST <=CAP
+    # bytes, stays in that same few-second envelope (bounded by the per-pass
+    # budget, verified byte-identical to stock). The real fix for the linear
+    # floor is a per-render wall-clock/work budget around the whole parse --
+    # deferred (SIGALRM vs mod_perl needs its own soak); see the parking lot
+    # in IMPROVEMENTS_PLAN.md.
+    my $EXTRACT_TAIL_CAP       = 4096;   # "large" remaining body (guard 1)
+    my $EXTRACT_FAILURE_BUDGET = 8;      # failed block extractions / pass (guard 3)
+    my (%block_open, %block_close);
+    $block_open{$1}++  while $text =~ /<(\w+)/g;
+    $block_close{$1}++ while $text =~ m{</(\w+)}g;
+    my %no_closer_ahead;
+    my $failed_extracts = 0;
     # parse each line, looking for block-level HTML tags
     while ($text =~ s{^(([ ]{0,$less_than_tab}<)?.*\n)}{}m) {
         my $cur_line = $1;
         if (defined $2) {
             # current line could be start of code block
 
-            my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
+            my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag);
+            my ($topname) = $cur_line =~ /^\s*<(\w+)/;
+            # Decide whether to skip the extractor. Order matters for COST,
+            # not result: the two O(1) guards run before the O(tail) index()
+            # probe, so a flood never pays the probe per line.
+            my $skip_extract = 0;
+            if (defined $topname) {
+                my $net_unclosed =
+                    ($block_open{$topname} || 0) > ($block_close{$topname} || 0);
+                if ($no_closer_ahead{$topname}) {
+                    $skip_extract = 1;                   # memoized: no closer ahead
+                } elsif ($net_unclosed && length($text) > $EXTRACT_TAIL_CAP) {
+                    $skip_extract = 1;                   # doomed tag + large tail
+                } elsif (index($cur_line, "</$topname>") < 0
+                         && index($text, "</$topname>") < 0) {
+                    $skip_extract = 1;                   # no closer ahead ...
+                    $no_closer_ahead{$topname} = 1;      # ... memoize it
+                }
+            }
+            unless ($failed_extracts >= $EXTRACT_FAILURE_BUDGET or $skip_extract) {
+                local $^W = 0;
+                ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);
+                $failed_extracts++
+                    if !$tag and defined $topname and $topname =~ /^$block_tags$/;
+            }
             if ($tag) {
                 if ($options->{interpret_markdown_on_attribute} and $opening_tag =~ s/$markdown_attr//i) {
                     my $markdown = $2;
