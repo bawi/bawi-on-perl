@@ -269,6 +269,11 @@ one-line change in the widget.)
       table (a 100×10 data table is ~1000 cells ≈ 2s) intact, so the fix is
       cheaper per-cell rendering (span-only gamut, output-verified), not a
       row cap — deferred as its own change.
+    - **Deep `markdown="1"` nesting + attribute-hostile tail:** a body of
+      `<div markdown="1">`×1200 wrapping a ~30KB `<x a=` tail renders ~17s in
+      BOTH stock and PR #15 (recursion re-enters `_HashHTMLBlocks` on the
+      inner content; the outer guard's precompute adds only ~10%). Another
+      concrete shape the systemic budget must cover; not PR-introduced.
     - **Inherent linear floor (~2.5–3.4s per 64KB), guard-independent:** the
       vendored parser costs ~50 µs/paragraph (two `_TokenizeHTML` builds +
       regexes), so ANY ~64KB body is a few seconds in stock — benign

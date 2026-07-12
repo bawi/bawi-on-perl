@@ -523,9 +523,13 @@ $body = render(qq{```c#\nint x;\n```});
         'closer-behind'   => "</div>\n" . ("<div>\n" x 16000),
         # balanced open/close COUNT but every closer is BEHIND the openers,
         # so none is ahead: net_unclosed is FALSE (large-tail guard does NOT
-        # fire) -- only the memoized no-closer skip keeps this O(n). Without
-        # the memo the per-line index() rescan is O(n^2) (~3.1s at 63KB).
-        # This is the fixture that pins the memo (nothing else does).
+        # fire), so the no-closer index() SKIP (guard 2) is the only thing
+        # that keeps this off the extractor. Removing that skip -> stock
+        # >20s (this <2s bound hard-pins it on any host). The memo on top is
+        # an O(n)-vs-O(n^2) polish on the (already-skipped, already-safe)
+        # index probe: without it the probe reruns per line (~3.1s at 63KB
+        # on the slow deploy host; only ~0.7s on a fast dev box, so this
+        # wall-clock bound pins the memo only where it renders slowly).
         'noclose-behind'  => ("</p>\n" x 7000) . ("<p>\n" x 7000),
         # SUB-CAP imbalance (only 8 net-unclosed) but a large tail: the
         # round-3 fixed-cap guard MISSED this (imbalance 8 < 64) -> ~4s.
