@@ -341,10 +341,7 @@ sub _pipe_tables {
                 my @align = map {
                     /^:-*:$/ ? 'center' : /-:$/ ? 'right' : /^:/ ? 'left' : ''
                 } @sep;
-                my $attr = sub {
-                    my ($col) = @_;
-                    return $align[$col] ? qq{ align="$align[$col]"} : '';
-                };
+                my $attr = sub { $align[$_[0]] ? qq{ align="$align[$_[0]]"} : '' };
                 my $html = '<table><thead><tr>';
                 $html .= '<th' . $attr->($_) . '>' . _span_md($hdr[$_]) . '</th>'
                     for 0 .. $#hdr;
