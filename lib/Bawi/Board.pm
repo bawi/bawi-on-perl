@@ -1146,9 +1146,16 @@ sub format_article {
     # unquoted hrefs bypass it). Do NOT reuse this path for untrusted input
     # (comments, anonymous/public boards) without a real allowlist sanitizer.
     if ($article && $$article{category} && $$article{category} == 1) {
-        require Text::Markdown;
-        $body = Text::Markdown::markdown($body);
+        # Bawi::Markdown renders the body (see that module's header for
+        # the full pipeline). It does NO sanitizing of its own:
+        # escape_tags below applies the same tag denylist to its output
+        # (math/fence/table content included). The article id namespaces
+        # footnote anchors so thread/new-articles pages that render many
+        # articles don't emit duplicate ids.
+        require Bawi::Markdown;
+        $body = Bawi::Markdown::render($body, $$article{article_id} || '');
         $body = &escape_tags($self, $body);
+        # keep in sync with board/script/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
         return $body;
     }
@@ -2719,6 +2726,9 @@ sub traverse {
 sub escape_tags {
     my $self = shift;
     $_ = shift;
+    # per-board bw_xboard_board.escaped_tags (schema default omits
+    # head/style/link); the fallback below is drift-checked by
+    # board/script/markdown_smoke.pl -- keep them in sync
     my $escaped_tags = $self->{escaped_tags} || 'html body embed iframe applet script bgsound object meta head style link';
     my $tags = '(' . join("|", split(/\s+/, $escaped_tags) ) . ')'; 
     $_ =~ s/<(\/?$tags)/&lt;$1/igox;

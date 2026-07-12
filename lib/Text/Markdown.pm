@@ -369,7 +369,17 @@ sub _HashHTMLBlocks {
                         )*                  # Zero or more
                     }x;
 
-    my $empty_tag = qr{< \w+ $tag_attrs \s* />}oxms;
+    # PERF (Bawi local patch): the dead first branch (matches nothing --
+    # it requires 'x' at a position where 'x' is forbidden by (?!x)) stops
+    # perl's regex optimizer from extracting the mandatory "/>" as an
+    # unbounded "floating substring". With the bare pattern, every FAILED
+    # attempt of this 'ignore' pattern inside Text::Balanced's char-by-char
+    # scan pre-scans the whole rest of the text for "/>" -- O(n) per
+    # attempt, so O(n^2) per document when many lines start with '<' (e.g.
+    # raw <pre>/<code> blocks). The union with an empty language is a
+    # no-op: the accepted language is byte-for-byte identical (verified on
+    # an 8000+ doc corpus). Remove if this file is ever re-vendored.
+    my $empty_tag = qr{ <(?!x)x | < \w+ $tag_attrs \s* />}oxms;
     my $open_tag =  qr{< $block_tags $tag_attrs \s* >}oxms;
     my $close_tag = undef;       # let Text::Balanced handle this
     my $prefix_pattern = undef;  # Text::Balanced
