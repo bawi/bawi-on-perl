@@ -431,11 +431,16 @@ sub _HashHTMLBlocks {
     # lexical "use warnings" is unaffected. Remove the precompute, all
     # three guards, and the $^W scope if this file is ever re-vendored.
     #
-    # NOT fully fixed here: a net-unclosed flood whose expensive tail sits
-    # in the LAST <=CAP bytes still runs up to 8 O(CAP)/O(CAP^2) attempts
-    # (bounded, sub-second at CAP=4096, but not free). The real fix is a
-    # per-render wall-clock/work budget around the whole parse -- deferred
-    # (SIGALRM vs mod_perl needs its own soak); see IMPROVEMENTS_PLAN.md.
+    # These guards stop the SUPER-linear (O(n^2), 100s+) blowups only. They
+    # do NOT (and cannot, from here) beat the vendored parser's INHERENT
+    # linear cost: any ~64KB body is ~2.5-3.4s in stock regardless of
+    # content (benign "x\n\n" x21000 is 2.6s), and a balanced wrapper around
+    # an inner flood, or a flood whose expensive tail sits in the LAST <=CAP
+    # bytes, stays in that same few-second envelope (bounded by the per-pass
+    # budget, verified byte-identical to stock). The real fix for the linear
+    # floor is a per-render wall-clock/work budget around the whole parse --
+    # deferred (SIGALRM vs mod_perl needs its own soak); see the parking lot
+    # in IMPROVEMENTS_PLAN.md.
     my $EXTRACT_TAIL_CAP       = 4096;   # "large" remaining body (guard 1)
     my $EXTRACT_FAILURE_BUDGET = 8;      # failed block extractions / pass (guard 3)
     my (%block_open, %block_close);
@@ -451,15 +456,23 @@ sub _HashHTMLBlocks {
 
             my ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag);
             my ($topname) = $cur_line =~ /^\s*<(\w+)/;
-            my $net_unclosed = defined($topname)
-                && ($block_open{$topname} || 0) > ($block_close{$topname} || 0);
-            my $skip_extract = defined($topname) && (
-                ($net_unclosed && length($text) > $EXTRACT_TAIL_CAP)   # large-tail guard
-                || $no_closer_ahead{$topname}                          # memoized no-closer
-                || (index($cur_line, "</$topname>") < 0
-                    && index($text,     "</$topname>") < 0
-                    && ($no_closer_ahead{$topname} = 1))
-            );
+            # Decide whether to skip the extractor. Order matters for COST,
+            # not result: the two O(1) guards run before the O(tail) index()
+            # probe, so a flood never pays the probe per line.
+            my $skip_extract = 0;
+            if (defined $topname) {
+                my $net_unclosed =
+                    ($block_open{$topname} || 0) > ($block_close{$topname} || 0);
+                if ($no_closer_ahead{$topname}) {
+                    $skip_extract = 1;                   # memoized: no closer ahead
+                } elsif ($net_unclosed && length($text) > $EXTRACT_TAIL_CAP) {
+                    $skip_extract = 1;                   # doomed tag + large tail
+                } elsif (index($cur_line, "</$topname>") < 0
+                         && index($text, "</$topname>") < 0) {
+                    $skip_extract = 1;                   # no closer ahead ...
+                    $no_closer_ahead{$topname} = 1;      # ... memoize it
+                }
+            }
             unless ($failed_extracts >= $EXTRACT_FAILURE_BUDGET or $skip_extract) {
                 local $^W = 0;
                 ($tag, $remainder, $prefix, $opening_tag, $text_in_tag, $closing_tag) = $extract_block->($cur_line . $text);

@@ -499,26 +499,34 @@ $body = render(qq{```c#\nint x;\n```});
 }
 
 # --- block-opener flood (stored DoS, Text::Markdown local patch) ----------
-# Floods of block-tag openers drove _HashHTMLBlocks O(n^2) (Text::Balanced
-# rescans to EOF per opener): ~120s at 50KB, plus a deep-recursion warning
-# flood under -w. The vendored guard now (1) memoizes the "no closer ahead"
-# skip so an unclosed flood is O(n), (2) skips any tag whose openers exceed
-# closers by >64 (catches floods whose closer is present-but-buried), and
-# (3) caps failed extractions at 8/pass. Each in-limit 64KB shape below
-# rendered multi-second before the fix; all are well under 1s now (assert
-# <2s for CI-load headroom). These shapes fit bw_xboard_body.body (TEXT,
-# 64KB) so any poster can plant one.
+# Floods of block-tag openers drove _HashHTMLBlocks SUPER-linear
+# (Text::Balanced rescans/recurses to EOF per opener): ~120s at 50KB, plus
+# a deep-recursion warning flood under -w. The vendored guard now (1)
+# memoizes the "no closer ahead" skip so an unclosed flood is O(n), (2)
+# skips a NET-UNCLOSED tag when the remaining body exceeds $EXTRACT_TAIL_CAP
+# (4096 B), and (3) caps failed extractions at 8/pass. Each shape below was
+# super-linear (multi-second to minutes) before the fix and is now well
+# under 1s -- these fixtures pin the SKIP paths, so <2s is a real bound with
+# margin. (Note: the parser's INHERENT cost for any ~64KB body is ~2.5-3.4s
+# regardless of guards -- benign "x\n\n" x21000 is 2.6s in stock -- so <2s
+# is NOT a general 64KB bound, only a bound on these guarded skip shapes.
+# The inherent linear floor is deferred to the systemic budget; see
+# IMPROVEMENTS_PLAN.md parking lot.) All fit bw_xboard_body.body (TEXT, 64KB).
 {
     my %flood = (
         # sparse unclosed <pre> (the original round-1 shape)
         'sparse-pre'      => "<pre>\nsome text follows here\nmore text\n\n"
                              x (int(50_000 / 40) + 1),
-        # dense unclosed openers (memoized no-closer skip)
+        # dense net-unclosed openers + large tail (large-tail guard)
         'dense-noclose'   => "<p>\n" x 16000,
-        # dense openers with a trailing closer (net-unclosed + large tail)
         'dense-endcloser' => ("<p>\n" x 16000) . "</p>\n",
-        # closer BEFORE the flood -- defeats a naive no-closer memo
         'closer-behind'   => "</div>\n" . ("<div>\n" x 16000),
+        # balanced open/close COUNT but every closer is BEHIND the openers,
+        # so none is ahead: net_unclosed is FALSE (large-tail guard does NOT
+        # fire) -- only the memoized no-closer skip keeps this O(n). Without
+        # the memo the per-line index() rescan is O(n^2) (~3.1s at 63KB).
+        # This is the fixture that pins the memo (nothing else does).
+        'noclose-behind'  => ("</p>\n" x 7000) . ("<p>\n" x 7000),
         # SUB-CAP imbalance (only 8 net-unclosed) but a large tail: the
         # round-3 fixed-cap guard MISSED this (imbalance 8 < 64) -> ~4s.
         # The large-tail guard catches it. (Round-4 HIGH.)

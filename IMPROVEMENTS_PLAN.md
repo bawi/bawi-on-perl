@@ -269,6 +269,15 @@ one-line change in the widget.)
       table (a 100×10 data table is ~1000 cells ≈ 2s) intact, so the fix is
       cheaper per-cell rendering (span-only gamut, output-verified), not a
       row cap — deferred as its own change.
+    - **Inherent linear floor (~2.5–3.4s per 64KB), guard-independent:** the
+      vendored parser costs ~50 µs/paragraph (two `_TokenizeHTML` builds +
+      regexes), so ANY ~64KB body is a few seconds in stock — benign
+      `"x\n\n"×21000` is 2.6s, `"<\n\n"×21000` is 3.4s, and a balanced-wrapper
+      body hiding an inner flood (`<div>×8` … `<pre>×6655` … `</div>×8`) is
+      3.2s in BOTH stock and PR #15 (byte-identical). PR #15's guards only
+      remove the super-linear blowups; this floor is why "<2s at 64KB" is not
+      a general bound and the smoke asserts <2s only on the guarded SKIP
+      shapes. The floor needs the systemic budget below or a body-size cap.
   The systemic catch-all remains a per-render wall-clock/work budget
   (`alarm()`/setitimer around the whole `format_article` render) — deferred
   from round 1: SIGALRM under mod_perl interacts with Apache's own timers and
