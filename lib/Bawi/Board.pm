@@ -10,6 +10,7 @@ use Bawi::ImageSig;
 use vars qw(%CONF $DBH %TBL);
 $TBL{head}      = 'bw_xboard_header';
 $TBL{body}      = 'bw_xboard_body';
+$TBL{body_html} = 'bw_xboard_body_html';
 $TBL{board}     = 'bw_xboard_board';
 $TBL{comment}   = 'bw_xboard_comment';
 $TBL{commentref}= 'bw_xboard_commentref';
@@ -1153,10 +1154,34 @@ sub format_article {
         # footnote anchors so thread/new-articles pages that render many
         # articles don't emit duplicate ids.
         require Bawi::Markdown;
-        # render_cached memoizes render() output per worker (DRAFT — see
-        # MARKDOWN_CACHE_PLAN.md); escape_tags/href-strip stay outside the
-        # cache so per-board denylist changes apply immediately.
-        $body = Bawi::Markdown::render_cached($body, $$article{article_id} || '');
+        # render() is the expensive stage (~0.1-1s for a large body) and
+        # runs at read time, up to ~15x per page -- cache its output in
+        # bw_xboard_body_html, one row per article (PK article_id).
+        # Validity = md5(CACHE_VERSION:body): a body edit changes the md5
+        # (the row is overwritten on the next read), a pipeline change is
+        # a CACHE_VERSION bump (every row goes stale, re-renders lazily).
+        # escape_tags/href-strip below stay OUTSIDE the cache so a
+        # per-board denylist change applies immediately, never frozen
+        # into a cached row.
+        my $aid = $$article{article_id} || 0;
+        my ($html, $md5);
+        if ($aid) {
+            require Digest::MD5;
+            no warnings 'once';   # CACHE_VERSION lives in Bawi::Markdown
+            $md5 = Digest::MD5::md5_hex("$Bawi::Markdown::CACHE_VERSION:$body");
+            ($html) = $DBH->selectrow_array(
+                qq(SELECT html FROM $TBL{body_html} WHERE article_id=? && body_md5=?),
+                undef, $aid, $md5);
+        }
+        unless (defined $html) {
+            $html = Bawi::Markdown::render($body, $aid || '');
+            # a failed cache write must not kill the page render
+            eval {
+                $DBH->do(qq(REPLACE INTO $TBL{body_html} (article_id, body_md5, html)
+                            VALUES (?, ?, ?)), undef, $aid, $md5, $html);
+            } if $aid;
+        }
+        $body = $html;
         $body = &escape_tags($self, $body);
         # keep in sync with board/script/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;

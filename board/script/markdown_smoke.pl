@@ -400,23 +400,42 @@ $body = render(qq{```c++\nint x;\n```});
 $body = render(qq{```c#\nint x;\n```});
 &assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
 
-# --- render_cached (DRAFT caching layer) ---
-# a cache hit must be byte-identical to a direct render()
+# --- render cache preconditions (Board.pm's bw_xboard_body_html rows) ---
+# Board.pm caches render() output in the DB keyed on
+# md5(CACHE_VERSION:body) + article_id. That is only sound if render()
+# is deterministic in (body, uniq) -- pin it, and pin that the version
+# knob Board.pm keys on still exists.
 {
     my $src = "# 캐시\n\n**굵게** \$x_i\$ 그리고 [^1] 참조.\n\n[^1]: 정의\n";
-    my $direct = Bawi::Markdown::render($src, 42);
-    my $c1 = Bawi::Markdown::render_cached($src, 42);   # miss -> render + store
-    my $c2 = Bawi::Markdown::render_cached($src, 42);   # hit  -> stored copy
-    die "render_cached miss != render\n" unless $c1 eq $direct;
-    die "render_cached hit != render\n"  unless $c2 eq $direct;
-    # different uniq must not collide (footnote anchors differ)
-    my $c3 = Bawi::Markdown::render_cached($src, 99);
-    die "render_cached ignored uniq\n" if $c3 eq $c1;
-    &assert_contains('cached keys on uniq', $c3, 'fn-99-1');
-    # a CACHE_VERSION bump re-renders (still equals a direct render)
-    local $Bawi::Markdown::CACHE_VERSION = $Bawi::Markdown::CACHE_VERSION + 1;
-    die "version bump broke output\n"
-        unless Bawi::Markdown::render_cached($src, 42) eq $direct;
+    die "render() not deterministic -- DB cache would serve stale variants\n"
+        unless Bawi::Markdown::render($src, 42) eq Bawi::Markdown::render($src, 42);
+    die "CACHE_VERSION gone -- Board.pm keys cache rows on it\n"
+        unless defined $Bawi::Markdown::CACHE_VERSION;
+    # uniq must change the output (footnote anchors), so Board.pm must
+    # never share a cached render across articles: the key includes
+    # article_id via the row PK
+    &assert_contains('uniq in anchors', Bawi::Markdown::render($src, 99), 'fn-99-1');
+}
+
+# --- unclosed raw <pre> flood (stored DoS, Text::Markdown local patch) ---
+# A body of repeated unclosed "<pre>" lines made Text::Balanced rescan
+# to end-of-string per opener (O(n^2), ~120s at 50KB, plus a deep-
+# recursion warning flood under -w). The vendored _HashHTMLBlocks now
+# skips extraction when no literal "</pre>" exists ahead and stops
+# attempting after 8 expensive failures. Healthy is ~0.2s at 50KB.
+{
+    my $flood = "<pre>\nsome text follows here on more lines\nmore text\n\n";
+    $flood x= int(50_000 / length($flood)) + 1;
+    my $t0 = time;
+    $body = render($flood);
+    die sprintf("unclosed-pre DoS regression: %.2fs (expected <2)\n", time - $t0)
+        if time - $t0 > 2;
+    # the lines still render (as text), nothing is swallowed
+    &assert_contains('unclosed pre lines survive', $body, 'some text follows');
+    # closed raw blocks still extract as raw block HTML (guard must not
+    # have broken the legit path)
+    $body = render("<pre>\nraw &amp; block\n</pre>\n\npara\n");
+    &assert_contains('closed pre still raw block', $body, "<pre>\nraw &amp; block\n</pre>");
 }
 
 print "ok\n";

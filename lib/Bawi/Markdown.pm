@@ -269,37 +269,12 @@ sub render {
     return $body;
 }
 
-# --- DRAFT: per-worker render cache (see MARKDOWN_CACHE_PLAN.md) ---------
-# render() is pure and deterministic in ($body, $uniq) and is the expensive
-# stage (Text::Markdown). It is called at READ time, uncached, up to ~15x
-# per page (thread / new-article views). render_cached memoizes its output
-# per mod_perl worker so a hot article renders once, not once per view.
-#
-# Key = version : uniq : md5(body bytes). A body edit changes the hash and
-# thus auto-invalidates; a pipeline change is invalidated by bumping
-# $CACHE_VERSION. escape_tags / href-strip stay OUTSIDE the cache (the
-# caller applies them to the cached render output) so a per-board denylist
-# change takes effect immediately and is not baked into a cache entry.
-#
-# Eviction is a coarse flush-when-full (no LRU yet); the store is per-worker
-# (not shared, lost on restart). Those are the open design questions in the
-# plan doc -- this wrapper is the simplest option (#1) to start the review.
-our $CACHE_VERSION = 1;      # bump to invalidate every cached render
-our $CACHE_MAX     = 500;    # entries per worker before a flush
-my  %_render_cache;
-
-sub render_cached {
-    my ($body, $uniq) = @_;
-    return render($body, $uniq) unless defined $body;
-    require Digest::MD5;
-    # $body is a byte string here (bodies are undecoded UTF-8 octets), so
-    # md5_hex operates on bytes -- consistent with render()'s byte semantics.
-    my $key = join(':', $CACHE_VERSION, (defined $uniq ? $uniq : ''),
-                   Digest::MD5::md5_hex($body));
-    return $_render_cache{$key} if exists $_render_cache{$key};
-    %_render_cache = () if keys(%_render_cache) >= $CACHE_MAX;
-    return $_render_cache{$key} = render($body, $uniq);
-}
+# Pipeline version. Bawi::Board::format_article caches render() output in
+# the bw_xboard_body_html table keyed on md5("$CACHE_VERSION:$body") --
+# bump this whenever ANY rendering stage above (or the vendored
+# Text::Markdown) changes output, so every cached row goes stale and
+# re-renders lazily on next view. render() itself stays pure/uncached.
+our $CACHE_VERSION = 1;
 
 sub _del {
     my $t = shift;
