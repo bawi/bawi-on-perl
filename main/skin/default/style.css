@@ -377,6 +377,14 @@ ul.bookmark li.item.head ul li a { display: inline; color: white; }
 .body.text small,
 .body.text sub,
 .body.text sup { font-size: 0.83em; }
+/* Article-body images: never overflow the column (fit to width, keep ratio). */
+.body.text img { max-width: 100%; height: auto; }
+/* Markdown/content tables get borders. Scoped :not(.wrapper) so the layout
+   table.safety.wrapper that holds the whole body is left untouched. */
+.body.text table:not(.wrapper) { border-collapse: collapse; margin: 1em 0; }
+.body.text table:not(.wrapper) th,
+.body.text table:not(.wrapper) td { border: 1px solid #ccc; padding: 4px 8px; }
+.body.text table:not(.wrapper) th { background: #f2f2f2; }
 
 
 /**********************************************************************************/

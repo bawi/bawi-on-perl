@@ -13,9 +13,12 @@ body {
   color: #bbb !important;
   background-color: #222 !important;
 }
-.body.text a    { 
-  background: #333 !important; 
+.body.text a    {
+  background: #333 !important;
 }
+.body.text table:not(.wrapper) th,
+.body.text table:not(.wrapper) td { border: 1px dotted #666 !important; }
+.body.text table:not(.wrapper) th { background: #444 !important; }
 a {
   color: #bbb !important;
 }
