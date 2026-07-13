@@ -421,7 +421,11 @@ ul.article > li.body        { float: none; clear: both; overflow: visible; width
 ul.article > li.body        { max-width: 600px; margin: 0 auto; }
 ul.article > li.body.text   { line-height: 170%; text-align: justify; padding: 20px 0 10px 0;  }
 ul.article > li.body.text   { border-bottom: 0; }
-ul.article > li.body.text table.safety.wrapper { position: relative; width: 100%; }
+/* table-layout:fixed so the body-wrapper table honors its 100% width instead of
+   auto-expanding to its widest content (code blocks, wide images) and overflowing
+   the column on mobile. Lets the .body.text img (max-width) and pre (overflow-x)
+   caps actually take effect. */
+ul.article > li.body.text table.safety.wrapper { position: relative; width: 100%; table-layout: fixed; }
 ul.article > li.attach ol   { list-style: decimal; padding: 0; overflow: hidden; }
 ul.article > li.attach li   { padding: 0; margin: 0; line-height: 170%; vertical-align: top; list-style-position: inside; }
 ul.article > li.attach a    { display: inline; }
