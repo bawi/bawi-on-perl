@@ -19,6 +19,25 @@ body {
 .body.text table:not(.wrapper) th,
 .body.text table:not(.wrapper) td { border: 1px dotted #666 !important; }
 .body.text table:not(.wrapper) th { background: #444 !important; }
+/* Dark-mode code: prism.css is a light theme (light box, dark tokens) -> glaring
+   and low-contrast on the dark page. Recolor the box + tokens to a light-on-dark
+   palette (prism-tomorrow) for both ```lang and plain ``` blocks. */
+.body.text pre,
+.body.text pre[class*="language-"] { background: #2d2d2d !important; color: #ccc !important; }
+.body.text pre code,
+.body.text code[class*="language-"] { color: #ccc !important; background: none !important; }
+.body.text .token.comment, .body.text .token.prolog,
+.body.text .token.doctype, .body.text .token.cdata { color: #999 !important; }
+.body.text .token.punctuation { color: #ccc !important; }
+.body.text .token.property, .body.text .token.tag, .body.text .token.boolean,
+.body.text .token.number, .body.text .token.constant, .body.text .token.symbol,
+.body.text .token.deleted { color: #e2777a !important; }
+.body.text .token.selector, .body.text .token.attr-name, .body.text .token.string,
+.body.text .token.char, .body.text .token.builtin, .body.text .token.inserted { color: #7ec699 !important; }
+.body.text .token.operator, .body.text .token.entity, .body.text .token.url { color: #67cdcc !important; }
+.body.text .token.atrule, .body.text .token.attr-value, .body.text .token.keyword { color: #cc99cd !important; }
+.body.text .token.function, .body.text .token.class-name { color: #f08d49 !important; }
+.body.text .token.regex, .body.text .token.important, .body.text .token.variable { color: #7ec699 !important; }
 a {
   color: #bbb !important;
 }
