@@ -30,12 +30,9 @@ while (! $zero_install) {
         unless (-r $data && -x $data) {
             die <<END;
 [$data] 디렉토리에 읽기/실행 권한이 없습니다.
+디렉토리에 읽기/실행 권한을 설정한 뒤 다시 실행해 주세요.
 
-다음과 같이 script/chmod.cgi를 
-[$data]에 복사한 뒤
-웹브라우저에서 불러주세요. 디렉토리의 읽기/실행 권한을 적절하게 설정합니다.
-
-\$ cp script/chmod.cgi $data
+\$ chmod -R u+rx $data
 
 END
         }
