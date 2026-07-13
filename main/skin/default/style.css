@@ -385,6 +385,12 @@ ul.bookmark li.item.head ul li a { display: inline; color: white; }
 .body.text table:not(.wrapper) th,
 .body.text table:not(.wrapper) td { border: 1px solid #ccc; padding: 4px 8px; }
 .body.text table:not(.wrapper) th { background: #f2f2f2; }
+/* Plain (no-language) fenced code blocks look like the prism-highlighted
+   ones. Prism copies the language- class onto <pre> at runtime so prism.css
+   styles pre[class*=language-]; a plain ``` block's <pre> stays class-less,
+   so give it the same box here. overflow-x lets long lines scroll instead
+   of overflowing the column. */
+.body.text pre:not([class]) { background: #f5f2f0; padding: 1em; margin: 0.5em 0; overflow-x: auto; }
 
 
 /**********************************************************************************/
