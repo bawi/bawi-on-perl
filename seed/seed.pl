@@ -22,18 +22,24 @@
 #   SEEDED: bw_xauth_passwd (50 users, all password "test1234"),
 #     bw_user_ki, bw_user_basic, bw_user_sig, bw_user_access,
 #     bw_group (3), bw_group_user, bw_xboard_board (6),
-#     bw_xboard_header/body (320 articles), bw_xboard_comment (320),
+#     bw_xboard_header/body (320 articles; 5 are category=1 markdown, to
+#     exercise Bawi::Markdown + the bw_xboard_body_html render cache),
+#     bw_xboard_comment (320),
 #     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (40),
 #     bw_xboard_poll/_opt/_ans (2 article polls), bw_xpoll/_question/_choice
 #     (1 survey), countries, schools, majors, circles, registers,
-#     bw_data_major, bw_user_major, bw_user_degree, bw_user_circle, loads,
+#     bw_data_major, bw_user_major, bw_user_degree, bw_user_circle,
+#     organizations, org_alias, bw_user_career (career v3.2), loads,
 #     bw_xboard_stat_board/_article/_user (aggregated from the seed).
 #   EMPTY (documented): bw_xboard_attach (no files on disk), bw_xboard_scrap,
 #     bw_xboard_tag, bw_xboard_tagmap, bw_xboard_commentref, bw_xauth_session
-#     (created at login), bw_xauth_new_passwd, bw_user_photo, bw_user_gbook,
-#     bw_user_support, bw_symp, bw_user_access_history, bawi_access_stat,
-#     bw_note_notify_boxcar, bw_postman_log, bw_poll* (legacy), bw_xpoll_check,
-#     notes (legacy).
+#     (created at login), bw_xboard_body_html (read-through render cache,
+#     self-populating on first view), bw_xauth_new_passwd, bw_user_photo,
+#     bw_user_gbook, bw_user_support, bw_symp, bw_user_access_history,
+#     bawi_access_stat, bw_note_notify_boxcar, bw_postman_log,
+#     bw_poll* (legacy), bw_xpoll_check, notes (legacy).
+#     User-writable empties are still truncated on reseed (see @owned_tables)
+#     so UI experiments don't survive a "wipe + reseed".
 # =============================================================================
 use strict;
 use warnings;
@@ -77,11 +83,14 @@ my @owned_tables = qw(
     bw_group bw_group_user
     bw_xboard_board bw_xboard_header bw_xboard_body bw_xboard_comment
     bw_xboard_notice bw_xboard_recom bw_xboard_bookmark
+    bw_xboard_scrap bw_xboard_attach bw_xboard_commentref
+    bw_xboard_tag bw_xboard_tagmap bw_xboard_body_html
     bw_note
     bw_xboard_poll bw_xboard_poll_opt bw_xboard_poll_ans
     bw_xpoll bw_xpoll_question bw_xpoll_choice
     countries schools majors circles registers
     bw_data_major bw_user_major bw_user_degree bw_user_circle
+    organizations org_alias bw_user_career
     loads
     bw_xboard_stat_board bw_xboard_stat_article bw_xboard_stat_user
     bw_xauth_session
@@ -92,7 +101,8 @@ $dbh->do("TRUNCATE TABLE $_") for @owned_tables;
 # ------------------------------------------------------------------ users
 # uid 1 = "root": generic admin account name that matches the hardcoded admin
 # list in Bawi::Auth::is_admin, so admin paths are testable. Not a real person.
-my $N_USERS = 50;
+my $N_USERS = 50;   # <= 99: 'testuserNN' must fit the app's char(10)/varchar(10) id columns
+die "N_USERS must be <= 99 ('testuser100' would overflow 10-char id columns)\n" if $N_USERS > 99;
 print "seeding $N_USERS users (ids: root, testuser02..testuser$N_USERS; password: $TEST_PASSWORD)\n";
 my %uname;   # uid -> display name
 my %uid2id;  # uid -> login id
@@ -184,7 +194,7 @@ my @article_rows;            # [article_id, board_id, article_no, uid, created_e
             (article_id, article_no, parent_no, thread_no, board_id, category,
              title, uid, id, name, count, recom, scrap, comments,
              has_attach, has_poll, created)
-        VALUES (?,?,?,?,?,0,?,?,?,?,?,0,0,0,0,?,?)});
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,0,0,?,?)});
     my $bo = $dbh->prepare(q{
         INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?,?,?)});
 
@@ -205,26 +215,48 @@ my @article_rows;            # [article_id, board_id, article_no, uid, created_e
             }
             my $title = $parent_no
                 ? sprintf('Re: [테스트] %s 글 %03d', $btitle, $parent_no)
-                : sprintf('[테스트] %s 글 %03d — synthetic article', $btitle, $no);
-            $title = substr($title, 0, 64);
+                : sprintf('[테스트] %s 글 %03d — synthetic', $btitle, $no);
+            # bw_xboard_header.title is char(64); this script has no `use utf8`,
+            # so length() counts BYTES — a blind substr could cut mid-Hangul.
+            # Titles are ours and deterministic: fail loudly instead.
+            die "seed bug: title exceeds 64 bytes (shorten the board title in \@BOARDS): $title\n"
+                if length($title) > 64;
             my $has_poll = 0;
             if (($kw eq 'free' && $no == 10) || ($kw eq 'career' && $no == 5)) {
                 $has_poll = 1;
                 $poll_articles{$article_id} = $bid;
             }
-            $h->execute($article_id, $no, $parent_no, $thread_no, $bid,
+            # 5 markdown articles: category=1 routes reads through
+            # Bawi::Markdown::render + the bw_xboard_body_html cache
+            # (lib/Bawi/Board.pm format_article), the newest read path.
+            my $category = ($kw eq 'free' && $no >= 20 && $no <= 24) ? 1 : 0;
+            $h->execute($article_id, $no, $parent_no, $thread_no, $bid, $category,
                         $title, $author, $uid2id{$author}, $uname{$author},
                         pick(200), $has_poll, dt($created));
-            my $body = join("\n",
-                "이 글은 테스트 환경용 합성 데이터입니다. (SYNTHETIC TEST DATA)",
-                "게시판: $btitle / 글 번호: $no / article_id: $article_id",
-                "작성자: $uname{$author} ($uid2id{$author}) — 실존 인물이 아닙니다.",
-                "",
-                "본문 채움 문단입니다. 페이지네이션과 목록/읽기 화면을 시험하기 위한",
-                "내용이며 실제 서비스 데이터와 무관합니다. " . ('테스트 문장입니다. ' x (1 + $no % 5)),
-                "",
-                "Filler paragraph #$no for list/read/pagination testing.",
-            );
+            my $body = $category
+                ? join("\n",
+                    "## 마크다운 테스트 글 $no (markdown test)",
+                    "",
+                    "이 글은 **category=1** 로 저장되어 읽기 시점에 Bawi::Markdown 으로",
+                    "렌더링되고, 결과가 `bw_xboard_body_html` 캐시에 기록됩니다.",
+                    "",
+                    "- 목록 항목 하나",
+                    "- 목록 항목 둘 — [링크](https://example.invalid/md-$no)",
+                    "",
+                    "```perl",
+                    "print \"fenced code block #$no\\n\";",
+                    "```",
+                  )
+                : join("\n",
+                    "이 글은 테스트 환경용 합성 데이터입니다. (SYNTHETIC TEST DATA)",
+                    "게시판: $btitle / 글 번호: $no / article_id: $article_id",
+                    "작성자: $uname{$author} ($uid2id{$author}) — 실존 인물이 아닙니다.",
+                    "",
+                    "본문 채움 문단입니다. 페이지네이션과 목록/읽기 화면을 시험하기 위한",
+                    "내용이며 실제 서비스 데이터와 무관합니다. " . ('테스트 문장입니다. ' x (1 + $no % 5)),
+                    "",
+                    "Filler paragraph #$no for list/read/pagination testing.",
+                  );
             $bo->execute($article_id, $bid, $body);
             $first_article_id{$bid} = $article_id if $no == 1;
             push @article_rows, [$article_id, $bid, $no, $author, $created];
@@ -289,9 +321,10 @@ print "seeding notices + bookmarks\n";
         my $seq = 0;
         for my $bid (1, 2, 3, 4, 6) {
             # last-read position a bit behind the tip -> "new article" markers
-            my ($max_no) = grep { $_->[0] == $bid } @BOARDS;
-            my $behind = 3 + ($uid % 4);
-            my $article_no = $max_no->[5] > $behind ? $max_no->[5] - $behind : 0;
+            my ($board) = grep { $_->[0] == $bid } @BOARDS;
+            my $max_no  = $board->[5];             # articles column of @BOARDS
+            my $behind  = 3 + ($uid % 4);
+            my $article_no = $max_no > $behind ? $max_no - $behind : 0;
             $bm->execute($uid, $bid, $article_no, 0, ++$seq);
         }
     }
@@ -447,6 +480,39 @@ print "seeding degrees / majors / circles per user\n";
     $uc->execute($_, 1 + ($_ % 4)) for 2 .. 20;
 }
 
+# ------------------------------------------------------------ career (v3.2)
+print "seeding career entries (organizations / org_alias / bw_user_career)\n";
+{
+    my $org = $dbh->prepare(q{
+        INSERT INTO organizations (org_id, name, created_by) VALUES (?,?,1)});
+    my $al  = $dbh->prepare(q{INSERT INTO org_alias (alias, org_id) VALUES (?,?)});
+    my @ORGS = (        # org_id, canonical name, searchable aliases
+        [1, '가상연구소 (Synthetic Labs)', ['가상연구소', 'Synthetic Labs']],
+        [2, 'Example Corp',                ['Example Corp', '예제회사']],
+        [3, '모의대학병원',                ['모의대학병원']],
+        [4, 'Test Foundation',             ['Test Foundation', '테스트재단']],
+    );
+    for my $o (@ORGS) {
+        my ($oid, $oname, $aliases) = @$o;
+        $org->execute($oid, $oname);
+        $al->execute($_, $oid) for @$aliases;
+    }
+    my @ctypes = ('employment','internship','volunteer','research','military','other');
+    my $cr = $dbh->prepare(q{
+        INSERT INTO bw_user_career
+            (career_id, uid, type, organization_id, position, start_date, end_date)
+        VALUES (?,?,?,?,?,?,?)});
+    my $cid = 0;
+    for my $uid (2 .. 25) {              # 24 entries; full type-enum coverage
+        $cid++;
+        my $start   = BASE_EPOCH - 86400 * 365 * (6 - $uid % 5);
+        my $ongoing = $uid % 4 == 0;     # NULL end_date = ongoing
+        $cr->execute($cid, $uid, $ctypes[$uid % 6], 1 + ($uid % 4),
+                     '합성 직위 (synthetic position)',
+                     d($start), $ongoing ? undef : d($start + 86400 * 365 * 2));
+    }
+}
+
 # ------------------------------------------------------------------- loads
 {
     my $ld = $dbh->prepare(q{
@@ -481,7 +547,7 @@ $dbh->do(q{INSERT INTO bw_xboard_stat_article
            FROM bw_xboard_header h LEFT JOIN bw_user_ki k ON k.uid = h.uid
            ORDER BY h.recom DESC, h.article_id LIMIT 30});
 $dbh->do(q{INSERT INTO bw_xboard_stat_user (id, name, articles, counts, comments, recoms)
-           SELECT h.id, h.name, COUNT(*), SUM(h.count), 0, SUM(h.recom)
+           SELECT h.id, h.name, COUNT(*), SUM(h.count), SUM(h.comments), SUM(h.recom)
            FROM bw_xboard_header h GROUP BY h.id, h.name});
 
 # -------------------------------------------------------------- verification
@@ -489,7 +555,8 @@ print "\n=== verification ===\n";
 for my $t (qw(bw_xauth_passwd bw_user_ki bw_group bw_group_user bw_xboard_board
               bw_xboard_header bw_xboard_body bw_xboard_comment bw_xboard_recom
               bw_xboard_notice bw_xboard_bookmark bw_note bw_xboard_poll
-              bw_xboard_poll_opt bw_xboard_poll_ans bw_user_degree registers)) {
+              bw_xboard_poll_opt bw_xboard_poll_ans bw_user_degree registers
+              organizations org_alias bw_user_career)) {
     my ($n) = $dbh->selectrow_array("SELECT COUNT(*) FROM $t");
     printf "  %-22s %6d rows\n", $t, $n;
 }

@@ -1,21 +1,20 @@
 #!/bin/bash
 # Entrypoint for the bawi test web container.
-# 1. Prepare BAWI_DATA_HOME (attachment dir) with www-data ownership.
+# 1. Prepare BAWI_DATA_HOME (attachments) and the photo dir with www-data
+#    ownership. App config needs no step here: docker-compose.yml bind-mounts
+#    docker/conf/ read-only onto conf/, so the tracked test configs are always
+#    the live ones (edit docker/conf/*.conf on the host, restart web).
 # 2. Wait (bounded) for MariaDB so first-request behavior is deterministic.
 # 3. Run Apache in the foreground.
 set -e
 
 DATA_HOME=/home/bawi/bawi-data
 mkdir -p "$DATA_HOME/attach" "$DATA_HOME/tmp"
-chown -R www-data:www-data "$DATA_HOME"
-
-# Provide app config: conf/*.conf is gitignored (prod keeps its real configs
-# untracked there), so materialize the local test configs from docker/conf/
-# into the bind-mounted tree unless the host already has them.
-for f in /home/bawi/bawi-spring/docker/conf/*.conf; do
-    t="/home/bawi/bawi-spring/conf/$(basename "$f")"
-    [ -e "$t" ] || cp "$f" "$t"
-done
+# Photo storage: admin/uphoto.cgi, user/upload_photo.cgi et al. hardcode this
+# prod path; without it every photo page/upload 500s.
+PHOTO_HOME=/home/bawi/photo_attach
+mkdir -p "$PHOTO_HOME"
+chown -R www-data:www-data "$DATA_HOME" "$PHOTO_HOME"
 
 # Pass-through: `docker run <image> <cmd>` / compose `command:` runs <cmd>
 # instead of Apache (skips the DB wait).
@@ -37,6 +36,8 @@ for i in $(seq 1 90); do
     fi
     if [ "$i" -eq 90 ]; then
         echo "[entrypoint] WARNING: DB not reachable after 90s; starting Apache anyway" >&2
+        echo "[entrypoint] last attempt's error was:" >&2
+        mariadb -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e 'SELECT 1' >/dev/null || true
     fi
     sleep 1
 done

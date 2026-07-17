@@ -4,37 +4,46 @@
 # SECURITY / LOCAL-ONLY NETWORKING:
 #   Every published port below is explicitly bound to 127.0.0.1. This stack
 #   must only ever be reachable from this machine's localhost — never the LAN
-#   or the internet. Do NOT change "127.0.0.1:8080:80" to "8080:80" (a bare
-#   host port makes Docker publish on 0.0.0.0, i.e. all interfaces).
+#   or the internet. Do NOT change "127.0.0.1:${BAWI_HTTP_PORT:-8080}:80" to a
+#   bare "8080:80" (a bare host port makes Docker publish on 0.0.0.0, i.e.
+#   all interfaces).
 #
 # All credentials in this file are throwaway local test values (no real
-# secrets anywhere in this branch).
+# secrets anywhere). The DB coordinate tuple (bawi / bawi_test /
+# bawi-local-test-pw / host "db") is repeated, deliberately un-templated, in:
+# both service env blocks below, docker/conf/*.conf (the app reads those),
+# docker/web/entrypoint.sh defaults, and seed/seed.pl defaults — change one,
+# change all.
 #
-# Usage: see README.md.  Compatible with `docker compose` (v2) and legacy
-# `docker-compose` (1.29+); no v2-only syntax is used.
+# Compose project name comes from the checkout directory, so each worktree
+# gets its own isolated stack; override the two host ports to run several at
+# once: BAWI_HTTP_PORT=8081 BAWI_DB_PORT=3308 docker compose up -d
+#
+# Usage: see INSTALLATION.md.  Compatible with `docker compose` (v2) and
+# legacy `docker-compose` (1.29+); no v2-only syntax is used.
 # =============================================================================
 version: "3.8"
 
 services:
   db:
     image: mariadb:10.6
-    container_name: bawi-test-db
     environment:
-      MARIADB_ROOT_PASSWORD: bawi-local-root-pw
+      MARIADB_ROOT_PASSWORD: bawi-local-root-pw   # plain env form required by 20-apply-migrations.sh
       MARIADB_DATABASE: bawi            # production DB name is `bawi`
       MARIADB_USER: bawi_test
       MARIADB_PASSWORD: bawi-local-test-pw
     volumes:
       - bawi-db-data:/var/lib/mysql
-      # First-boot init: 10-schema.sql (prod schema, structure only) then
-      # 20-apply-migrations.sh (guarded db/*.sql migration runner).
+      # First-boot init, in lexicographic order: 10-schema.sql (prod schema,
+      # structure only), 15-baseline.sql (pre-records the migrations that
+      # dump already contains), 20-apply-migrations.sh (runs the rest).
       - ./docker/db/init:/docker-entrypoint-initdb.d:ro
-      # Repo migrations, read-only, for the migration runner.
+      # Repo migrations (db/2*.sql), read-only, for the migration runner.
       - ./db:/bawi-migrations:ro
     ports:
       # localhost-only, for host-side inspection (mysql client / GUI):
-      #   mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi
-      - "127.0.0.1:3307:3306"
+      #   mysql -h 127.0.0.1 -P ${BAWI_DB_PORT:-3307} -u bawi_test -pbawi-local-test-pw bawi
+      - "127.0.0.1:${BAWI_DB_PORT:-3307}:3306"
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
@@ -44,12 +53,11 @@ services:
   web:
     build:
       context: docker/web
-    container_name: bawi-test-web
     depends_on:
       - db
     environment:
       # Used by the entrypoint wait-loop and seed/seed.pl (the app itself
-      # reads conf/*.conf, which point at the same DB).
+      # reads conf/*.conf — mounted below — which point at the same DB).
       BAWI_DB_HOST: db
       BAWI_DB_NAME: bawi
       BAWI_DB_USER: bawi_test
@@ -60,12 +68,20 @@ services:
       # picked up immediately (restart the web container to reset mod_perl's
       # in-process caches when editing lib/*.pm).
       - .:/home/bawi/bawi-spring
-      # BAWI_DATA_HOME (attachment uploads etc.) — kept out of the repo.
+      # Tracked local test configs, shadowing the host's conf/ inside the
+      # container (conf/*.conf is gitignored — prod keeps real configs
+      # untracked there). Nested read-only bind: always exactly the tracked
+      # files, nothing materialized, nothing to go stale.
+      - ./docker/conf:/home/bawi/bawi-spring/conf:ro
+      # BAWI_DATA_HOME (attachment uploads) and the photo dir — kept out of
+      # the repo; paths are hardcoded in startup.pl / the photo CGIs.
       - bawi-data:/home/bawi/bawi-data
+      - bawi-photos:/home/bawi/photo_attach
     ports:
-      # localhost-only: http://localhost:8080/
-      - "127.0.0.1:8080:80"
+      # localhost-only: http://localhost:${BAWI_HTTP_PORT:-8080}/
+      - "127.0.0.1:${BAWI_HTTP_PORT:-8080}:80"
 
 volumes:
   bawi-db-data:
   bawi-data:
+  bawi-photos:

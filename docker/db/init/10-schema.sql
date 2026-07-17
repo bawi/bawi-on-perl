@@ -1,4 +1,17 @@
-/*M!999999\- enable the sandbox mode */ 
+-- ===========================================================================
+-- Production schema snapshot, STRUCTURE ONLY (zero rows).
+--   source:    prod `bawi` database, dumped 2026-07-06
+--   command:   mysqldump --no-data --skip-dump-date bawi  (host/date header
+--              lines stripped; the freq_bookmark view's prod DEFINER clause
+--              removed so the view is SELECTable in the test DB, which has
+--              no `bawi`@`localhost` user)
+--   contains:  all migrations up to and including 20221221 — see
+--              15-baseline.sql, which records exactly that set.
+-- WHEN REFRESHING THIS FILE from prod: strip the DEFINER clause again and
+-- update 15-baseline.sql to list every dated migration the new dump
+-- includes, or first-boot init will re-execute them and abort.
+-- ===========================================================================
+/*M!999999\- enable the sandbox mode */
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -868,7 +881,6 @@ CREATE TABLE `schools` (
 /*!50001 SET character_set_results     = utf8mb3 */;
 /*!50001 SET collation_connection      = utf8mb3_general_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`bawi`@`localhost` SQL SECURITY DEFINER */
 /*!50001 VIEW `freq_bookmark` AS select count(0) AS `count`,`bw_xboard_bookmark`.`uid` AS `uid` from `bw_xboard_bookmark` group by `bw_xboard_bookmark`.`uid` order by count(0) desc */;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;

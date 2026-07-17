@@ -6,20 +6,22 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Core stack + every Perl module the app needs:
-#   libapache2-mod-perl2   -> mod_perl2 / ModPerl::Registry
-#   libapache-dbi-perl     -> Apache::DBI (persistent DB handles)
-#   libdbd-mysql-perl      -> DBD::mysql (DSNs are "dbi:mysql:...")
-#   libcgi-pm-perl         -> CGI, CGI::Cookie
-#   libhtml-template-perl  -> HTML::Template
-#   libimage-magick-perl   -> Image::Magick (PerlMagick)
-#   libtext-iconv-perl     -> Text::Iconv
-#   liburi-perl            -> URI::Escape
-#   libjson-perl, libgd-perl -> JSON / GD (used by a couple of stat scripts)
+# Core stack + every EXTERNAL Perl module the app needs:
+#   libapache2-mod-perl2      -> mod_perl2 / ModPerl::Registry
+#   libapache-dbi-perl        -> Apache::DBI (persistent DB handles)
+#   libdbd-mysql-perl         -> DBD::mysql (DSNs are "dbi:mysql:...")
+#   libcgi-pm-perl            -> CGI, CGI::Cookie
+#   libhtml-template-perl     -> HTML::Template
+#   libimage-magick-perl      -> Image::Magick (PerlMagick)
+#   libtext-iconv-perl        -> Text::Iconv
+#   liburi-perl               -> URI::Escape
+#   libjson-perl              -> JSON (board/comment.cgi Twitter embed)
+#   libgd-perl                -> GD (main/process/graph.cgi)
 #   Locale::Maketext, Digest::MD5, HTTP::Tiny, Encode, Benchmark -> perl core
-# GeoIP2::WebService::Client is intentionally NOT installed: nothing on the
-# resp2 branch imports it (verified by grep); it belongs to a skipped
-# optional feature.
+# Text::Markdown needs no package: it is vendored at lib/Text/Markdown.pm and
+# resolved via startup.pl's `use lib`. GeoIP2::WebService::Client is
+# intentionally NOT installed: nothing in this repo imports it (verified by
+# grep); it belongs to a skipped optional feature.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apache2 \
         libapache2-mod-perl2 \
@@ -38,13 +40,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# HTML::ParseBrowser is a HARD dependency of Bawi::Auth (used on every
-# authenticated request) — despite being listed alongside the optional GeoIP
-# feature. Prefer the Ubuntu package; fall back to CPAN if unavailable.
+# HTML::ParseBrowser is a HARD dependency of Bawi::Auth (use'd at
+# lib/Bawi/Auth.pm:10, hit on every login) but is NOT packaged in Ubuntu
+# 22.04 ("Unable to locate package libhtml-parsebrowser-perl") — install it
+# from CPAN. The perl -M gate below fails the build if this ever breaks.
 RUN apt-get update \
-    && ( apt-get install -y --no-install-recommends libhtml-parsebrowser-perl \
-         || ( apt-get install -y --no-install-recommends cpanminus make \
-              && cpanm --notest HTML::ParseBrowser ) ) \
+    && apt-get install -y --no-install-recommends cpanminus make \
+    && cpanm --notest HTML::ParseBrowser \
     && rm -rf /var/lib/apt/lists/*
 
 # Fail the build early if any compile-time dependency is missing.
