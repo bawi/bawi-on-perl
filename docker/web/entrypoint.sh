@@ -27,17 +27,18 @@ DB_NAME="${BAWI_DB_NAME:-bawi}"
 DB_USER="${BAWI_DB_USER:-bawi_test}"
 DB_PASS="${BAWI_DB_PASS:-bawi-local-test-pw}"
 
+probe() { mariadb -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e 'SELECT 1' >/dev/null; }
+
 echo "[entrypoint] waiting for MariaDB at ${DB_HOST} (max 90s) ..."
 for i in $(seq 1 90); do
-    if mariadb -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" \
-               -e 'SELECT 1' >/dev/null 2>&1; then
+    if probe 2>/dev/null; then
         echo "[entrypoint] database is up (after ${i}s)"
         break
     fi
     if [ "$i" -eq 90 ]; then
         echo "[entrypoint] WARNING: DB not reachable after 90s; starting Apache anyway" >&2
-        echo "[entrypoint] last attempt's error was:" >&2
-        mariadb -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e 'SELECT 1' >/dev/null || true
+        echo "[entrypoint] retrying once to show the error:" >&2
+        probe || true
     fi
     sleep 1
 done

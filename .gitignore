@@ -6,3 +6,4 @@ admin/process/dat/*.txt
 /main/BingSiteAuth.xml
 /main/google*.html
 /maint
+.env

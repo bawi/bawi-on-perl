@@ -9,7 +9,8 @@
 --              15-baseline.sql, which records exactly that set.
 -- WHEN REFRESHING THIS FILE from prod: strip the DEFINER clause again and
 -- update 15-baseline.sql to list every dated migration the new dump
--- includes, or first-boot init will re-execute them and abort.
+-- reflects — a missed entry is re-executed (non-idempotent DDL aborts
+-- first boot; idempotent migrations re-run silently — verify by hand).
 -- ===========================================================================
 /*M!999999\- enable the sandbox mode */
 

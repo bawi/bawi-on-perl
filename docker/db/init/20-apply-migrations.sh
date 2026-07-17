@@ -10,14 +10,16 @@
 # migrations already contained in 10-schema.sql are pre-recorded as
 # status='baseline' by 15-baseline.sql (which runs first and also creates the
 # table); everything not recorded is executed and recorded as 'applied'.
-# REFRESHING THE DUMP: update 15-baseline.sql in the same commit — a
-# migration the new dump contains but the baseline list misses will be
-# re-executed and abort first boot.
+# REFRESHING THE DUMP: update 15-baseline.sql in the same commit — a missed
+# baseline entry gets re-executed: non-idempotent DDL aborts first boot
+# loudly, but idempotent migrations (ALTER MODIFY, data UPDATEs, DROP IF
+# EXISTS+CREATE) re-run SILENTLY — verify those rows by hand.
 #
 # This file is executable ON PURPOSE: the official mariadb entrypoint runs
 # executable init hooks as a child process (it would source a non-executable
-# one into its own shell, leaking our set -e/shopt). Both contexts therefore
-# use the plain client below:
+# one into its own shell, leaking our set -e/shopt). The child doesn't
+# inherit the entrypoint's internal SQL helper functions, so both contexts
+# call the plain mariadb client below:
 #   a) first-boot init hook — the entrypoint's temp server listens on the
 #      default socket and the root password is already set. Requires the
 #      plain MARIADB_ROOT_PASSWORD env form (a _FILE/RANDOM variant would
@@ -31,8 +33,8 @@ DB_NAME="${MARIADB_DATABASE:-bawi}"
 
 sql_exec() { mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:?}" --database="$DB_NAME" "$@"; }
 
-# Scalar query with a fail-closed error path: a failed probe must abort, not
-# read as an answer (an empty result here once meant "skip this migration").
+# Query with a fail-closed error path: a failed probe must abort, not read
+# as an answer (an empty result here once meant "skip this migration").
 sql_query() {
     local out
     out=$(echo "$1" | sql_exec --skip-column-names --batch) \
@@ -40,16 +42,16 @@ sql_query() {
     echo "$out"
 }
 
-# 15-baseline.sql creates the tracking table on first init; ensure it exists
-# for manual reruns against DBs initialized before that file existed.
-sql_exec <<'SQL'
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  filename   varchar(128) NOT NULL,
-  status     enum('applied','baseline') NOT NULL,
-  applied_at datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (filename)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-SQL
+# 15-baseline.sql owns the tracking table and its baseline rows (first-boot
+# init runs it before this script). A missing/empty table here means the DB
+# was never legitimately initialized (e.g. a first boot that died mid-schema,
+# then restarted with a non-empty datadir, which skips init) — re-executing
+# migrations against unknown state is wrong, so fail closed.
+recorded=$(sql_query "SELECT COUNT(*) FROM schema_migrations" 2>/dev/null) || recorded=""
+if [ -z "$recorded" ] || [ "$recorded" = "0" ]; then
+    echo "[migrations] FATAL: schema_migrations is missing or empty — this DB was not initialized by 15-baseline.sql (a failed first boot?). Rebuild with: docker compose down -v && docker compose up -d" >&2
+    exit 1
+fi
 
 is_recorded() {
     local n
@@ -88,7 +90,12 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
     sql_exec < "$f"
     record "$base" applied
 done
-[ "$found" = "1" ] || echo "[migrations] WARNING: no dated migration files found in $MIGRATIONS_DIR"
+if [ "$found" != "1" ]; then
+    # The repo always ships dated migrations; an empty dir means a broken
+    # mount or MIGRATIONS_DIR override — never a state to bless silently.
+    echo "[migrations] FATAL: no dated migration files found in $MIGRATIONS_DIR" >&2
+    exit 1
+fi
 
 echo "[migrations] state:"
 sql_query "SELECT CONCAT(filename, ' -> ', status) FROM schema_migrations ORDER BY filename"

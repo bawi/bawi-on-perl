@@ -38,8 +38,13 @@
 #     bw_user_gbook, bw_user_support, bw_symp, bw_user_access_history,
 #     bawi_access_stat, bw_note_notify_boxcar, bw_postman_log,
 #     bw_poll* (legacy), bw_xpoll_check, notes (legacy).
-#     User-writable empties are still truncated on reseed (see @owned_tables)
-#     so UI experiments don't survive a "wipe + reseed".
+#     Reseed truncates EVERY base table except schema_migrations (derived
+#     from information_schema, so it can't drift), then reseeds — no UI
+#     experiment survives a "wipe + reseed".
+#     Deterministic caveat: columns with DEFAULT CURRENT_TIMESTAMP that the
+#     seeder leaves unset (bw_xboard_body.modified, bw_user_access
+#     .last_access, organizations.created_date) take the run's wall clock;
+#     every value the seeder writes explicitly is deterministic.
 # =============================================================================
 use strict;
 use warnings;
@@ -78,31 +83,25 @@ die "FATAL: MariaDB ENCRYPT() returned NULL — DES crypt unavailable in the db 
 print "password hash for '$TEST_PASSWORD': $pw_hash\n";
 
 # ------------------------------------------------------------------- wipe
-my @owned_tables = qw(
-    bw_xauth_passwd bw_user_ki bw_user_basic bw_user_sig bw_user_access
-    bw_group bw_group_user
-    bw_xboard_board bw_xboard_header bw_xboard_body bw_xboard_comment
-    bw_xboard_notice bw_xboard_recom bw_xboard_bookmark
-    bw_xboard_scrap bw_xboard_attach bw_xboard_commentref
-    bw_xboard_tag bw_xboard_tagmap bw_xboard_body_html
-    bw_note
-    bw_xboard_poll bw_xboard_poll_opt bw_xboard_poll_ans
-    bw_xpoll bw_xpoll_question bw_xpoll_choice
-    countries schools majors circles registers
-    bw_data_major bw_user_major bw_user_degree bw_user_circle
-    organizations org_alias bw_user_career
-    loads
-    bw_xboard_stat_board bw_xboard_stat_article bw_xboard_stat_user
-    bw_xauth_session
-);
-print "truncating ", scalar(@owned_tables), " tables ...\n";
-$dbh->do("TRUNCATE TABLE $_") for @owned_tables;
+# Truncate every base table except the migration ledger, so "wipe + reseed"
+# is true by construction — a hand-kept list drifts as migrations add tables
+# (and already had: UI-writable tables were missing). No migration seeds
+# reference rows, so truncate-all is safe.
+my $tables = $dbh->selectcol_arrayref(q{
+    SELECT table_name FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+      AND table_name <> 'schema_migrations'});
+print "truncating ", scalar(@$tables), " tables ...\n";
+$dbh->do("TRUNCATE TABLE `$_`") for @$tables;
 
 # ------------------------------------------------------------------ users
 # uid 1 = "root": generic admin account name that matches the hardcoded admin
 # list in Bawi::Auth::is_admin, so admin paths are testable. Not a real person.
 my $N_USERS = 50;   # <= 99: 'testuserNN' must fit the app's char(10)/varchar(10) id columns
 die "N_USERS must be <= 99 ('testuser100' would overflow 10-char id columns)\n" if $N_USERS > 99;
+# Floor: registers (uids 46..50), degrees (2..46), careers (2..25) and other
+# blocks hardcode uid ranges; a smaller pool would seed orphan references.
+die "N_USERS must be >= 50 (later blocks hardcode uid ranges up to 50)\n" if $N_USERS < 50;
 print "seeding $N_USERS users (ids: root, testuser02..testuser$N_USERS; password: $TEST_PASSWORD)\n";
 my %uname;   # uid -> display name
 my %uid2id;  # uid -> login id
@@ -456,6 +455,9 @@ print "seeding registration lookups (countries/schools/majors/circles/registers)
 print "seeding degrees / majors / circles per user\n";
 {
     my @types = ('Bachelor','Master','Doctor','Postdoc','Resident','Fellow');
+    # status vocabulary lives in app code, not the schema (varchar):
+    # Bawi::User::get_degree maps exactly these five to display labels.
+    my @statuses = ('graduated','course_completed','admitted','other');
     my $dg = $dbh->prepare(q{
         INSERT INTO bw_user_degree
             (degree_id, uid, type, school_id, department, advisors, content,
@@ -464,7 +466,7 @@ print "seeding degrees / majors / circles per user\n";
     my $did = 0;
     for my $uid (2 .. 46) {
         $did++;
-        my $type    = $types[$uid % 6];             # exercises full career enum
+        my $type    = $types[$uid % 6];   # all 6 bw_user_degree.type values (incl. the 20161225_add_career_enum.sql additions)
         my $start   = BASE_EPOCH - 86400 * 365 * (10 - $uid % 8);
         my $current = $uid % 3 == 0;
         $dg->execute($did, $uid, $type, 1 + ($uid % 6),
@@ -472,7 +474,7 @@ print "seeding degrees / majors / circles per user\n";
                      'synthetic degree record for career-feature testing',
                      d($start),
                      $current ? '1001-01-01' : d($start + 86400 * 365 * 4),
-                     $current ? 'current' : 'completed');
+                     $current ? 'attending' : $statuses[$uid % 4]);
     }
     my $um = $dbh->prepare(q{INSERT INTO bw_user_major (uid, major_id) VALUES (?,?)});
     $um->execute($_, 3 + ($_ % 6)) for 2 .. 41;     # child majors 3..8
@@ -486,8 +488,10 @@ print "seeding career entries (organizations / org_alias / bw_user_career)\n";
     my $org = $dbh->prepare(q{
         INSERT INTO organizations (org_id, name, created_by) VALUES (?,?,1)});
     my $al  = $dbh->prepare(q{INSERT INTO org_alias (alias, org_id) VALUES (?,?)});
+    # App invariant (Bawi::User::add_org): the canonical name is ALWAYS also
+    # an alias — "no alias == invisible org". Keep each name in its list.
     my @ORGS = (        # org_id, canonical name, searchable aliases
-        [1, '가상연구소 (Synthetic Labs)', ['가상연구소', 'Synthetic Labs']],
+        [1, '가상연구소 (Synthetic Labs)', ['가상연구소 (Synthetic Labs)', '가상연구소', 'Synthetic Labs']],
         [2, 'Example Corp',                ['Example Corp', '예제회사']],
         [3, '모의대학병원',                ['모의대학병원']],
         [4, 'Test Foundation',             ['Test Foundation', '테스트재단']],
@@ -511,6 +515,13 @@ print "seeding career entries (organizations / org_alias / bw_user_career)\n";
                      '합성 직위 (synthetic position)',
                      d($start), $ongoing ? undef : d($start + 86400 * 365 * 2));
     }
+    # Edge classes the career UI branches on: unknown start (NULL), a
+    # dangling organization_id ('(삭제된 기관)' path), and second careers
+    # for uids 2 and 3 (exercises the end_date-DESC ordering).
+    $cr->execute(++$cid, 2, 'other', 99, '삭제기관 테스트 (dangling org)',
+                 undef, d(BASE_EPOCH - 86400 * 365 * 8));
+    $cr->execute(++$cid, 3, 'volunteer', 3, '시작일 미상 (unknown start)',
+                 undef, undef);
 }
 
 # ------------------------------------------------------------------- loads
@@ -573,5 +584,5 @@ my ($orphan_bodies) = $dbh->selectrow_array(q{
 print "  headers without body: $orphan_bodies (expect 0)\n";
 die "FATAL: headers without bodies\n" if $orphan_bodies;
 
-print "\nseed complete. Log in at http://localhost:8080/ as 'root' or 'testuser02' (password: $TEST_PASSWORD)\n";
+print "\nseed complete. Log in on this stack's web port (default http://localhost:8080/) as 'root' or 'testuser02' (password: $TEST_PASSWORD)\n";
 $dbh->disconnect;

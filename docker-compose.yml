@@ -15,9 +15,13 @@
 # docker/web/entrypoint.sh defaults, and seed/seed.pl defaults — change one,
 # change all.
 #
-# Compose project name comes from the checkout directory, so each worktree
-# gets its own isolated stack; override the two host ports to run several at
-# once: BAWI_HTTP_PORT=8081 BAWI_DB_PORT=3308 docker compose up -d
+# Compose project name comes from the checkout directory BASENAME, so each
+# uniquely-named worktree gets its own isolated stack (two checkouts with the
+# same basename would share one — disambiguate with `docker compose -p`).
+# Override the two host ports to run several stacks at once, persistently via
+# a gitignored .env file: printf 'BAWI_HTTP_PORT=8081\nBAWI_DB_PORT=3308\n' > .env
+# (a one-off env prefix works too, but is forgotten by the next bare
+# `docker compose up`, which then collides with the default-port stack).
 #
 # Usage: see INSTALLATION.md.  Compatible with `docker compose` (v2) and
 # legacy `docker-compose` (1.29+); no v2-only syntax is used.
@@ -38,7 +42,8 @@ services:
       # structure only), 15-baseline.sql (pre-records the migrations that
       # dump already contains), 20-apply-migrations.sh (runs the rest).
       - ./docker/db/init:/docker-entrypoint-initdb.d:ro
-      # Repo migrations (db/2*.sql), read-only, for the migration runner.
+      # Repo migrations (db/YYYYMMDD_*.sql; other names are skipped loudly),
+      # read-only, for the migration runner.
       - ./db:/bawi-migrations:ro
     ports:
       # localhost-only, for host-side inspection (mysql client / GUI):

@@ -30,14 +30,19 @@ contains (`docker/db/init/15-baseline.sql`), then executes the newer
 `db/YYYYMMDD_*.sql` migrations. The app's config is the tracked
 `docker/conf/*.conf`, bind-mounted read-only onto `conf/` inside the
 container (prod keeps its real configs untracked in `conf/`, which stays
-gitignored).
+gitignored). Any host-side `conf/*.conf` — including copies materialized by
+older versions of this environment — is ignored inside the container and safe
+to delete.
 
-Ports default to **8080** (web) and **3307** (db) on localhost. Each checkout
-gets its own compose project (named after its directory), so several
-worktrees can run stacks side by side — just give later ones different ports:
+Ports default to **8080** (web) and **3307** (db) on localhost. Each
+uniquely-named checkout gets its own compose project (project = directory
+basename; same-named checkouts would share one — use `docker compose -p` to
+disambiguate). To run stacks side by side, give later ones their own ports —
+persistently, via a gitignored `.env`:
 
 ```sh
-BAWI_HTTP_PORT=8081 BAWI_DB_PORT=3308 docker compose up -d --build
+printf 'BAWI_HTTP_PORT=8081\nBAWI_DB_PORT=3308\n' > .env
+docker compose up -d --build
 ```
 
 Then load the synthetic data (idempotent — safe to re-run any time):
@@ -70,13 +75,13 @@ containers per-project, i.e. per-directory.
 docker compose logs -f web            # Apache error+access log (stderr/stdout)
 docker compose restart web            # REQUIRED after editing lib/Bawi/*.pm
                                       # (mod_perl caches modules per child;
-                                      #  .cgi edits are picked up automatically)
-                                      # Also after editing docker/conf/*.conf.
+                                      #  .cgi and docker/conf/*.conf edits are
+                                      #  picked up on the next request)
 ./seed/reseed.sh                      # wipe + reseed synthetic data
 docker compose exec web bash          # shell in the web container
 mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi   # DB from host
 docker compose down                   # stop (data volumes kept)
-docker compose down -v                # stop and DESTROY db + attachment volumes
+docker compose down -v                # stop and DESTROY db + attachment + photo volumes
 ```
 
 The repo working tree is bind-mounted at `/home/bawi/bawi-spring` (the exact
@@ -113,9 +118,10 @@ dumps and are never executed) are applied on first DB init by
 `docker/db/init/20-apply-migrations.sh`. Double-apply protection is the
 `schema_migrations` tracking table: migrations already contained in the
 schema dump are pre-recorded as `baseline` by `docker/db/init/15-baseline.sql`,
-everything else runs and is recorded as `applied` (currently the career-v3.2
-and body_html render-cache migrations). The runner logs a line per file, so
-a migration it didn't pick up is visible in `docker compose logs db`.
+everything else runs and is recorded as `applied` (currently
+`20260708_create_career.sql` and `20260712_create_body_html.sql`). The runner
+logs a line per file, so a migration it didn't pick up is visible in
+`docker compose logs db`.
 
 After adding a new `db/YYYYMMDD_*.sql` to a *running* env (from the checkout
 that launched it):
@@ -128,9 +134,12 @@ To rebuild the DB from scratch: `docker compose down -v && docker compose up -d`
 then reseed.
 
 **Refreshing `10-schema.sql` from prod:** update `15-baseline.sql` in the same
-commit (see the header comments in both files) — a migration the new dump
-contains but the baseline list misses would be re-executed and abort first
-boot.
+commit (see the header comments in both files). A migration the new dump
+reflects but the baseline list misses gets re-executed — non-idempotent DDL
+aborts first boot loudly, but idempotent migrations (ALTER MODIFY, data
+UPDATEs, DROP IF EXISTS+CREATE) re-run silently, so verify those rows by
+hand. If a first boot fails partway, `docker compose down -v` before
+retrying — a half-initialized data dir skips init on the next start.
 
 ## Validation checklist (what "working" looks like)
 
