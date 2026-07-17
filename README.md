@@ -17,7 +17,8 @@ dependency list fits in `docker/web/Dockerfile`).
 * `main/ board/ user/ reg/ admin/` — CGI endpoints with their
   `skin/<name>/*.tmpl` templates, Alias-mapped in the Apache vhost
   (plus legacy `/x/` and `/xboard/` → `board/`)
-* `search/ postman/` — not web-mapped (legacy placeholder; mail digest tool)
+* `search/` — legacy placeholder (not web-mapped)
+* `postman/` — email contact-relay for member inquiries (not web-mapped)
 * `apache2/` — vhost configs and mod_perl `startup.pl`
 * `conf/` — `*.conf.sample` templates (real configs live untracked on prod)
 * `db/` — MariaDB schema dump and dated migration scripts
