@@ -42,9 +42,9 @@
 #     from information_schema, so it can't drift), then reseeds — no UI
 #     experiment survives a "wipe + reseed".
 #     Deterministic caveat: columns with DEFAULT CURRENT_TIMESTAMP that the
-#     seeder leaves unset (bw_xboard_body.modified, bw_user_access
-#     .last_access, organizations.created_date) take the run's wall clock;
-#     every value the seeder writes explicitly is deterministic.
+#     seeder leaves unset (bw_xboard_body.modified, bw_user_basic.modified,
+#     bw_user_access.last_access, organizations.created_date) take the run's
+#     wall clock; every value the seeder writes explicitly is deterministic.
 # =============================================================================
 use strict;
 use warnings;
@@ -82,11 +82,22 @@ die "FATAL: MariaDB ENCRYPT() returned NULL — DES crypt unavailable in the db 
     unless defined $pw_hash && length($pw_hash) == 13;
 print "password hash for '$TEST_PASSWORD': $pw_hash\n";
 
+# ---------------------------------------------------------------- constants
+# uid 1 = "root": generic admin account name that matches the hardcoded admin
+# list in Bawi::Auth::is_admin, so admin paths are testable. Not a real person.
+my $N_USERS = 50;   # <= 99: 'testuserNN' must fit the app's char(10)/varchar(10) id columns
+# Guards live BEFORE the wipe so a bad edit dies without emptying the DB.
+die "N_USERS must be <= 99 ('testuser100' would overflow 10-char id columns)\n" if $N_USERS > 99;
+# Floor: registers (uids 46..50), degrees (2..46), careers (2..25) and other
+# blocks hardcode uid ranges; a smaller pool would seed orphan references.
+die "N_USERS must be >= 50 (later blocks hardcode uid ranges up to 50)\n" if $N_USERS < 50;
+
 # ------------------------------------------------------------------- wipe
 # Truncate every base table except the migration ledger, so "wipe + reseed"
 # is true by construction — a hand-kept list drifts as migrations add tables
 # (and already had: UI-writable tables were missing). No migration seeds
-# reference rows, so truncate-all is safe.
+# reference rows, so truncate-all is safe (a rule stated in the migration
+# runner's CONTRACT header: reference rows belong here, not in migrations).
 my $tables = $dbh->selectcol_arrayref(q{
     SELECT table_name FROM information_schema.tables
     WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
@@ -95,13 +106,6 @@ print "truncating ", scalar(@$tables), " tables ...\n";
 $dbh->do("TRUNCATE TABLE `$_`") for @$tables;
 
 # ------------------------------------------------------------------ users
-# uid 1 = "root": generic admin account name that matches the hardcoded admin
-# list in Bawi::Auth::is_admin, so admin paths are testable. Not a real person.
-my $N_USERS = 50;   # <= 99: 'testuserNN' must fit the app's char(10)/varchar(10) id columns
-die "N_USERS must be <= 99 ('testuser100' would overflow 10-char id columns)\n" if $N_USERS > 99;
-# Floor: registers (uids 46..50), degrees (2..46), careers (2..25) and other
-# blocks hardcode uid ranges; a smaller pool would seed orphan references.
-die "N_USERS must be >= 50 (later blocks hardcode uid ranges up to 50)\n" if $N_USERS < 50;
 print "seeding $N_USERS users (ids: root, testuser02..testuser$N_USERS; password: $TEST_PASSWORD)\n";
 my %uname;   # uid -> display name
 my %uid2id;  # uid -> login id
@@ -488,13 +492,17 @@ print "seeding career entries (organizations / org_alias / bw_user_career)\n";
     my $org = $dbh->prepare(q{
         INSERT INTO organizations (org_id, name, created_by) VALUES (?,?,1)});
     my $al  = $dbh->prepare(q{INSERT INTO org_alias (alias, org_id) VALUES (?,?)});
-    # App invariant (Bawi::User::add_org): the canonical name is ALWAYS also
-    # an alias — "no alias == invisible org". Keep each name in its list.
+    # App invariant (Bawi::User::resolve_or_create_org): the canonical name
+    # is ALWAYS also an alias — "no alias == invisible org". Keep each name
+    # in its list. Names are stored HTML-ESCAPED (house style; org_suggest
+    # escapes the query before matching) — org 5 carries a literal & as
+    # &amp; to keep that storage class exercised.
     my @ORGS = (        # org_id, canonical name, searchable aliases
         [1, '가상연구소 (Synthetic Labs)', ['가상연구소 (Synthetic Labs)', '가상연구소', 'Synthetic Labs']],
         [2, 'Example Corp',                ['Example Corp', '예제회사']],
         [3, '모의대학병원',                ['모의대학병원']],
         [4, 'Test Foundation',             ['Test Foundation', '테스트재단']],
+        [5, 'Example &amp; Sons',          ['Example &amp; Sons', '예제앤선즈']],
     );
     for my $o (@ORGS) {
         my ($oid, $oname, $aliases) = @$o;
@@ -511,7 +519,7 @@ print "seeding career entries (organizations / org_alias / bw_user_career)\n";
         $cid++;
         my $start   = BASE_EPOCH - 86400 * 365 * (6 - $uid % 5);
         my $ongoing = $uid % 4 == 0;     # NULL end_date = ongoing
-        $cr->execute($cid, $uid, $ctypes[$uid % 6], 1 + ($uid % 4),
+        $cr->execute($cid, $uid, $ctypes[$uid % 6], 1 + ($uid % 5),
                      '합성 직위 (synthetic position)',
                      d($start), $ongoing ? undef : d($start + 86400 * 365 * 2));
     }

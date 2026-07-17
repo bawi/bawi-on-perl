@@ -79,7 +79,7 @@ docker compose restart web            # REQUIRED after editing lib/Bawi/*.pm
                                       #  picked up on the next request)
 ./seed/reseed.sh                      # wipe + reseed synthetic data
 docker compose exec web bash          # shell in the web container
-mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi   # DB from host
+mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi   # DB from host (your BAWI_DB_PORT if overridden)
 docker compose down                   # stop (data volumes kept)
 docker compose down -v                # stop and DESTROY db + attachment + photo volumes
 ```
@@ -118,10 +118,15 @@ dumps and are never executed) are applied on first DB init by
 `docker/db/init/20-apply-migrations.sh`. Double-apply protection is the
 `schema_migrations` tracking table: migrations already contained in the
 schema dump are pre-recorded as `baseline` by `docker/db/init/15-baseline.sql`,
-everything else runs and is recorded as `applied` (currently
-`20260708_create_career.sql` and `20260712_create_body_html.sql`). The runner
-logs a line per file, so a migration it didn't pick up is visible in
+everything else runs and is recorded as `applied` (every dated `db/` file
+newer than the dump — the runner's closing state listing shows which). The
+runner logs a line per file, so a migration it didn't pick up is visible in
 `docker compose logs db`.
+
+Migrations must be structure-only or idempotent data transforms. Reference
+rows a migration would INSERT belong in `seed/seed.pl` instead — reseed
+truncates every base table except `schema_migrations`, so migration-inserted
+rows would silently vanish on the next reseed.
 
 After adding a new `db/YYYYMMDD_*.sql` to a *running* env (from the checkout
 that launched it):
@@ -144,12 +149,12 @@ retrying — a half-initialized data dir skips init on the next start.
 ## Validation checklist (what "working" looks like)
 
 1. `docker compose ps` — the db and web containers both `Up`.
-2. `docker compose exec -T db mysql -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view.
+2. `docker compose exec -T db mysql -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view. (Grows by one per table-adding migration — cross-check against the runner's state listing in `docker compose logs db`.)
 3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the six seeded board titles (no 500).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.
 6. `curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi` → bookmark page listing seeded boards.
-7. Markdown render path: read a seeded markdown article (free board, e.g. `curl -s -b /tmp/bawi.jar 'http://localhost:8080/board/read.cgi?bid=2&aid=36'`) → body contains rendered HTML (`<h2>`, `<code>`), and `SELECT COUNT(*) FROM bw_xboard_body_html` goes from 0 to ≥1 after the read.
+7. Markdown render path: read a seeded markdown article (free board, e.g. `curl -s -b /tmp/bawi.jar 'http://localhost:8080/board/read.cgi?bid=2&aid=36'`; markdown articles are free-board nos 20-24, `aid` = 15 + article_no — recompute if `@BOARDS` changes) → body contains rendered HTML (`<h2>`, `<code>`), and `SELECT COUNT(*) FROM bw_xboard_body_html` goes from 0 to ≥1 after the read.
 8. `docker compose logs web | grep -i "error"` → no Perl compile errors.
 
 Known-broken pages (repo gap, **not** an environment fault): `board/x.cgi`,

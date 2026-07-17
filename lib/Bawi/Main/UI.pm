@@ -5,7 +5,7 @@ use warnings;
 
 use Carp;
 use CGI;
-use CGI::Cookie;   # init() calls CGI::Cookie->fetch; don't rely on Bawi::Auth having loaded it
+use CGI::Cookie;   # is_mobile_device (called from init) uses CGI::Cookie->fetch; don't rely on Bawi::Auth having loaded it
 use File::Spec;
 use HTML::Template;
 use Text::Iconv;

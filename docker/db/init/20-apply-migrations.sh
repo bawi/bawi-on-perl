@@ -5,6 +5,9 @@
 # /bawi-migrations); lexicographic order == date order. The bawi_*.sql files
 # in db/ are legacy FULL DUMPS and are never executed; any other *.sql name
 # is skipped with a loud warning (rename it to the dated pattern to run it).
+# Migrations must be structure-only or idempotent data transforms: reference
+# rows a migration would INSERT belong in seed/seed.pl instead, because
+# reseed truncates every base table except schema_migrations.
 #
 # Double-apply protection is the schema_migrations tracking table alone:
 # migrations already contained in 10-schema.sql are pre-recorded as
@@ -42,11 +45,16 @@ sql_query() {
     echo "$out"
 }
 
+# Connectivity first, stderr unsuppressed: a down/starting server or bad
+# credentials must abort with the client's real error ("retry"), never be
+# mistaken for the missing-ledger state whose remedy (down -v) is destructive.
+sql_query "SELECT 1" >/dev/null
+
 # 15-baseline.sql owns the tracking table and its baseline rows (first-boot
-# init runs it before this script). A missing/empty table here means the DB
-# was never legitimately initialized (e.g. a first boot that died mid-schema,
-# then restarted with a non-empty datadir, which skips init) — re-executing
-# migrations against unknown state is wrong, so fail closed.
+# init runs it before this script). With the DB reachable, a missing/empty
+# table means the DB was never legitimately initialized (e.g. a first boot
+# that died mid-schema, then restarted with a non-empty datadir, which skips
+# init) — re-executing migrations against unknown state is wrong, fail closed.
 recorded=$(sql_query "SELECT COUNT(*) FROM schema_migrations" 2>/dev/null) || recorded=""
 if [ -z "$recorded" ] || [ "$recorded" = "0" ]; then
     echo "[migrations] FATAL: schema_migrations is missing or empty — this DB was not initialized by 15-baseline.sql (a failed first boot?). Rebuild with: docker compose down -v && docker compose up -d" >&2

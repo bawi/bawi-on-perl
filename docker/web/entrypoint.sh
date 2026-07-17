@@ -3,7 +3,8 @@
 # 1. Prepare BAWI_DATA_HOME (attachments) and the photo dir with www-data
 #    ownership. App config needs no step here: docker-compose.yml bind-mounts
 #    docker/conf/ read-only onto conf/, so the tracked test configs are always
-#    the live ones (edit docker/conf/*.conf on the host, restart web).
+#    the live ones (edit docker/conf/*.conf on the host — the app re-reads
+#    configs on every request, no restart needed).
 # 2. Wait (bounded) for MariaDB so first-request behavior is deterministic.
 # 3. Run Apache in the foreground.
 set -e
@@ -11,9 +12,10 @@ set -e
 DATA_HOME=/home/bawi/bawi-data
 mkdir -p "$DATA_HOME/attach" "$DATA_HOME/tmp"
 # Photo storage: admin/uphoto.cgi, user/upload_photo.cgi et al. hardcode this
-# prod path; without it every photo page/upload 500s.
+# prod path; without it every photo page/upload 500s. The updated/ subdir is
+# where admin/photo.cgi renames processed uploads.
 PHOTO_HOME=/home/bawi/photo_attach
-mkdir -p "$PHOTO_HOME"
+mkdir -p "$PHOTO_HOME/updated"
 chown -R www-data:www-data "$DATA_HOME" "$PHOTO_HOME"
 
 # Pass-through: `docker run <image> <cmd>` / compose `command:` runs <cmd>
