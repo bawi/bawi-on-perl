@@ -6,7 +6,8 @@
 # in db/ are legacy FULL DUMPS and are never executed; any other *.sql name
 # is skipped with a loud warning (rename it to the dated pattern to run it).
 # Data in migrations: transforms of existing rows are fine (reseed
-# regenerates data in final shape). Reference rows prod needs MAY ride in
+# regenerates data — keep seed.pl emitting the post-migration shape).
+# Reference rows prod needs MAY ride in
 # the migration (idempotently) for prod's sake — db/ is also the prod
 # migration channel — but MUST then be mirrored in seed/seed.pl, because
 # reseed truncates every base table except schema_migrations.

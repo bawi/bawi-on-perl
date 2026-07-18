@@ -56,7 +56,7 @@ Open **http://localhost:8080/** — you'll get the login page.
 | account | password | notes |
 |---|---|---|
 | `root` | `test1234` | admin (matches the hardcoded admin list in `Bawi::Auth`) |
-| `testuser02` … `testuser50` | `test1234` | regular synthetic members |
+| `tester02` … `tester50` | `test1234` | regular synthetic members |
 
 Useful URLs once logged in:
 
@@ -95,7 +95,7 @@ Through the real stack (recommended — exercises mod_perl exactly like prod):
 curl -s http://localhost:8080/main/db-test.cgi
 
 # authenticated: log in once, keep the session cookie
-curl -s -c /tmp/bawi.jar -d 'id=testuser02&passwd=test1234' \
+curl -s -c /tmp/bawi.jar -d 'id=tester02&passwd=test1234' \
      http://localhost:8080/main/login.cgi -o /dev/null
 curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi
 ```
@@ -124,7 +124,8 @@ runner logs a line per file, so a migration it didn't pick up is visible in
 `docker compose logs db`.
 
 Data in migrations: transforms of existing rows are fine (reseed regenerates
-data in final shape). Reference rows prod needs may ride in the migration
+data — keep `seed.pl` emitting the post-migration shape). Reference rows prod
+needs may ride in the migration
 (idempotently) for prod's sake — `db/` is also the prod migration channel —
 but must then be **mirrored in `seed/seed.pl`**: reseed truncates every base
 table except `schema_migrations`, so migration-inserted rows silently vanish

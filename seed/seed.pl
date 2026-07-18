@@ -4,7 +4,7 @@
 # =============================================================================
 # Fills the structure-only test schema with clean, obviously-fake data:
 # no real users, no PII, no production content. Every name/id/email/phone is
-# a labeled synthetic value (testuserNN, @example.invalid, 010-0000-xxxx).
+# a labeled synthetic value (testerNN, @example.invalid, 010-0000-xxxx).
 #
 # Deterministic: uses a private LCG (seeded below), so two runs produce
 # byte-identical data on any platform. Re-running truncates and reseeds the
@@ -51,6 +51,8 @@ use warnings;
 use DBI;
 use POSIX qw(strftime);
 
+$| = 1;   # progress lines must not sit in a block buffer under `exec -T` (no TTY)
+
 # ---------------------------------------------------------------- connection
 my $host = $ENV{BAWI_DB_HOST} || 'db';
 my $name = $ENV{BAWI_DB_NAME} || 'bawi';
@@ -94,9 +96,10 @@ print "password hash for '$TEST_PASSWORD': $pw_hash\n";
 # ---------------------------------------------------------------- constants
 # uid 1 = "root": generic admin account name that matches the hardcoded admin
 # list in Bawi::Auth::is_admin, so admin paths are testable. Not a real person.
-my $N_USERS = 50;   # <= 99: 'testuserNN' must fit the app's char(10)/varchar(10) id columns
+my $N_USERS = 50;   # <= 99: 'testerNN' must stay within the app's 3-8 char id
+                    # policy (login form maxlength=8) and its id columns
 # Guards live BEFORE the wipe so a bad edit dies without emptying the DB.
-die "N_USERS must be <= 99 ('testuser100' would overflow 10-char id columns)\n" if $N_USERS > 99;
+die "N_USERS must be <= 99 ('tester100' would break the 8-char id policy)\n" if $N_USERS > 99;
 # Floor: registers (uids 46..50), degrees (2..46), careers (2..25) and other
 # blocks hardcode uid ranges; a smaller pool would seed orphan references.
 die "N_USERS must be >= 50 (later blocks hardcode uid ranges up to 50)\n" if $N_USERS < 50;
@@ -115,7 +118,7 @@ print "truncating ", scalar(@$tables), " tables ...\n";
 $dbh->do("TRUNCATE TABLE `$_`") for @$tables;
 
 # ------------------------------------------------------------------ users
-print "seeding $N_USERS users (ids: root, testuser02..testuser$N_USERS; password: $TEST_PASSWORD)\n";
+print "seeding $N_USERS users (ids: root, tester02..tester$N_USERS; password: $TEST_PASSWORD)\n";
 my %uname;   # uid -> display name
 my %uid2id;  # uid -> login id
 {
@@ -131,7 +134,10 @@ my %uid2id;  # uid -> login id
     for my $uid (1 .. $N_USERS) {
         my ($id, $nm);
         if ($uid == 1) { ($id, $nm) = ('root', '관리자테스트') }
-        else           { $id = sprintf('testuser%02d', $uid); $nm = sprintf('테스트유저%02d', $uid) }
+        # 'tester%02d' = 8 chars: the app's id policy is 3-8 lowercase+digits
+        # and the login form enforces maxlength=8 — a longer synthetic id
+        # could never log in through the real UI.
+        else           { $id = sprintf('tester%02d', $uid); $nm = sprintf('테스트유저%02d', $uid) }
         $uid2id{$uid} = $id;
         $uname{$uid}  = $nm;
         my $modified = dt(BASE_EPOCH + 86400 * (300 + $uid));       # recent-ish
@@ -601,5 +607,5 @@ my ($orphan_bodies) = $dbh->selectrow_array(q{
 print "  headers without body: $orphan_bodies (expect 0)\n";
 die "FATAL: headers without bodies\n" if $orphan_bodies;
 
-print "\nseed complete. Log in on this stack's web port (default http://localhost:8080/) as 'root' or 'testuser02' (password: $TEST_PASSWORD)\n";
+print "\nseed complete. Log in on this stack's web port (default http://localhost:8080/) as 'root' or 'tester02' (password: $TEST_PASSWORD)\n";
 $dbh->disconnect;
