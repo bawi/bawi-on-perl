@@ -48,7 +48,7 @@ docker compose up -d --build
 Then load the synthetic data (idempotent — safe to re-run any time):
 
 ```sh
-./seed/reseed.sh                # = docker compose exec web perl /home/bawi/bawi-spring/seed/seed.pl
+./seed/reseed.sh                # = docker compose exec -T web perl /home/bawi/bawi-spring/seed/seed.pl
 ```
 
 Open **http://localhost:8080/** — you'll get the login page.
@@ -123,10 +123,12 @@ newer than the dump — the runner's closing state listing shows which). The
 runner logs a line per file, so a migration it didn't pick up is visible in
 `docker compose logs db`.
 
-Migrations must be structure-only or idempotent data transforms. Reference
-rows a migration would INSERT belong in `seed/seed.pl` instead — reseed
-truncates every base table except `schema_migrations`, so migration-inserted
-rows would silently vanish on the next reseed.
+Data in migrations: transforms of existing rows are fine (reseed regenerates
+data in final shape). Reference rows prod needs may ride in the migration
+(idempotently) for prod's sake — `db/` is also the prod migration channel —
+but must then be **mirrored in `seed/seed.pl`**: reseed truncates every base
+table except `schema_migrations`, so migration-inserted rows silently vanish
+on the next reseed here.
 
 After adding a new `db/YYYYMMDD_*.sql` to a *running* env (from the checkout
 that launched it):
@@ -149,7 +151,7 @@ retrying — a half-initialized data dir skips init on the next start.
 ## Validation checklist (what "working" looks like)
 
 1. `docker compose ps` — the db and web containers both `Up`.
-2. `docker compose exec -T db mysql -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view. (Grows by one per table-adding migration — cross-check against the runner's state listing in `docker compose logs db`.)
+2. `docker compose exec -T db mysql -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
 3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the six seeded board titles (no 500).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.

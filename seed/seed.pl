@@ -57,9 +57,18 @@ my $name = $ENV{BAWI_DB_NAME} || 'bawi';
 my $user = $ENV{BAWI_DB_USER} || 'bawi_test';
 my $pass = $ENV{BAWI_DB_PASS} || 'bawi-local-test-pw';
 
-my $dbh = DBI->connect("dbi:mysql:database=$name;host=$host", $user, $pass,
-                       { RaiseError => 1, PrintError => 0 })
-    or die "cannot connect to $name\@$host: $DBI::errstr\n";
+# Bounded connect-retry: on a first boot the DB container may still be
+# loading the schema; it only answers over the network after init (schema +
+# migrations) is complete, so "connects" == "ready to seed".
+my $dbh;
+for my $try (1 .. 90) {
+    $dbh = eval { DBI->connect("dbi:mysql:database=$name;host=$host", $user, $pass,
+                               { RaiseError => 1, PrintError => 0 }) };
+    last if $dbh;
+    print "waiting for the DB at $host ($try s) ...\n" if $try == 1 || $try % 15 == 0;
+    sleep 1;
+}
+die "cannot connect to $name\@$host after 90s: $@" unless $dbh;
 $dbh->do("SET NAMES utf8mb4");
 
 # ------------------------------------------------------------- determinism
@@ -96,8 +105,8 @@ die "N_USERS must be >= 50 (later blocks hardcode uid ranges up to 50)\n" if $N_
 # Truncate every base table except the migration ledger, so "wipe + reseed"
 # is true by construction — a hand-kept list drifts as migrations add tables
 # (and already had: UI-writable tables were missing). No migration seeds
-# reference rows, so truncate-all is safe (a rule stated in the migration
-# runner's CONTRACT header: reference rows belong here, not in migrations).
+# reference rows, so truncate-all is safe (per the migration runner's
+# CONTRACT header: rows a migration ships for prod must be mirrored here).
 my $tables = $dbh->selectcol_arrayref(q{
     SELECT table_name FROM information_schema.tables
     WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'

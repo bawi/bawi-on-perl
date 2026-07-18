@@ -5,8 +5,10 @@
 # /bawi-migrations); lexicographic order == date order. The bawi_*.sql files
 # in db/ are legacy FULL DUMPS and are never executed; any other *.sql name
 # is skipped with a loud warning (rename it to the dated pattern to run it).
-# Migrations must be structure-only or idempotent data transforms: reference
-# rows a migration would INSERT belong in seed/seed.pl instead, because
+# Data in migrations: transforms of existing rows are fine (reseed
+# regenerates data in final shape). Reference rows prod needs MAY ride in
+# the migration (idempotently) for prod's sake — db/ is also the prod
+# migration channel — but MUST then be mirrored in seed/seed.pl, because
 # reseed truncates every base table except schema_migrations.
 #
 # Double-apply protection is the schema_migrations tracking table alone:
