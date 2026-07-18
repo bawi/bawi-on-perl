@@ -205,9 +205,16 @@ my @new_board = map { $$new_board{$_} } sort { $$new_board{$b}->{board_id} <=> $
 $t->param(new_board=>\@new_board);
 
 
-my $articles = $dbh->selectrow_array('select format(count(*), 0) from bw_xboard_header;');
+# Vanity totals. Whole-table COUNT(*) was free on MyISAM but is a full index
+# scan on InnoDB (header ~1.6M, comment ~4.5M rows -- per front-page view),
+# so read the O(#boards) counters the app already maintains instead.
+# Semantics: sum(articles) tracks live articles (add/dec_article_count);
+# sum(max_comment_no) counts comments ever numbered, so unlike the old
+# COUNT(*) it does not shrink when comments are deleted -- fine for a
+# monotonic front-page total.
+my $articles = $dbh->selectrow_array('select format(sum(articles), 0) from bw_xboard_board;');
 
-my $comments = $dbh->selectrow_array('select format(count(*), 0) from bw_xboard_comment;');
+my $comments = $dbh->selectrow_array('select format(sum(max_comment_no), 0) from bw_xboard_board;');
 $t->param(articles=>$articles);
 $t->param(comments=>$comments);
 
