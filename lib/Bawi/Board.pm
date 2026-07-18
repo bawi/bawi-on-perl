@@ -1902,11 +1902,14 @@ sub add_attach {
         
         # Get the processed image data
         my $cleaned_image = $im->ImageToBlob();
-        
+
         # Save to file
         open(FH, "> $file") or die("Can't open $file for save: $!\n");
         print FH $cleaned_image;
         close FH;
+        # Mark the stored bytes metadata-free so attach.cgi streams them
+        # as-is instead of re-running Strip on every view.
+        if (open(MK, "> $file.clean")) { close MK; }
     } else {
         # For non-image files, save normally
         open(FH, "> $file") or die("Can't open $file for save: $!\n");
@@ -1917,8 +1920,12 @@ sub add_attach {
     if ($arg{-is_img} =~ /[yY]/) {
         &add_image_count($bid);
         $self->save_thumbnail($file);
+        # save_thumbnail Strips the thumbnail it writes; mark it clean too.
+        if (-e $file . 't') {
+            if (open(MK, "> ${file}t.clean")) { close MK; }
+        }
     }
-    
+
     return $rv;
 }
 
@@ -1940,6 +1947,7 @@ sub del_attach {
         &dec_image_count($bid, $atid);
         my $thumb = $file . 't';
         unlink $thumb;
+        unlink $file . '.clean', $thumb . '.clean';
         my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
         my $rv = $DBH->do($sql, undef, $atid);
         &dec_has_attach($aid) if ($rv);
@@ -1985,6 +1993,7 @@ sub get_attach {
                 content_type=> $$rv{content_type},
                 is_img=> $$rv{is_img},
                 filehandle=> *FH,
+                path=> $path,   # attach.cgi needs it for the .clean marker / heal
             );
             # 'image' = "render inline as <img>" (a display flag, read by the
             # templates). It is DISTINCT from the is_img column, which is set in

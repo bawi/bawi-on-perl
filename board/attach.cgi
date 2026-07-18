@@ -27,24 +27,51 @@ my $attach = $xb->get_attach(-attach_id=>$atid, -thumb=>$thumb);
 
 if ($attach and $$attach{filehandle}) {
     my $fh = $$attach{filehandle};
-    
-    # Check if this is an image type that could contain EXIF data
-    if ($$attach{is_img} eq 'y' && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
-        # Read the entire file content
-        my $file_content = '';
-        my $buffer;
-        while (my $len = read($fh, $buffer, 1024_000)) {
-            $file_content .= $buffer;
-        }
-        close $fh;
+    my $path = $$attach{path};
 
-        # A row can carry is_img='y' + an image/* content_type yet hold non-raster
-        # bytes -- stored raw before upload-time validation existed, or migrated by
-        # z2x.pl from a filename extension. Never feed those to ImageMagick
-        # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
-        # upload. is_raster_image is the same magic-byte check upload_attach uses.
-        if (Bawi::ImageSig::is_raster_image($file_content)) {
-            # Process with ImageMagick to strip metadata
+    # Magic-byte sniff needs only the leading bytes (JPEG 3, PNG 8, GIF 6).
+    my $head = '';
+    read($fh, $head, 8);
+    seek($fh, 0, 0);
+
+    # A row can carry is_img='y' + an image/* content_type yet hold non-raster
+    # bytes -- stored raw before upload-time validation existed, or migrated by
+    # z2x.pl from a filename extension. Never feed those to ImageMagick
+    # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
+    # upload. is_raster_image is the same magic-byte check upload_attach uses.
+    if ($$attach{is_img} eq 'y'
+        && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i
+        && Bawi::ImageSig::is_raster_image($head)) {
+
+        # "$path.clean" marks a file whose on-disk bytes are already
+        # metadata-free: add_attach strips at upload and marks, and the heal
+        # branch below marks legacy files after their one-time strip. Steady
+        # state is this branch -- stream the stored bytes, no ImageMagick.
+        if (-e "$path.clean") {
+            print $ui->cgi->header(
+                -type => $$attach{content_type},
+                -X_Content_Type_Options => 'nosniff',
+                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                -Content_length => $$attach{filesize},
+                -expires => '+3M'
+            );
+            my $buffer;
+            while (my $len = read($fh, $buffer, 1024_000)) {
+                print $buffer;
+            }
+            close $fh;
+        } else {
+            # Legacy file saved before upload-time stripping existed: do
+            # exactly what every view used to do (Strip + re-encode), but
+            # persist the result and mark it, so the ImageMagick pass runs
+            # once per file instead of once per view.
+            my $file_content = '';
+            my $buffer;
+            while (my $len = read($fh, $buffer, 1024_000)) {
+                $file_content .= $buffer;
+            }
+            close $fh;
+
             my $im = new Image::Magick;
             $im->BlobToImage($file_content);
 
@@ -54,34 +81,41 @@ if ($attach and $$attach{filehandle}) {
             # Maintain quality for JPEG images
             $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
 
-            # Get processed image data
             my $cleaned_image = $im->ImageToBlob();
 
-            # Update filesize
-            my $new_size = length($cleaned_image);
+            # Persist via tmp + rename (atomic, same dir); marker only after
+            # the rename lands. Every failure is non-fatal: serve the cleaned
+            # bytes regardless, and the heal retries on the next view. The
+            # length guard keeps a failed re-encode from replacing the stored
+            # file with an empty one.
+            if (defined $cleaned_image && length $cleaned_image) {
+                my $tmp = "$path.heal$$";
+                if (open(my $out, '>', $tmp)) {
+                    binmode $out;
+                    print $out $cleaned_image;
+                    if (close($out) && rename($tmp, $path)) {
+                        if (open(my $mk, '>', "$path.clean")) { close $mk; }
+                    } else {
+                        warn "attach heal failed for $path: $!";
+                        unlink $tmp;
+                    }
+                } else {
+                    warn "attach heal failed for $path: $!";
+                }
+            }
 
-            # Output the cleaned image
             print $ui->cgi->header(
                 -type => $$attach{content_type},
-                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-                -Content_length => $new_size,
-                -expires => '+3M'
-            );
-            print $cleaned_image;
-        } else {
-            # Non-raster bytes wearing an image/* content_type: serve as-is, sandboxed.
-            print $ui->cgi->header(
-                -type => $$attach{content_type},
-                -Content_Security_Policy => 'sandbox',
                 -X_Content_Type_Options => 'nosniff',
                 -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-                -Content_length => length($file_content),
+                -Content_length => length($cleaned_image || ''),
                 -expires => '+3M'
             );
-            print $file_content;
+            print $cleaned_image if defined $cleaned_image;
         }
     } else {
-        # For non-image files or image types unlikely to have EXIF, serve normally
+        # Non-raster bytes wearing an image/* content_type, and every other
+        # type (svg, html, ...), served as-is:
         print $ui->cgi->header(
             -type => $$attach{content_type},
             # Sandbox untrusted uploads served as-is (e.g. svg, html): if opened as a
@@ -95,10 +129,7 @@ if ($attach and $$attach{filehandle}) {
             -Content_length => $$attach{filesize},
             -expires => '+3M'
         );
-        
-        # Reset file handle to beginning (just in case)
-        seek($fh, 0, 0);
-        
+
         # Output file content
         my $buffer;
         while (my $len = read($fh, $buffer, 1024_000)) {
