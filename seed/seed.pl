@@ -6,9 +6,9 @@
 # no real users, no PII, no production content. Every name/id/email/phone is
 # a labeled synthetic value (testerNN, @example.invalid, 010-0000-xxxx).
 #
-# Deterministic: uses a private LCG (seeded below), so two runs produce
-# byte-identical data on any platform. Re-running truncates and reseeds the
-# tables it owns (idempotent).
+# Deterministic: every varied value is derived arithmetically from row ids,
+# so two runs produce byte-identical data on any platform. Re-running
+# truncates and reseeds (idempotent).
 #
 # Run inside the web container (which has DBI + DBD::mysql):
 #   docker compose exec web perl /home/bawi/bawi-spring/seed/seed.pl
@@ -72,12 +72,6 @@ for my $try (1 .. 90) {
 }
 die "cannot connect to $name\@$host after 90s: $@" unless $dbh;
 $dbh->do("SET NAMES utf8mb4");
-
-# ------------------------------------------------------------- determinism
-# Private LCG so output is identical across perl versions/platforms.
-my $lcg_state = 20260706;
-sub prng { $lcg_state = ($lcg_state * 1103515245 + 12345) % 2147483648; return $lcg_state }
-sub pick { my $n = shift; return prng() % $n }
 
 # Deterministic clock: everything is derived from this fixed base (UTC).
 use constant BASE_EPOCH => 1735689600;      # 2025-01-01 00:00:00 UTC
@@ -250,7 +244,7 @@ my @article_rows;            # [article_id, board_id, article_no, uid, created_e
             my $category = ($kw eq 'free' && $no >= 20 && $no <= 24) ? 1 : 0;
             $h->execute($article_id, $no, $parent_no, $thread_no, $bid, $category,
                         $title, $author, $uid2id{$author}, $uname{$author},
-                        pick(200), $has_poll, dt($created));
+                        ($article_id * 37) % 200, $has_poll, dt($created));
             my $body = $category
                 ? join("\n",
                     "## 마크다운 테스트 글 $no (markdown test)",

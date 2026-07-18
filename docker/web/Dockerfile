@@ -36,7 +36,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libjson-perl \
         libgd-perl \
         mariadb-client \
-        curl \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

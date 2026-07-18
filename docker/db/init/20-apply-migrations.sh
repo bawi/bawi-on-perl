@@ -35,7 +35,7 @@
 set -euo pipefail
 
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-/bawi-migrations}"
-DB_NAME="${MARIADB_DATABASE:-bawi}"
+DB_NAME="${MARIADB_DATABASE:?}"
 
 sql_exec() { mariadb -uroot -p"${MARIADB_ROOT_PASSWORD:?}" --database="$DB_NAME" "$@"; }
 
