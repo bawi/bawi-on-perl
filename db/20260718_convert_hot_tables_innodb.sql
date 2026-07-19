@@ -27,8 +27,9 @@
 --     bw_xboard_commentref                                     (medium)
 --     bw_xboard_header                                         (~1.6M rows)
 --     bw_xboard_comment                                        (~4.5M rows + TEXT)
---     bw_xboard_body    (~240K rows, TEXT + FULLTEXT: the slow one -- the
---                        FULLTEXT rebuild dominates its copy time)
+--     bw_xboard_body    (one row per article, so ~1.6M rows of TEXT +
+--                        FULLTEXT: the slow one -- the FULLTEXT rebuild
+--                        dominates its copy time)
 --
 -- PROD PROCEDURE / DOWNTIME
 --   ALTER ... ENGINE=InnoDB is ALGORITHM=COPY, LOCK=SHARED on MariaDB 10.6:
