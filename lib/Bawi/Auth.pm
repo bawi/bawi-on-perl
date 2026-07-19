@@ -178,7 +178,9 @@ sub auth {
         $self->name($session->{name});
         $self->session_key($session_key);
         &update_log($session->{uid});
-        $self->{_authed} = 1;
+        # One-directional with the guard above: only a bare (cookie) success
+        # seeds the memo; a keyed success must not answer a later bare call.
+        $self->{_authed} = 1 unless %arg;
         return 1;
     } else {
         return 0;
