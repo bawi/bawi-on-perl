@@ -147,6 +147,19 @@ sub session_cookie {
 sub auth {
     my ($self, %arg) = @_;
 
+    # Memoize success: CGIs call auth() 2-4 times per request (guard, then
+    # uid/id lookups), and every call costs a session SELECT plus the
+    # update_log UPDATE on bw_xauth_passwd. Only the argumentless form is
+    # memoized, and only success: a failed cookie auth must not
+    # short-circuit a later auth(-session_key=>...) retry (see
+    # board/attach.cgi), and an explicit -session_key is a different
+    # credential -- it must always be validated, never answered from the
+    # cookie's success. Relies on every CGI constructing its Auth object at
+    # file scope (fresh per ModPerl::Registry run): never call ->auth on an
+    # Auth captured in a named sub's closure, or the memo would replay the
+    # first request's authentication.
+    return 1 if $self->{_authed} && !%arg;
+
     my $session_key;
     if ($arg{-session_key}) {
         $session_key = $arg{-session_key};
@@ -165,6 +178,9 @@ sub auth {
         $self->name($session->{name});
         $self->session_key($session_key);
         &update_log($session->{uid});
+        # One-directional with the guard above: only a bare (cookie) success
+        # seeds the memo; a keyed success must not answer a later bare call.
+        $self->{_authed} = 1 unless %arg;
         return 1;
     } else {
         return 0;
@@ -222,6 +238,7 @@ sub logout {
     
     my $session_key = $cookie{ $self->session_cookie->{-name} }->value;
     my $session = &del_session($session_key);
+    delete $self->{_authed};
     $self->uid(undef);
     $self->id(undef);
     $self->name(undef);
