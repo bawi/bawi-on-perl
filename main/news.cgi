@@ -206,12 +206,16 @@ $t->param(new_board=>\@new_board);
 
 
 # Vanity totals. Whole-table COUNT(*) was free on MyISAM but is a full index
-# scan on InnoDB (header ~1.6M, comment ~4.5M rows -- per front-page view),
-# so read the O(#boards) counters the app already maintains instead.
-# Semantics: sum(articles) tracks live articles (add/dec_article_count);
-# sum(max_comment_no) counts comments ever numbered, so unlike the old
-# COUNT(*) it does not shrink when comments are deleted -- fine for a
-# monotonic front-page total.
+# scan on InnoDB (millions of rows, per front-page view), so read the
+# O(#boards) counters the app already maintains instead. Semantics, checked
+# against the delete paths: sum(articles) is an ADD-ONLY counter and matches
+# the old COUNT(*) -- del_article soft-deletes (the header row stays) and
+# dec_article_count's only call site is commented out. sum(max_comment_no)
+# is a per-board high-water mark; it shrinks only when a board's newest
+# comment is hard-deleted inside its 1-minute window (del_comment ->
+# update_max_comment_no recomputes MAX) -- the same case the old COUNT(*)
+# shrank on. Close enough for a vanity total. (The users COUNT(*) below
+# stays: bw_xauth_passwd is small, milliseconds on either engine.)
 my $articles = $dbh->selectrow_array('select format(sum(articles), 0) from bw_xboard_board;');
 
 my $comments = $dbh->selectrow_array('select format(sum(max_comment_no), 0) from bw_xboard_board;');
