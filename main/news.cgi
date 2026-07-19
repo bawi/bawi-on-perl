@@ -175,6 +175,12 @@ my @hot_stat;
 foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> ($$hot_stat{$a}->{score} - $$hot_stat{$a}->{expiry}) } keys %$hot_stat) {
     my $body = $$hot_stat{$i}->{body};
     $body =~ s/<\S+.*>//sg;
+    # The 1000-char SUBSTRING can cut inside a tag, stranding an unclosed
+    # "<foo ..." that the greedy strip above (which needs a closing >) leaves
+    # behind -- and news.tmpl emits the teaser unescaped. Drop everything
+    # from the first < that has no closing > after it (only such fragments
+    # can remain here; anything <...> was already stripped).
+    $body =~ s/<[^>]*\z//s;
     $body =~ s/([-=])+//g;
     $body =~ s/(\.\.)+//g;
     $body =~ s/[http|mms]\S+//g;
