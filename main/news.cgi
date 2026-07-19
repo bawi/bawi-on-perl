@@ -148,17 +148,22 @@ foreach my $i (@boards[7..8]) {
 }
 $t->param(box=>\@box);
 
+# The page shows a ~16-word teaser per article, so pull 1000 chars of body,
+# not the whole TEXT column, and cap the row count (was unbounded: every
+# qualifying article of the last 5 days, full body each, on every front-page
+# view). LIMIT matches ORDER BY, so these are the same rows the page showed
+# first anyway. d.id = b.id (was LIKE) -- ids join on equality.
 my $hot = qq(
-select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, 
-       date_format(b.created, '%m/%d') as created, 
+select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid,
+       date_format(b.created, '%m/%d') as created,
        round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count )
-           + b.comments * 0.3 ) as score, 
-       (timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)) + abs(timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)))) / (2 * 60 * 24) * 50 as expiry, 
-       c.body 
+           + b.comments * 0.3 ) as score,
+       (timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)) + abs(timestampdiff(MINUTE, b.created, date_sub(now(), interval 3 day)))) / (2 * 60 * 24) * 50 as expiry,
+       substring(c.body, 1, 1000) as body
 from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d
-where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id
+where d.id = b.id && a.board_id=b.board_id && b.article_id=c.article_id
    && b.ki > 1 && b.created > date_sub(now(), interval 5 day)
-order by (score - expiry) desc);
+order by (score - expiry) desc limit 20);
 #my $hot = qq(select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, date_format(b.created, '%m/%d') as created, round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count ) + b.comments * 0.3 ) as score from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id && b.ki > 1 order by score desc limit 10);
 
 # in principle, this should be changed to row ref or anything that preserves the order
@@ -170,6 +175,12 @@ my @hot_stat;
 foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> ($$hot_stat{$a}->{score} - $$hot_stat{$a}->{expiry}) } keys %$hot_stat) {
     my $body = $$hot_stat{$i}->{body};
     $body =~ s/<\S+.*>//sg;
+    # The 1000-char SUBSTRING can cut inside a tag, stranding an unclosed
+    # "<foo ..." that the greedy strip above (which needs a closing >) leaves
+    # behind -- and news.tmpl emits the teaser unescaped. Drop everything
+    # from the first < that has no closing > after it (only such fragments
+    # can remain here; anything <...> was already stripped).
+    $body =~ s/<[^>]*\z//s;
     $body =~ s/([-=])+//g;
     $body =~ s/(\.\.)+//g;
     $body =~ s/[http|mms]\S+//g;
