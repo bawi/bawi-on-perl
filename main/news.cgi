@@ -177,10 +177,11 @@ foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> 
     $body =~ s/<\S+.*>//sg;
     # The 1000-char SUBSTRING can cut inside a tag, stranding an unclosed
     # "<foo ..." that the greedy strip above (which needs a closing >) leaves
-    # behind -- and news.tmpl emits the teaser unescaped. Drop everything
-    # from the first < that has no closing > after it (only such fragments
-    # can remain here; anything <...> was already stripped).
-    $body =~ s/<[^>]*\z//s;
+    # behind -- and news.tmpl emits the teaser unescaped. Drop a trailing
+    # tag-shaped fragment: HTML only opens a tag on letter / '!' / '/' / '?'
+    # after '<', so anchoring on those keeps benign literal text like
+    # "1 < 2" or "<3" intact (browsers render those as text).
+    $body =~ s/<[A-Za-z\/!?][^>]*\z//s;
     $body =~ s/([-=])+//g;
     $body =~ s/(\.\.)+//g;
     $body =~ s/[http|mms]\S+//g;
