@@ -1850,9 +1850,29 @@ sub get_max_bookmark_seq {
 ################################################################################
 # attach
 
-sub add_attach { 
+# Attachment cleanliness sidecar -- the single home of the contract.
+# "<served-path>.clean" (full file: "<atid>.clean"; thumbnail: "<atid>t.clean",
+# matching get_attach's path . 't') is a zero-byte marker asserting the bytes
+# at that path are already metadata-stripped. Writers: add_attach at upload,
+# attach.cgi's one-time heal. del_attach removes markers with the files. Any
+# code that rewrites attachment bytes MUST unlink the marker. mark_clean
+# failure is non-fatal by design: the serve path then treats the file as
+# legacy and attach.cgi's heal recreates the marker on a later view.
+sub is_clean {
+    my $path = shift;
+    return -e "$path.clean" ? 1 : 0;
+}
+
+sub mark_clean {
+    my $path = shift;
+    if (open(MK, "> $path.clean")) { close MK; return 1; }
+    warn "mark_clean: can't create $path.clean: $!";
+    return 0;
+}
+
+sub add_attach {
     my ($self, %arg) = @_;
-    return unless (exists $arg{-board_id} && 
+    return unless (exists $arg{-board_id} &&
                    exists $arg{-article_id} &&
                    exists $arg{-file} &&
                    exists $arg{-filename} &&
@@ -1903,13 +1923,26 @@ sub add_attach {
         # Get the processed image data
         my $cleaned_image = $im->ImageToBlob();
 
-        # Save to file
-        open(FH, "> $file") or die("Can't open $file for save: $!\n");
-        print FH $cleaned_image;
-        close FH;
-        # Mark the stored bytes metadata-free so attach.cgi streams them
-        # as-is instead of re-running Strip on every view.
-        if (open(MK, "> $file.clean")) { close MK; }
+        if (defined $cleaned_image && length $cleaned_image) {
+            # Save to file; mark clean only if the write fully landed
+            # (a truncated write must stay unmarked so the heal path can
+            # repair it instead of streaming the damage forever).
+            open(FH, "> $file") or die("Can't open $file for save: $!\n");
+            print FH $cleaned_image;
+            if (close(FH)) {
+                &mark_clean($file);
+            } else {
+                warn "add_attach: short write for $file: $!";
+            }
+        } else {
+            # Strip/re-encode produced nothing (magic-valid but undecodable
+            # upload): keep the raw bytes rather than storing an empty file.
+            # No marker -- the serve path treats it as legacy.
+            warn "add_attach: re-encode failed for $file; storing raw bytes";
+            open(FH, "> $file") or die("Can't open $file for save: $!\n");
+            print FH $arg{-file};
+            close FH;
+        }
     } else {
         # For non-image files, save normally
         open(FH, "> $file") or die("Can't open $file for save: $!\n");
@@ -1919,10 +1952,11 @@ sub add_attach {
     
     if ($arg{-is_img} =~ /[yY]/) {
         &add_image_count($bid);
-        $self->save_thumbnail($file);
-        # save_thumbnail Strips the thumbnail it writes; mark it clean too.
-        if (-e $file . 't') {
-            if (open(MK, "> ${file}t.clean")) { close MK; }
+        # save_thumbnail Strips the thumbnail it writes; mark it clean only
+        # when the write itself succeeded (-e alone would bless a partial
+        # write left by a failed one).
+        if ($self->save_thumbnail($file) && -e $file . 't') {
+            &mark_clean($file . 't');
         }
     }
 
@@ -1948,6 +1982,8 @@ sub del_attach {
         my $thumb = $file . 't';
         unlink $thumb;
         unlink $file . '.clean', $thumb . '.clean';
+        # also reap any heal tmp files a killed worker may have stranded
+        unlink glob("$file.heal*"), glob("$thumb.heal*");
         my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
         my $rv = $DBH->do($sql, undef, $atid);
         &dec_has_attach($aid) if ($rv);
@@ -1982,7 +2018,12 @@ sub get_attach {
     my $rv = $DBH->selectrow_hashref($sql, undef, $atid);
     if ($rv) {
         my @path = $self->attach_file_path($$rv{board_id}, $atid);
-        my $path = File::Spec->catfile(@path) . $is_thumb; 
+        my $path = File::Spec->catfile(@path) . $is_thumb;
+        # Capture the marker BEFORE opening: marker-then-open guarantees the
+        # opened inode is at least as new as the heal's rename, so a marker
+        # can never certify pre-heal bytes (checking after the open could,
+        # during a concurrent heal).
+        my $clean = &is_clean($path);
         if (-s $path) {
             open(FH, "< $path") or die("Can't open $path: $!\n");
             my $filesize = -s FH;
@@ -1993,7 +2034,8 @@ sub get_attach {
                 content_type=> $$rv{content_type},
                 is_img=> $$rv{is_img},
                 filehandle=> *FH,
-                path=> $path,   # attach.cgi needs it for the .clean marker / heal
+                path=> $path,   # attach.cgi needs it for the heal
+                clean=> $clean, # marker state, coherent with this handle
             );
             # 'image' = "render inline as <img>" (a display flag, read by the
             # templates). It is DISTINCT from the is_img column, which is set in
@@ -2980,8 +3022,12 @@ sub save_thumbnail {
         my $format = $im->Get('magick');
         $im->Strip;
         $im->Set(quality=>80) if $format eq 'JPEG';
-        $im->Write(filename=>$tfile);
+        # PerlMagick returns an error string on failure, empty on success
+        my $err = $im->Write(filename=>$tfile);
+        return 1 unless ($err);
+        warn "save_thumbnail: $tfile: $err";
     }
+    return 0;
 }
 
 sub get_max_attach_id {
