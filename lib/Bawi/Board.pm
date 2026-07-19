@@ -1854,10 +1854,13 @@ sub get_max_bookmark_seq {
 # "<served-path>.clean" (full file: "<atid>.clean"; thumbnail: "<atid>t.clean",
 # matching get_attach's path . 't') is a zero-byte marker asserting the bytes
 # at that path are already metadata-stripped. Writers: add_attach at upload,
-# attach.cgi's one-time heal. del_attach removes markers with the files. Any
-# code that rewrites attachment bytes MUST unlink the marker. mark_clean
-# failure is non-fatal by design: the serve path then treats the file as
-# legacy and attach.cgi's heal recreates the marker on a later view.
+# heal_attach below (used by board/attach.cgi and board/thumb.cgi, the two
+# serve paths). del_attach removes markers with the files. Any code that
+# rewrites attachment bytes MUST unlink the marker -- including an operator
+# RESTORING attachment files from a backup: restored bytes predate their
+# markers, so delete the tree's *.clean files afterward and let the heal
+# re-certify on next view. mark_clean failure is non-fatal by design: the
+# serve path then treats the file as legacy and heals it again later.
 sub is_clean {
     my $path = shift;
     return -e "$path.clean" ? 1 : 0;
@@ -1868,6 +1871,90 @@ sub mark_clean {
     if (open(MK, "> $path.clean")) { close MK; return 1; }
     warn "mark_clean: can't create $path.clean: $!";
     return 0;
+}
+
+sub unmark_clean {
+    my $path = shift;
+    unlink "$path.clean";
+}
+
+# The one strip pipeline, shared by upload (add_attach) and serve-time heal
+# (heal_attach) so the two can never drift: decode, drop all metadata,
+# re-encode (JPEG at quality 90). Returns the cleaned bytes, or undef (with
+# a warn) when the input does not decode. Detection limit, verified
+# empirically: a TRUNCATED image partially decodes with NO reported error
+# and is indistinguishable from success -- only outright undecodable input
+# fails here.
+sub strip_blob {
+    my ($blob, $content_type, $label) = @_;
+
+    use Image::Magick;
+    my $im = new Image::Magick;
+    my $err = $im->BlobToImage($blob);
+    if ($err) {
+        warn "$label: decode error: $err";
+        return;
+    }
+    $im->Strip();
+    $im->Set(quality=>90) if $content_type =~ /jpeg|jpg/i;
+    my $cleaned = $im->ImageToBlob();
+    unless (defined $cleaned && length $cleaned) {
+        warn "$label: empty re-encode";
+        return;
+    }
+    return $cleaned;
+}
+
+# One-time heal of a legacy (pre-upload-strip) attachment file: strip its
+# metadata, persist the result over the stored file, mark it clean, and
+# return the bytes to serve -- or undef when the input cannot be decoded
+# (callers respond fail-closed; the warn from strip_blob is the
+# diagnostic). What lands on disk is exactly what the per-view strip
+# always served; the policy rationale lives in board/attach.cgi's heal
+# comment. Persist failures are non-fatal: the bytes are still returned
+# and the heal retries on a later view.
+sub heal_attach {
+    my ($path, $content_type) = @_;
+
+    my $bytes;
+    if (open(my $in, '<', $path)) {
+        binmode $in;
+        local $/;
+        $bytes = <$in>;
+        close $in;
+    } else {
+        warn "heal_attach: can't read $path: $!";
+        return;
+    }
+
+    my $cleaned = &strip_blob($bytes, $content_type, "heal_attach $path");
+    return unless defined $cleaned;
+
+    # tmp + rename (atomic, same dir); the ".heal<pid>" shape is reaped by
+    # del_attach's glob. Marker only after the rename lands. Each leg logs
+    # its own cause; the deleted-mid-heal leg is a deliberate skip, not a
+    # failure (the -e narrows the delete race to microseconds -- a residual
+    # window can still strand an orphan file+marker, unreachable once the
+    # DB row is gone; accepted).
+    my $tmp = "$path.heal$$";
+    if (open(my $out, '>', $tmp)) {
+        binmode $out;
+        print $out $cleaned;
+        if (!close($out)) {
+            warn "heal_attach: short write for $tmp: $!";
+            unlink $tmp;
+        } elsif (!-e $path) {
+            unlink $tmp;   # attachment deleted while healing: skip persist
+        } elsif (!rename($tmp, $path)) {
+            warn "heal_attach: rename to $path failed: $!";
+            unlink $tmp;
+        } else {
+            &mark_clean($path);
+        }
+    } else {
+        warn "heal_attach: can't write $tmp: $!";
+    }
+    return $cleaned;
 }
 
 sub add_attach {
@@ -1884,8 +1971,26 @@ sub add_attach {
 
     my $bid = $arg{-board_id} || 0;
     my $aid = $arg{-article_id} || 0;
+
+    # For raster uploads, strip metadata FIRST and reject undecodable input
+    # before any DB row or file exists -- storing bytes the serve path can
+    # never serve (while retaining their EXIF on disk) helps nobody.
+    # is_img='y' already means the magic-byte check passed in upload_attach;
+    # the content-type gate accepts any image/* because legacy browsers sent
+    # image/pjpeg / image/x-png -- the magic check is the real ImageTragick
+    # gate, not the declared type.
+    my $cleaned_image;
+    if ($arg{-is_img} =~ /[yY]/ && $arg{-content_type} =~ m{^image/}i) {
+        $cleaned_image = &strip_blob($arg{-file}, $arg{-content_type},
+                                     "add_attach $arg{-filename}");
+        unless (defined $cleaned_image) {
+            warn "add_attach: rejecting undecodable upload $arg{-filename}";
+            return;
+        }
+    }
+
     # save to local file system & insert into db
-    my $sql = qq(INSERT INTO $TBL{attach} 
+    my $sql = qq(INSERT INTO $TBL{attach}
                  (board_id, article_id, filename, filesize, content_type, is_img)
                  VALUES (?, ?, ?, ?, ?, ?));
     my $rv = $DBH->do($sql, undef, $bid,
@@ -1908,40 +2013,16 @@ sub add_attach {
     $file =~ m/^([\w.-\\\/]+)$/;
     $file = $1;
 
-    # If it's an image, strip metadata using ImageMagick before saving
-    if ($arg{-is_img} =~ /[yY]/ && $arg{-content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
-        use Image::Magick;
-        my $im = new Image::Magick;
-        $im->BlobToImage($arg{-file});
-        
-        # Strip all metadata including EXIF/geotags
-        $im->Strip();
-        
-        # Save quality for JPEG images
-        $im->Set(quality=>90) if $arg{-content_type} =~ /jpeg|jpg/i;
-        
-        # Get the processed image data
-        my $cleaned_image = $im->ImageToBlob();
-
-        if (defined $cleaned_image && length $cleaned_image) {
-            # Save to file; mark clean only if the write fully landed
-            # (a truncated write must stay unmarked so the heal path can
-            # repair it instead of streaming the damage forever).
-            open(FH, "> $file") or die("Can't open $file for save: $!\n");
-            print FH $cleaned_image;
-            if (close(FH)) {
-                &mark_clean($file);
-            } else {
-                warn "add_attach: short write for $file: $!";
-            }
+    if (defined $cleaned_image) {
+        # Save the stripped bytes; mark clean only if the write fully landed
+        # (a truncated write must stay unmarked so the heal path can repair
+        # it instead of streaming the damage forever).
+        open(FH, "> $file") or die("Can't open $file for save: $!\n");
+        print FH $cleaned_image;
+        if (close(FH)) {
+            &mark_clean($file);
         } else {
-            # Strip/re-encode produced nothing (magic-valid but undecodable
-            # upload): keep the raw bytes rather than storing an empty file.
-            # No marker -- the serve path treats it as legacy.
-            warn "add_attach: re-encode failed for $file; storing raw bytes";
-            open(FH, "> $file") or die("Can't open $file for save: $!\n");
-            print FH $arg{-file};
-            close FH;
+            warn "add_attach: short write for $file: $!";
         }
     } else {
         # For non-image files, save normally
@@ -1981,8 +2062,10 @@ sub del_attach {
         &dec_image_count($bid, $atid);
         my $thumb = $file . 't';
         unlink $thumb;
-        unlink $file . '.clean', $thumb . '.clean';
-        # also reap any heal tmp files a killed worker may have stranded
+        &unmark_clean($file);
+        &unmark_clean($thumb);
+        # also reap heal tmps ("<path>.heal<pid>", written by heal_attach)
+        # that a killed worker may have stranded
         unlink glob("$file.heal*"), glob("$thumb.heal*");
         my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
         my $rv = $DBH->do($sql, undef, $atid);
@@ -3012,7 +3095,8 @@ sub save_thumbnail {
     my $tfile= $file . 't';
     use Image::Magick;
     my $im = new Image::Magick;
-    $im->Read($file);
+    my $rerr = $im->Read($file);
+    warn "save_thumbnail: read $file: $rerr" if ($rerr);
     my ($w, $h) = $im->Get('width', 'height');
     if ($w && $h) {
         my $thumb = $self->{thumb_width} || 100;
