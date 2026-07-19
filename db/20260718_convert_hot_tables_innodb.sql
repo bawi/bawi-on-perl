@@ -12,9 +12,12 @@
 --   vs Table_locks_immediate=27,087,405 -- ~1 in 920 statements queued.
 --   InnoDB takes row locks instead, and recovers after a crash on its own:
 --   if mysqld dies or the host loses power mid-write, MyISAM leaves the
---   table "marked as crashed" needing a manual REPAIR TABLE (and with
---   Bawi::DBI running without RaiseError that failure mode is silent),
---   while InnoDB replays its redo log and comes back by itself.
+--   table "marked as crashed"; MariaDB's default
+--   myisam_recover_options=BACKUP,QUICK then auto-repairs it at next open
+--   -- a BLOCKING table rebuild that can still lose rows, with a manual
+--   REPAIR TABLE needed when recovery would drop more than one row --
+--   while InnoDB replays its redo log and serves again in seconds
+--   (verified empirically: SIGKILL + restart on the test stack).
 --
 --   Sizes below are from the 2018-04 dump's AUTO_INCREMENT counters (header
 --   ~1.6M, comment ~4.5M, body = one row per article) -- 8 years stale;
@@ -79,9 +82,14 @@
 --
 --   Apply one-shot or table-by-table (each statement is independent);
 --   order below is smallest-first so the fast wins land before the long
---   copies start. The docker/CLAUDE.md migration loop ignores per-file
---   exit status, so never assume success from the loop finishing -- run
---   the AFTER verification.
+--   copies start. The repo-root CLAUDE.md migration loop (the PROD
+--   channel: `for f in db/2*.sql; do mariadb bawi < "$f"; done`) ignores
+--   per-file exit status, so never assume success from the loop finishing
+--   -- run the AFTER verification. (The docker init runner is the
+--   opposite: set -euo pipefail, fails fast per file.) The sentinel
+--   CREATE TABLE below makes a blind REPLAY of this file abort before any
+--   ALTER runs -- re-running ENGINE=InnoDB on an already-converted table
+--   would otherwise repeat the full write-blocking copy.
 --
 -- ============================ AFTER ============================
 --   1. Verify engines (partial application must not pass silently):
@@ -121,19 +129,20 @@
 --     that is legal on InnoDB (takes InnoDB table locks for the section)
 --     and keeps article creation serialized exactly as today.
 --   - New error class: InnoDB statements can fail with a deadlock (1213)
---     or lock-wait timeout where MyISAM writes just queued forever. Every
---     $DBH->do in this codebase ignores the undef return (RaiseError off),
---     so such a failure is a lost counter tick / bookmark update with only
---     a PrintError line in the log. Acceptable for counter-grade data;
---     known and deliberate, not a bug to rediscover.
+--     or lock-wait timeout where MyISAM writes just queued forever. No
+--     $DBH->do caller escalates a failed return (RaiseError off; at most
+--     follow-on work is skipped), so such a failure is a lost counter
+--     tick / bookmark update with only a PrintError line in the log.
+--     Acceptable for counter-grade data; known and deliberate, not a bug
+--     to rediscover.
 --   - Whole-table COUNT(*) loses MyISAM's O(1) shortcut. The two big-table
 --     sites (bw_xboard_header/comment vanity totals in main/news.cgi) are
---     swapped to counter sums in this PR. Deliberately LEFT as COUNT(*),
---     because bw_xauth_passwd is small (~17K rows in the 2018 dump;
---     milliseconds on InnoDB): the users total at main/news.cgi and
---     Auth::tot_user / User.pm tot_user (board/userlist.cgi pagination).
---     Any future audit of this kind must sweep lib/ too, not just the
---     CGI directories.
+--     swapped to counter sums in this PR. The bw_xauth_passwd COUNT(*)
+--     sites STAY as they are -- the users total in main/news.cgi,
+--     Auth::tot_user (board/userlist.cgi pagination), and User.pm's
+--     tot_user (currently uncalled) -- because the table is small (~17K
+--     rows in the 2018 dump; milliseconds on InnoDB). Any future audit of
+--     this kind must sweep lib/ too, not just the CGI directories.
 --   - Zero datetime defaults ('0000-00-00') are accepted by the default
 --     MariaDB 10.6 sql_mode (NO_ZERO_DATE not set); the ALTER preserves
 --     them. AUTO_INCREMENT counters persist across restart and crash
@@ -142,6 +151,13 @@
 --
 -- ALGORITHM=COPY, LOCK=SHARED pins the documented concurrency contract
 -- (reads allowed, writes blocked, full copy) rather than assuming it.
+
+-- Replay sentinel: errors ("table exists") on a second application, so a
+-- blind re-run of this file aborts HERE instead of repeating the
+-- write-blocking table copies. Matches the accidental convention of every
+-- other migration in db/ (their CREATE/ADD statements fail on replay).
+CREATE TABLE bw_migration_20260718_innodb_applied (applied TINYINT NOT NULL)
+    ENGINE=InnoDB;
 
 ALTER TABLE bw_xauth_session    ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
 ALTER TABLE bw_xboard_bookmark  ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;

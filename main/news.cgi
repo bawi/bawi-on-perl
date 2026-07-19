@@ -211,11 +211,13 @@ $t->param(new_board=>\@new_board);
 # against the delete paths: sum(articles) is an ADD-ONLY counter and matches
 # the old COUNT(*) -- del_article soft-deletes (the header row stays) and
 # dec_article_count's only call site is commented out. sum(max_comment_no)
-# is a per-board high-water mark; it shrinks only when a board's newest
-# comment is hard-deleted inside its 1-minute window (del_comment ->
-# update_max_comment_no recomputes MAX) -- the same case the old COUNT(*)
-# shrank on. Close enough for a vanity total. (The users COUNT(*) below
-# stays: bw_xauth_passwd is small, milliseconds on either engine.)
+# is a per-board high-water mark, counting comments ever numbered rather
+# than rows remaining: it shrinks only when a board's NEWEST comment is
+# hard-deleted inside its 1-minute window (del_comment ->
+# update_max_comment_no recomputes MAX) -- a subset of the hard-delete
+# cases the old COUNT(*) shrank on, so this total drifts slightly high.
+# Close enough for a vanity total. (The users COUNT(*) below stays:
+# bw_xauth_passwd is small, milliseconds on either engine.)
 my $articles = $dbh->selectrow_array('select format(sum(articles), 0) from bw_xboard_board;');
 
 my $comments = $dbh->selectrow_array('select format(sum(max_comment_no), 0) from bw_xboard_board;');
