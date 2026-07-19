@@ -2110,6 +2110,13 @@ sub get_attach {
         if (-s $path) {
             open(FH, "< $path") or die("Can't open $path: $!\n");
             my $filesize = -s FH;
+            # Sniff the leading magic here, on the handle we hand out, so
+            # both serve CGIs test a field instead of re-doing the
+            # read-8-bytes-and-seek-back dance (the seek is load-bearing:
+            # consumers stream this handle from the start).
+            my $head = '';
+            read(FH, $head, 8);
+            seek(FH, 0, 0);
             my %attach = (
                 article_id=> $$rv{article_id},
                 filename=> $$rv{filename},
@@ -2119,6 +2126,7 @@ sub get_attach {
                 filehandle=> *FH,
                 path=> $path,   # attach.cgi needs it for the heal
                 clean=> $clean, # marker state, coherent with this handle
+                raster=> Bawi::ImageSig::is_raster_image($head),
             );
             # 'image' = "render inline as <img>" (a display flag, read by the
             # templates). It is DISTINCT from the is_img column, which is set in

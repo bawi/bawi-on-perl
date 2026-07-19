@@ -28,25 +28,18 @@ if ($attach and $$attach{filehandle}) {
     my $fh = $$attach{filehandle};
     my $path = $$attach{path};
 
-    # Magic-byte sniff needs only the leading bytes (JPEG 3, PNG 8, GIF 6).
-    # The seek back to 0 is load-bearing for every branch below -- they all
-    # read this handle from the start.
-    my $head = '';
-    read($fh, $head, 8);
-    seek($fh, 0, 0);
-
     # A row can carry is_img='y' + an image/* content_type yet hold non-raster
     # bytes -- stored raw before upload-time validation existed, or migrated by
     # z2x.pl from a filename extension. Never feed those to ImageMagick
     # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
-    # upload. is_raster_image is the same magic-byte check upload_attach uses.
-    # Content-type gate is any image/* -- legacy browsers stored
-    # image/pjpeg / image/x-png rows (is_img='y' via substring match), and
-    # those must heal like their canonical siblings; the magic-byte check
-    # is the real ImageTragick gate.
+    # upload. $$attach{raster} is get_attach's magic-byte sniff of this very
+    # handle -- the same check upload_attach runs. Content-type gate is any
+    # image/*: legacy browsers stored image/pjpeg / image/x-png rows
+    # (is_img='y' via substring match), and those must heal like their
+    # canonical siblings; the magic sniff is the real ImageTragick gate.
     if ($$attach{is_img} eq 'y'
         && $$attach{content_type} =~ m{^image/}i
-        && Bawi::ImageSig::is_raster_image($head)) {
+        && $$attach{raster}) {
 
         # $$attach{clean}: the sidecar marker, captured by get_attach BEFORE
         # it opened the filehandle (marker-then-open means the opened inode

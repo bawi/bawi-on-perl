@@ -3,7 +3,6 @@ use strict;
 use lib '../lib';
 use Bawi::Board::UI;
 use Bawi::Board;
-use Bawi::ImageSig;
 
 my $ui = new Bawi::Board::UI;
 
@@ -18,22 +17,23 @@ if ($attach and $$attach{filehandle}) {
     # save_thumbnail has stripped-and-marked thumbs since upload-time
     # stripping landed, but thumbnails from before then can still carry
     # EXIF -- heal those once, exactly like attach.cgi does for full
-    # files. Non-raster bytes never reach ImageMagick.
-    my $head = '';
-    read($$attach{filehandle}, $head, 8);
-    seek($$attach{filehandle}, 0, 0);
+    # files. $$attach{raster} is get_attach's magic sniff of this handle;
+    # non-raster bytes never reach ImageMagick.
     if ($$attach{is_img} eq 'y'
         && !$$attach{clean}
-        && Bawi::ImageSig::is_raster_image($head)) {
+        && $$attach{raster}) {
         close $$attach{filehandle};
         my $healed =
             Bawi::Board::heal_attach($$attach{path}, $$attach{content_type});
         if (defined $healed) {
-            print $ui->cgi->header(-type=>$$attach{content_type}, -expires=>'+1M');
+            print $ui->cgi->header(-type=>$$attach{content_type},
+                                   -X_Content_Type_Options=>'nosniff',
+                                   -expires=>'+1M');
             print $healed;
         } else {
             # undecodable: fail closed, uncached (heal_attach warned)
             print $ui->cgi->header(-type=>$$attach{content_type},
+                                   -X_Content_Type_Options=>'nosniff',
                                    -Content_length=>0,
                                    -Cache_Control=>'no-store');
         }
