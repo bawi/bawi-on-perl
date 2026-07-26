@@ -58,6 +58,15 @@ if ($xb->board_id && $allow_comment) {
                 -name=>$name,
             );
             my $rv = $xb->add_comment(%data);
+            if ($rv && !$xb->is_anonboard) {
+                require Bawi::Main::Note;
+                my $proto = $ENV{HTTPS} ? 'https' : 'http';
+                my $dir = $ENV{SCRIPT_NAME} || '';
+                $dir =~ s#[^/]*$##;
+                my $url = "$proto://$ENV{HTTP_HOST}${dir}read.cgi?bid=$bid;aid=$aid#c$rv";
+                my $note = new Bawi::Main::Note(-dbh=>$ui->dbh);
+                $note->notify_mentions($body, $id, $name, $url);
+            }
         }
     } elsif ($action eq 'delete') {
         if (&check_param($q, qw(bid aid cid p)) == 0) {

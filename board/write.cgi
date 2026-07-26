@@ -154,6 +154,15 @@ if ($allow_write && $bid) {
         if ($poll) {
             my $rv = $xb->add_pollset(-query=>$q, -article_id=>$article_id); 
         }
+        unless ($xb->is_anonboard) {
+            require Bawi::Main::Note;
+            my $proto = $ENV{HTTPS} ? 'https' : 'http';
+            my $dir = $ENV{SCRIPT_NAME} || '';
+            $dir =~ s#[^/]*$##;
+            my $url = "$proto://$ENV{HTTP_HOST}${dir}read.cgi?bid=$bid;aid=$article_id";
+            my $note = new Bawi::Main::Note(-dbh=>$ui->dbh);
+            $note->notify_mentions($fbody, $id, $name, $url);
+        }
         print $q->redirect("read.cgi?bid=$bid&aid=$article_id&autosave=1");
         exit (1);
     }

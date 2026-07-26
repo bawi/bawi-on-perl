@@ -79,6 +79,16 @@ if ($xb->board_id && $allow_comment) {
             );
             my $rv = $xb->add_comment(%data);
             $redirect_position = "#c$rv" if $rv;
+            if ($rv && !$xb->is_anonboard) {
+                require Bawi::Main::Note;
+                my $proto = $ENV{HTTPS} ? 'https' : 'http';
+                my $dir = $ENV{SCRIPT_NAME} || '';
+                $dir =~ s#[^/]*$##;
+                my $url = "$proto://$ENV{HTTP_HOST}${dir}read.cgi?bid=$bid;aid=$aid#c$rv";
+                my $note = new Bawi::Main::Note(-dbh=>$ui->dbh);
+                # scan the raw form body: the tweet embed above may add foreign @handles
+                $note->notify_mentions(scalar $q->param('body'), $id, $name, $url);
+            }
         }
     } elsif ($action eq 'delete') {
         if (&check_param($q, qw(bid aid cid)) == 0) {
