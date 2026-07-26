@@ -68,7 +68,7 @@ $t->param(AllowAnonAccess=>$allow_anon_access);
 
 my %cfg;
 my $submitted = $ui->cparam('submit') ? 1 : 0;
-my @field = qw(title id keyword skin expire_days is_imgboard allow_attach allow_recom allow_scrap);
+my @field = qw(title id keyword skin expire_days is_imgboard allow_attach inline_attach allow_recom allow_scrap);
 push @field, qw(seq gid article_per_page page_per_page 
                attach_limit image_width thumb_width
                is_anonboard
@@ -135,7 +135,7 @@ foreach my $i (@field) {
                 ++$check;
                 $ui->msg(qq($i should be a number from 0 to 36500.));
             }
-        } elsif ($i =~ /^allow_|is_|_read|_write|_comment/) {
+        } elsif ($i =~ /^allow_|^inline_|is_|_read|_write|_comment/) {
             $val = 0 unless $val == 1;
         } elsif ($i eq 'skin') {
             unless ($val ne '') {
