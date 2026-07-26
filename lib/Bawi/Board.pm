@@ -2174,10 +2174,12 @@ sub add_pollset {
                 grep { /$i/ && $q->param($_) }
                 @opt;
         if ($poll && @o && $#o > 0) {
+            my $uopt = $q->param($i.'_uopt') ? 1 : 0;
             my $pid = $self->add_poll(-board_id=>$bid,
                                       -article_id=>$aid,
                                       -duration=>$dur,
-                                      -poll=>$poll);
+                                      -poll=>$poll,
+                                      -allow_user_opt=>$uopt);
             if ($pid) {
                 foreach my $j (@o) {
                     my $rv = $self->add_opt(-poll_id=>$pid, -opt=>$j);
@@ -2196,11 +2198,12 @@ sub add_poll {
                    exists $arg{-poll});
 
     my ($bid, $aid, $dur) = ($arg{-board_id}, $arg{-article_id}, $arg{-duration});
+    my $uopt = $arg{-allow_user_opt} ? 1 : 0;
     $dur = 7 unless ($dur =~ /^[1-9]\d+$/);
-    my $sql = qq(INSERT INTO $TBL{poll} 
-                 (board_id, article_id, poll, created, closed) 
-                 VALUES (?, ?, ?, now(), now() + INTERVAL ? DAY));
-    my $rv = $DBH->do($sql, undef, $bid, $aid, $arg{-poll}, $dur);
+    my $sql = qq(INSERT INTO $TBL{poll}
+                 (board_id, article_id, poll, allow_user_opt, created, closed)
+                 VALUES (?, ?, ?, ?, now(), now() + INTERVAL ? DAY));
+    my $rv = $DBH->do($sql, undef, $bid, $aid, $arg{-poll}, $uopt, $dur);
     if ($rv) {
         &inc_has_poll($aid);
         my $poll_id = get_max_poll_id($bid, $aid);
@@ -2240,7 +2243,8 @@ sub add_opt {
 
     my $sql = qq(INSERT INTO $TBL{opt} (poll_id, opt) VALUES (?, ?));
     my $rv = $DBH->do($sql, undef, $arg{-poll_id}, $arg{-opt});
-    return $rv;
+    # the new opt_id; callers that only want a truth value still work.
+    return $rv ? $DBH->{mysql_insertid} : 0;
 }
 
 sub add_ans {
@@ -2290,6 +2294,7 @@ sub get_pollset {
     my @arg = ($arg{-article_id});
     push @arg, $pid if ($pid);
     my $sql = qq(SELECT a.poll_id, a.board_id, a.article_id, a.poll,
+                        a.allow_user_opt,
                         DATE_FORMAT(a.created, '%m/%d') as created,
                         DATE_FORMAT(a.closed, '%m/%d') as closed,
                         a.closed < now() as is_closed,

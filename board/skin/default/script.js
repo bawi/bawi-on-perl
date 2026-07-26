@@ -233,13 +233,15 @@ function submit_poll(e) {
     for (var i = 0; i < this.oid.length; i++) {
         if (this.oid[i].checked) { oid = this.oid[i].value; break; }
     }
-    if (! oid) { alert("You should choose one!"); return false; }
+    var opt_text = this.opt_text ? this.opt_text.value.strip() : '';
+    if (! oid && ! opt_text) { alert("You should choose one!"); return false; }
 
-    var param = "bid=" + escape(this.bid.value) + 
-                ";aid=" + escape(this.aid.value) + 
-                ";pid=" + escape(this.pid.value) + 
-                ";oid=" + escape(oid) +
-                ";mode=ajax";
+    var param = "bid=" + escape(this.bid.value) +
+                ";aid=" + escape(this.aid.value) +
+                ";pid=" + escape(this.pid.value) +
+                ";oid=" + escape(oid || '');
+    if (opt_text) param += ";opt_text=" + encodeURIComponent(opt_text);
+    param += ";mode=ajax";
     var c = new XHConn();
     if (!c) alert("XMLHTTP not available. Try a newer/better browser.");
     c.connect(url, "GET", param, poll_response);
@@ -324,6 +326,10 @@ function new_poll_question(name)
     div.insert({ bottom: " &nbsp; " });
     div.insert({ bottom: new Element('a',
        { 'class': "button poll remove-option" }).update("Remove last option").observe('click',remove_poll_option) });
+    div.insert({ bottom: " &nbsp; " });
+    div.insert({ bottom: new Element('input',
+       { type: "checkbox", name: name+"_uopt", id: name+"_uopt", value: "1" }) });
+    div.insert({ bottom: ' <label for="'+name+'_uopt">Voters may add an option</label>' });
 
     td2.insert({ bottom: div });
 
