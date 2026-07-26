@@ -2347,6 +2347,53 @@ sub get_optset {
     return \@rv;
 }
 
+sub get_poll_xtab {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-poll_id1} && exists $arg{-poll_id2});
+
+    my $p1 = $arg{-poll_id1} || 0;
+    my $p2 = $arg{-poll_id2} || 0;
+    # crossing a poll with itself just reproduces its own tally (a
+    # margin), which get_optset may deliberately hide; refuse it.
+    return if ($p1 == $p2);
+
+    my $sql = qq(SELECT poll_id, article_id, poll
+                 FROM $TBL{poll}
+                 WHERE poll_id=?);
+    my $poll1 = $DBH->selectrow_hashref($sql, undef, $p1);
+    my $poll2 = $DBH->selectrow_hashref($sql, undef, $p2);
+    return unless ($poll1 && $poll2 &&
+                   $$poll1{article_id} == $$poll2{article_id});
+
+    my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
+                  FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
+                  WHERE a1.poll_id=? && a2.poll_id=?
+                  GROUP BY 1, 2);
+    my $rv = $DBH->selectall_arrayref($sql2, undef, $p1, $p2);
+    my %cnt;
+    my $n = 0;
+    foreach my $i (@$rv) {
+        $cnt{$$i[0]}{$$i[1]} = $$i[2];
+        $n += $$i[2];
+    }
+
+    my $opt1 = &get_optset($p1, 0, 0);
+    my $opt2 = &get_optset($p2, 0, 0);
+    my @col = map { { opt=>$$_{opt} } } @$opt2;
+    my @row;
+    foreach my $i (@$opt1) {
+        # a cell with 0 < count < 3 is shown as '<3' and margins are
+        # never returned, so a small cell can not single out a voter.
+        my @cell = map { my $c = $cnt{$$i{opt_id}}{$$_{opt_id}} || 0;
+                         { cnt => $c && $c < 3 ? '<3' : $c } }
+                   @$opt2;
+        push @row, { opt=>$$i{opt}, cell=>\@cell };
+    }
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
+             cols=>\@col, rows=>\@row, n=>$n,
+             colspan=>scalar(@col) + 1 };
+}
+
 sub inc_has_poll {
     my $article_id = shift;
     my $sql = qq(UPDATE $TBL{head} SET has_poll = has_poll + 1

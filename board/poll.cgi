@@ -31,6 +31,23 @@ if ($bid && $aid) {
     $ui->tparam(HTMLTitle=>$xb->title." (".$xb->id.")");
     $ui->tparam(pollset=>$pollset);
     $ui->tparam(article_id=>$aid);
+    $ui->tparam(board_id=>$bid);
+    $ui->tparam(xtab_form=>1) if ($pollset && @$pollset > 1);
+    if ($mode eq 'xtab') {
+        my ($p1, $p2) = map { $ui->cparam($_) || '' } qw(p1 p2);
+        my $xtab;
+        $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2)
+            if ($p1 =~ /^\d+$/ && $p2 =~ /^\d+$/);
+        if ($xtab) {
+            $ui->tparam(xtab=>1);
+            $ui->tparam(xtab_poll1=>$$xtab{poll1});
+            $ui->tparam(xtab_poll2=>$$xtab{poll2});
+            $ui->tparam(xtab_cols=>$$xtab{cols});
+            $ui->tparam(xtab_rows=>$$xtab{rows});
+            $ui->tparam(xtab_n=>$$xtab{n});
+            $ui->tparam(xtab_colspan=>$$xtab{colspan});
+        }
+    }
     $ui->tparam(ajax=>1) if $mode eq "ajax";
 
 } else {

@@ -6,4 +6,62 @@
 
 <tmpl_include _pollset.tmpl>
 
+<tmpl_unless ajax>
+<tmpl_if xtab_form>
+<br />
+<form id="poll-xtab" class="xtab" action="poll.cgi" method="get">
+<input type="hidden" name="bid" value="<tmpl_var board_id>" />
+<input type="hidden" name="aid" value="<tmpl_var article_id>" />
+<input type="hidden" name="mode" value="xtab" />
+<table class="poll">
+<tr class="head">
+  <td class="head" colspan="2">교차분석</td>
+</tr>
+<tr class="option">
+  <td class="option">
+    <select name="p1">
+  <tmpl_loop pollset>
+      <option value="<tmpl_var poll_id>">Poll <tmpl_var __counter__>. <tmpl_var name=poll escape=html></option>
+  </tmpl_loop>
+    </select>
+    &times;
+    <select name="p2">
+  <tmpl_loop pollset>
+      <option value="<tmpl_var poll_id>">Poll <tmpl_var __counter__>. <tmpl_var name=poll escape=html></option>
+  </tmpl_loop>
+    </select>
+  </td>
+  <td class="button"><input type="submit" value="교차분석" /></td>
+</tr>
+</table>
+</form>
+</tmpl_if>
+
+<tmpl_if xtab>
+<br />
+<table class="poll">
+<tr class="head">
+  <td class="head"><tmpl_var xtab_poll1> &times; <tmpl_var xtab_poll2></td>
+  <tmpl_loop xtab_cols>
+  <td class="head"><tmpl_var opt></td>
+  </tmpl_loop>
+</tr>
+  <tmpl_loop xtab_rows>
+<tr class="option">
+  <td class="option"><tmpl_var opt></td>
+    <tmpl_loop cell>
+  <td class="count"><tmpl_var name=cnt escape=html></td>
+    </tmpl_loop>
+</tr>
+  </tmpl_loop>
+<tr class="bottom">
+  <td colspan="<tmpl_var xtab_colspan>">
+    두 질문 모두 응답: <tmpl_var xtab_n>명
+    (두 질문에 모두 응답한 사람 수라서 각 질문의 총 응답수와는 다를 수 있습니다)
+  </td>
+</tr>
+</table>
+</tmpl_if>
+</tmpl_unless>
+
 <tmpl_unless ajax><tmpl_include _footer.tmpl></tmpl_unless>
