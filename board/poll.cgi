@@ -35,13 +35,19 @@ if ($bid && $aid) {
         print $ui->output;
         exit (1);
     }
-    if ($pid) {
+    if ($pid && $pid =~ /^\d+$/ && $aid =~ /^\d+$/) {
+        # every pid action (vote, option add, delete) must target a poll
+        # of the authorized board/article; ids lifted from another
+        # (possibly private) board do nothing.
+        my $ps = $xb->get_pollset(-article_id=>$aid, -uid=>$uid, -poll_id=>$pid);
+        my $poll = $ps && @$ps ? $$ps[0] : undef;
+        undef $poll unless ($poll && $$poll{board_id} == $bid);
         my $opt_text = $ui->cparam('opt_text');
         $opt_text = '' unless (defined $opt_text);
         $opt_text =~ s/^\s+//g;
         $opt_text =~ s/\s+$//g;
         $opt_text =~ s/\s+/ /g;
-        if ($opt_text ne '') {
+        if ($poll && $opt_text ne '') {
             # a voter-supplied option; takes precedence over oid.
             # cap at 100 chars without splitting a utf-8 sequence
             # (the form maxlength can be bypassed).
@@ -49,10 +55,8 @@ if ($bid && $aid) {
             $opt_text = join('', @char[0 .. 99]) if (@char > 100);
             # _pollset.tmpl prints opt unescaped, so escape at insert.
             $opt_text = $ui->cgi->escapeHTML($opt_text);
-            my $ps = $xb->get_pollset(-article_id=>$aid, -uid=>$uid, -poll_id=>$pid);
-            my $poll = $ps && @$ps ? $$ps[0] : undef;
             # allow_vote covers both 'still open' and 'has not voted yet'.
-            if ($poll && $$poll{allow_user_opt} && $$poll{allow_vote}) {
+            if ($$poll{allow_user_opt} && $$poll{allow_vote}) {
                 my $optset = $$poll{optset} || [];
                 my ($dup) = grep { $$_{opt} eq $opt_text } @$optset;
                 # two voters adding the same text at once can still insert
@@ -63,12 +67,14 @@ if ($bid && $aid) {
                 my $ans = $xb->add_ans(-poll_id=>$pid, -uid=>$uid, -opt_id=>$new_oid)
                     if ($new_oid);
             }
-        } else {
+        } elsif ($poll) {
             my $ans = $xb->add_ans(-poll_id=>$pid, -uid=>$uid, -opt_id=>$oid)
                 if ($oid && $oid =~ /^\d+$/);
         }
+        # is_owner: the delete endpoint historically trusted the UI to
+        # show the button only to the owner; enforce it server-side.
         my $rv = $xb->del_poll(-poll_id=>$pid, -article_id=>$aid)
-            if ($del && $del eq '1');
+            if ($poll && $$poll{is_owner} && $del && $del eq '1');
     }
     my $pollset = $xb->get_pollset(-article_id=>$aid, -uid=>$uid);
     $ui->tparam(HTMLTitle=>$xb->title." (".$xb->id.")");
@@ -80,17 +86,18 @@ if ($bid && $aid) {
         my ($p1, $p2) = map { $ui->cparam($_) || '' } qw(p1 p2);
         my $xtab;
         $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2,
-                                   -board_id=>$bid, -article_id=>$aid)
+                                   -board_id=>$bid, -article_id=>$aid,
+                                   -uid=>$uid)
             if ($p1 =~ /^\d+$/ && $p2 =~ /^\d+$/ &&
                 $bid =~ /^\d+$/ && $aid =~ /^\d+$/);
         if ($xtab) {
             $ui->tparam(xtab=>1);
             $ui->tparam(xtab_poll1=>$$xtab{poll1});
             $ui->tparam(xtab_poll2=>$$xtab{poll2});
+            $ui->tparam(xtab_suppressed=>$$xtab{suppressed});
             $ui->tparam(xtab_cols=>$$xtab{cols});
             $ui->tparam(xtab_rows=>$$xtab{rows});
             $ui->tparam(xtab_n=>$$xtab{n});
-            $ui->tparam(xtab_n_hidden=>$$xtab{n_hidden});
             $ui->tparam(xtab_colspan=>$$xtab{colspan});
         }
     }

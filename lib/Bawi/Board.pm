@@ -2374,12 +2374,14 @@ sub get_poll_xtab {
     my $p2 = $arg{-poll_id2} || 0;
     my $bid = $arg{-board_id} || 0;
     my $aid = $arg{-article_id} || 0;
+    my $uid = $arg{-uid} || 0;
     # crossing a poll with itself just reproduces its own tally (a
     # margin), which get_optset may deliberately hide; refuse it.
     return if ($p1 == $p2);
     return if (&is_tally_hidden($p1) || &is_tally_hidden($p2));
 
-    my $sql = qq(SELECT poll_id, board_id, article_id, poll
+    my $sql = qq(SELECT poll_id, board_id, article_id, poll,
+                        closed < now() as is_closed
                  FROM $TBL{poll}
                  WHERE poll_id=?);
     my $poll1 = $DBH->selectrow_hashref($sql, undef, $p1);
@@ -2392,6 +2394,10 @@ sub get_poll_xtab {
                    $$poll2{board_id}   == $bid &&
                    $$poll1{article_id} == $aid &&
                    $$poll2{article_id} == $aid);
+    # _pollset hides an open poll's results until the viewer answered;
+    # the cross-tab must not show joint counts any earlier.
+    return unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
+                   ($$poll2{is_closed} || &is_answered($p2, $uid)));
 
     my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
                   FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
@@ -2409,21 +2415,22 @@ sub get_poll_xtab {
     my $opt2 = &get_optset($p2, 0, 0);
     my @col = map { { opt=>$$_{opt} } } @$opt2;
     my @row;
-    my $hidden = 0;
+    my $small = 0;
     foreach my $i (@$opt1) {
-        # a cell with 0 < count < 3 is shown as '<3' and margins are
-        # never returned, so a small cell can not single out a voter.
         my @cell = map { my $c = $cnt{$$i{opt_id}}{$$_{opt_id}} || 0;
-                         ++$hidden if ($c && $c < 3);
-                         { cnt => $c && $c < 3 ? '<3' : $c } }
+                         ++$small if ($c && $c < 3);
+                         { cnt => $c } }
                    @$opt2;
         push @row, { opt=>$$i{opt}, cell=>\@cell };
     }
-    # n minus the visible cells equals the sum of the hidden ones, so an
-    # exact total would undo the '<3' masking; hide it alongside.
+    # per-option totals are already public once results are visible, so
+    # any per-cell mask could be solved back from its row/column
+    # marginal; when a cell would identify fewer than 3 voters, publish
+    # no table at all instead of a reversible mask.
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, suppressed=>1 }
+        if ($small);
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
-             cols=>\@col, rows=>\@row,
-             n=>$n, n_hidden=>$hidden ? 1 : 0,
+             cols=>\@col, rows=>\@row, n=>$n,
              colspan=>scalar(@col) + 1 };
 }
 

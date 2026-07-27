@@ -40,6 +40,14 @@
 <tmpl_if xtab>
 <br />
 <table class="poll">
+<tmpl_if xtab_suppressed>
+<tr class="head">
+  <td class="head"><tmpl_var xtab_poll1> &times; <tmpl_var xtab_poll2></td>
+</tr>
+<tr class="bottom">
+  <td>응답 수 3명 미만인 조합이 있어 교차분석을 표시하지 않습니다.</td>
+</tr>
+<tmpl_else>
 <tr class="head">
   <td class="head"><tmpl_var xtab_poll1> &times; <tmpl_var xtab_poll2></td>
   <tmpl_loop xtab_cols>
@@ -56,14 +64,11 @@
   </tmpl_loop>
 <tr class="bottom">
   <td colspan="<tmpl_var xtab_colspan>">
-    <tmpl_if xtab_n_hidden>
-    3명 미만인 셀이 있어 총 응답수는 표시하지 않습니다.
-    <tmpl_else>
     두 질문 모두 응답: <tmpl_var xtab_n>명
     (두 질문에 모두 응답한 사람 수라서 각 질문의 총 응답수와는 다를 수 있습니다)
-    </tmpl_if>
   </td>
 </tr>
+</tmpl_if>
 </table>
 </tmpl_if>
 </tmpl_unless>
