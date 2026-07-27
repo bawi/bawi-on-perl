@@ -79,8 +79,10 @@ if ($bid && $aid) {
     if ($mode eq 'xtab') {
         my ($p1, $p2) = map { $ui->cparam($_) || '' } qw(p1 p2);
         my $xtab;
-        $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2)
-            if ($p1 =~ /^\d+$/ && $p2 =~ /^\d+$/);
+        $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2,
+                                   -board_id=>$bid, -article_id=>$aid)
+            if ($p1 =~ /^\d+$/ && $p2 =~ /^\d+$/ &&
+                $bid =~ /^\d+$/ && $aid =~ /^\d+$/);
         if ($xtab) {
             $ui->tparam(xtab=>1);
             $ui->tparam(xtab_poll1=>$$xtab{poll1});

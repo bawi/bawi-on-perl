@@ -2352,23 +2352,46 @@ sub get_optset {
     return \@rv;
 }
 
+sub is_tally_hidden {
+    # election polls whose tallies are policy-hidden: get_optset blanks
+    # their counts (TEMP CODE above), and get_poll_xtab refuses them
+    # outright -- a raw cross-tab would reconstruct the hidden numbers.
+    my $pid = shift || 0;
+    return scalar grep { $pid == $_ }
+        (1427,
+         9696, 9698,  ## 11대 동창회장 선거
+         9804,        ## 12대 동창회장 선거
+         9857,        ## 13대 동창회장 선거
+         9884, 9886); ## 14대 동창회장 선거
+}
+
 sub get_poll_xtab {
     my ($self, %arg) = @_;
-    return unless (exists $arg{-poll_id1} && exists $arg{-poll_id2});
+    return unless (exists $arg{-poll_id1} && exists $arg{-poll_id2} &&
+                   exists $arg{-board_id} && exists $arg{-article_id});
 
     my $p1 = $arg{-poll_id1} || 0;
     my $p2 = $arg{-poll_id2} || 0;
+    my $bid = $arg{-board_id} || 0;
+    my $aid = $arg{-article_id} || 0;
     # crossing a poll with itself just reproduces its own tally (a
     # margin), which get_optset may deliberately hide; refuse it.
     return if ($p1 == $p2);
+    return if (&is_tally_hidden($p1) || &is_tally_hidden($p2));
 
-    my $sql = qq(SELECT poll_id, article_id, poll
+    my $sql = qq(SELECT poll_id, board_id, article_id, poll
                  FROM $TBL{poll}
                  WHERE poll_id=?);
     my $poll1 = $DBH->selectrow_hashref($sql, undef, $p1);
     my $poll2 = $DBH->selectrow_hashref($sql, undef, $p2);
+    # bind both polls to the board/article the caller was authorized
+    # for; poll ids lifted from another (possibly private) article
+    # must yield nothing.
     return unless ($poll1 && $poll2 &&
-                   $$poll1{article_id} == $$poll2{article_id});
+                   $$poll1{board_id}   == $bid &&
+                   $$poll2{board_id}   == $bid &&
+                   $$poll1{article_id} == $aid &&
+                   $$poll2{article_id} == $aid);
 
     my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
                   FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
