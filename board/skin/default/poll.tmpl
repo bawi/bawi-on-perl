@@ -56,8 +56,12 @@
   </tmpl_loop>
 <tr class="bottom">
   <td colspan="<tmpl_var xtab_colspan>">
+    <tmpl_if xtab_n_hidden>
+    3명 미만인 셀이 있어 총 응답수는 표시하지 않습니다.
+    <tmpl_else>
     두 질문 모두 응답: <tmpl_var xtab_n>명
     (두 질문에 모두 응답한 사람 수라서 각 질문의 총 응답수와는 다를 수 있습니다)
+    </tmpl_if>
   </td>
 </tr>
 </table>

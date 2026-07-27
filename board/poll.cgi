@@ -4,6 +4,7 @@ use lib '../lib';
 use Bawi::Auth;
 use Bawi::Board;
 use Bawi::Board::UI;
+use Bawi::Board::Group;
 
 my $ui = new Bawi::Board::UI(-template=>'poll.tmpl');
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
@@ -18,9 +19,22 @@ my ($bid, $aid, $pid, $oid, $del, $mode)
 
 if ($bid && $aid) {
     my $uid = $auth->uid;
-    my $xb = new Bawi::Board(-cfg=>$ui->cfg, 
-                              -board_id=>$bid, 
+    my $xb = new Bawi::Board(-cfg=>$ui->cfg,
+                              -board_id=>$bid,
                               -dbh=>$ui->dbh);
+    # same read gate as read.cgi: login alone must not open a private
+    # board's polls (votes before, joint distributions now).
+    my $grp = new Bawi::Board::Group(-gid=>$xb->gid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
+    my $allow_read = $grp->authz(-uid   => $uid,
+                                 -ouid  => $xb->uid,
+                                 -gperm => $xb->g_read,
+                                 -mperm => $xb->m_read,
+                                 -aperm => $xb->a_read);
+    unless ($allow_read) {
+        $ui->msg('Permission denied.');
+        print $ui->output;
+        exit (1);
+    }
     if ($pid) {
         my $opt_text = $ui->cparam('opt_text');
         $opt_text = '' unless (defined $opt_text);
@@ -74,6 +88,7 @@ if ($bid && $aid) {
             $ui->tparam(xtab_cols=>$$xtab{cols});
             $ui->tparam(xtab_rows=>$$xtab{rows});
             $ui->tparam(xtab_n=>$$xtab{n});
+            $ui->tparam(xtab_n_hidden=>$$xtab{n_hidden});
             $ui->tparam(xtab_colspan=>$$xtab{colspan});
         }
     }

@@ -2386,16 +2386,21 @@ sub get_poll_xtab {
     my $opt2 = &get_optset($p2, 0, 0);
     my @col = map { { opt=>$$_{opt} } } @$opt2;
     my @row;
+    my $hidden = 0;
     foreach my $i (@$opt1) {
         # a cell with 0 < count < 3 is shown as '<3' and margins are
         # never returned, so a small cell can not single out a voter.
         my @cell = map { my $c = $cnt{$$i{opt_id}}{$$_{opt_id}} || 0;
+                         ++$hidden if ($c && $c < 3);
                          { cnt => $c && $c < 3 ? '<3' : $c } }
                    @$opt2;
         push @row, { opt=>$$i{opt}, cell=>\@cell };
     }
+    # n minus the visible cells equals the sum of the hidden ones, so an
+    # exact total would undo the '<3' masking; hide it alongside.
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
-             cols=>\@col, rows=>\@row, n=>$n,
+             cols=>\@col, rows=>\@row,
+             n=>$n, n_hidden=>$hidden ? 1 : 0,
              colspan=>scalar(@col) + 1 };
 }
 
