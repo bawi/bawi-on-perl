@@ -94,11 +94,16 @@ if ($bid && $aid) {
             $ui->tparam(xtab=>1);
             $ui->tparam(xtab_poll1=>$$xtab{poll1});
             $ui->tparam(xtab_poll2=>$$xtab{poll2});
-            $ui->tparam(xtab_suppressed=>$$xtab{suppressed});
-            $ui->tparam(xtab_cols=>$$xtab{cols});
-            $ui->tparam(xtab_rows=>$$xtab{rows});
-            $ui->tparam(xtab_n=>$$xtab{n});
-            $ui->tparam(xtab_colspan=>$$xtab{colspan});
+            if ($$xtab{suppressed}) {
+                $ui->tparam(xtab_suppressed=>1);
+            } else {
+                # loop params must never be set to a scalar/undef --
+                # HTML::Template dies on it
+                $ui->tparam(xtab_cols=>$$xtab{cols});
+                $ui->tparam(xtab_rows=>$$xtab{rows});
+                $ui->tparam(xtab_n=>$$xtab{n});
+                $ui->tparam(xtab_colspan=>$$xtab{colspan});
+            }
         }
     }
     $ui->tparam(ajax=>1) if $mode eq "ajax";
