@@ -57,11 +57,13 @@ if ($article) {
     $$article{attach} = $xb->get_attachset(-article_id=>$aid);
     delete $$article{uid} unless ($$article{uid} == $uid);
     $t->param(article_set=>[{ article=>[$article] }]);
-    # the source board decides the gallery mode here too ($xb carries
-    # no board row in this script)
-    my $src = new Bawi::Board(-cfg=>$ui->cfg, -board_id=>$bid, -dbh=>$ui->dbh);
-    $t->param(inline_attach=>$src->inline_attach || 0);
 }
+
+# the source board decides the gallery mode here too, for the single
+# article AND the tno thread view ($xb carries no board row in this
+# script); bid=0 or an unknown board keeps the gallery as before
+my $src = new Bawi::Board(-cfg=>$ui->cfg, -board_id=>$bid, -dbh=>$ui->dbh);
+$t->param(inline_attach=>$src->inline_attach || 0);
 
 ################################################################################
 # thread
