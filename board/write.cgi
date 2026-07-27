@@ -154,7 +154,8 @@ if ($allow_write && $bid) {
         if ($poll) {
             my $rv = $xb->add_pollset(-query=>$q, -article_id=>$article_id); 
         }
-        unless ($xb->is_anonboard) {
+        # $auth->auth: only an authenticated member may author a note.
+        if ($auth->auth && !$xb->is_anonboard) {
             require Bawi::Main::Note;
             my $proto = $ENV{HTTPS} ? 'https' : 'http';
             my $dir = $ENV{SCRIPT_NAME} || '';

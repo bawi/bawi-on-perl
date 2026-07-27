@@ -108,11 +108,18 @@ sub notify_mentions {
         last if (@ids >= 5); # cap: notify at most 5 mentioned users per post
     }
 
+    # msg is rendered as HTML by the note pages: keep the interpolated
+    # sender fields inert even if a caller passes request-derived values.
+    my ($e_name, $e_id) = ($from_name, $from_id);
+    for ($e_name, $e_id) {
+        s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; s/"/&quot;/g;
+    }
+
     my $sent = 0;
     foreach my $id (@ids) {
         my $user = $self->get_user_info_by_id($id);
         next unless ($user && $user->{name});
-        my $msg = "[언급] ${from_name}(${from_id})님이 회원님을 언급했습니다: $url";
+        my $msg = "[언급] ${e_name}(${e_id})님이 회원님을 언급했습니다: $url";
         ++$sent if $self->send_msg($id, $user->{name}, $from_id, $from_name, $msg);
     }
     return $sent;

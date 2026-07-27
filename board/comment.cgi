@@ -79,7 +79,9 @@ if ($xb->board_id && $allow_comment) {
             );
             my $rv = $xb->add_comment(%data);
             $redirect_position = "#c$rv" if $rv;
-            if ($rv && !$xb->is_anonboard) {
+            # $auth->auth: guests set $name from the form -- never let a
+            # request-supplied identity author a note.
+            if ($rv && $auth->auth && !$xb->is_anonboard) {
                 require Bawi::Main::Note;
                 my $proto = $ENV{HTTPS} ? 'https' : 'http';
                 my $dir = $ENV{SCRIPT_NAME} || '';
