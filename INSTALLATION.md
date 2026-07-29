@@ -79,7 +79,7 @@ docker compose restart web            # REQUIRED after editing lib/Bawi/*.pm
                                       #  picked up on the next request)
 ./seed/reseed.sh                      # wipe + reseed synthetic data
 docker compose exec web bash          # shell in the web container
-mysql -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi   # DB from host (your BAWI_DB_PORT if overridden)
+mariadb -h 127.0.0.1 -P 3307 -u bawi_test -pbawi-local-test-pw bawi   # DB from host (your BAWI_DB_PORT if overridden)
 docker compose down                   # stop (data volumes kept)
 docker compose down -v                # stop and DESTROY db + attachment + photo volumes
 ```
@@ -152,7 +152,7 @@ retrying — a half-initialized data dir skips init on the next start.
 ## Validation checklist (what "working" looks like)
 
 1. `docker compose ps` — the db and web containers both `Up`.
-2. `docker compose exec -T db mysql -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
+2. `docker compose exec -T db mariadb -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 63 lines: 1 column-header line + 61 tables (incl. `schema_migrations`) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
 3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the six seeded board titles (no 500).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.

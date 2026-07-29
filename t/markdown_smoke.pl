@@ -134,22 +134,22 @@ $body = render('$$<script>alert(1)</script>$$');
 
 # ```lang fence -> <pre><code class="language-..."> with entities escaped,
 # and $ inside code never becomes math
-$body = render(qq{```perl\nmy \$x = <STDIN>;\nprint "\$x & \$y";\n```});
+$body = render(qq(```perl\nmy \$x = <STDIN>;\nprint "\$x & \$y";\n```));
 &assert_contains('fence language class', $body, '<pre><code class="language-perl">');
 &assert_contains('fence escapes angle', $body, 'my $x = &lt;STDIN&gt;;');
 &assert_contains('fence escapes amp', $body, '&amp;');
 &assert_not_contains('fence dollar not math', $body, '\(');
 
 # bare fence -> plain <pre><code>
-$body = render(qq{```\nplain block\n```});
+$body = render(qq(```\nplain block\n```));
 &assert_contains('bare fence', $body, '<pre><code>plain block');
 
 # $$ inside a fence stays literal (MathJax skips <code>)
-$body = render(qq{```\n\$\$x\$\$\n```});
+$body = render(qq(```\n\$\$x\$\$\n```));
 &assert_contains('math in fence literal', $body, '$$x$$');
 
 # markdown markup inside a fence stays literal
-$body = render(qq{```\n# not a heading\n```});
+$body = render(qq(```\n# not a heading\n```));
 &assert_not_contains('heading in fence literal', $body, '<h1>');
 
 # --- pipe table fixtures ---
@@ -214,20 +214,20 @@ $body = render('허공[^nope] 참조');
 &assert_not_contains('no fn section', $body, 'class="footnotes"');
 
 # fn ref inside a fence stays literal
-$body = render(qq{```\n각주[^1] 문법\n```\n\n[^1]: 정의\n});
+$body = render(qq(```\n각주[^1] 문법\n```\n\n[^1]: 정의\n));
 &assert_contains('fn ref in fence literal', $body, '각주[^1] 문법');
 
 # --- blockquote nesting fixtures ---
 
 # fence inside a blockquote: quote prefix stripped from code, block stays
 # inside the quote
-$body = render(qq{> 인용 속 코드:\n>\n> ```python\n> def f(): pass\n> ```\n});
+$body = render(qq(> 인용 속 코드:\n>\n> ```python\n> def f(): pass\n> ```\n));
 &assert_contains('quoted fence class', $body, '<pre><code class="language-python">def f(): pass');
 die "quoted fence not inside blockquote:\n$body"
     unless $body =~ m{<blockquote>.*<pre><code class="language-python">.*</blockquote>}s;
 
 # code lines keeping their own > chars beyond the quote level
-$body = render(qq{> ```\n> cmd >> out.txt\n> ```\n});
+$body = render(qq(> ```\n> cmd >> out.txt\n> ```\n));
 &assert_contains('quoted fence redirect chars', $body, 'cmd &gt;&gt; out.txt');
 
 # table inside a blockquote
@@ -244,20 +244,20 @@ $body = render("> | a | b |\n> |---|---|\n> | 1 | 2 |\n| 3 | 4 |\n");
 
 # fence info strings beyond \w: c++/c# map to prism grammar names,
 # hyphenated tags pass through
-$body = render(qq{```c++\nint x = v.size();\n```});
+$body = render(qq(```c++\nint x = v.size();\n```));
 &assert_contains('c++ fence class', $body, '<pre><code class="language-cpp">int x = v.size();');
-$body = render(qq{```objective-c\nid obj;\n```});
+$body = render(qq(```objective-c\nid obj;\n```));
 &assert_contains('hyphenated fence class', $body, 'class="language-objective-c"');
 
 # fences are no longer <p>-wrapped (tables already were not)
-$body = render(qq{```\nplain\n```});
+$body = render(qq(```\nplain\n```));
 &assert_not_contains('fence not p-wrapped', $body, '<p><pre');
-$body = render(qq{> ```\n> quoted\n> ```});
+$body = render(qq(> ```\n> quoted\n> ```));
 &assert_not_contains('quoted fence not p-wrapped', $body, '<p><pre');
 
 # an unbalanced $$ stays literal: the fence after it survives and
 # blocks in between keep their structure
-$body = render(qq{비용은 \$\$ 큽니다.\n\n## 소제목\n\n```perl\nmy \$x;\n```\n});
+$body = render(qq(비용은 \$\$ 큽니다.\n\n## 소제목\n\n```perl\nmy \$x;\n```\n));
 &assert_contains('unbalanced dollars keep heading', $body, '<h2>소제목</h2>');
 &assert_contains('unbalanced dollars keep fence', $body, '<pre><code class="language-perl">');
 &assert_not_contains('no leaked sentinel bytes', $body, "\x{1A}");
@@ -289,7 +289,7 @@ $body = render("위조 \x{1A}M0M\x{1A} 토큰과 \$x\$ 수식");
 
 # javascript: URLs DISPLAYED inside a fence stay verbatim (quotes are
 # entity-escaped, so the href strip cannot rewrite them)
-$body = render(qq{```html\n<a href="javascript:alert(1)">x</a>\n```});
+$body = render(qq(```html\n<a href="javascript:alert(1)">x</a>\n```));
 &assert_contains('js url in fence displayed', $body, 'href=&quot;javascript:alert(1)&quot;');
 &assert_not_contains('js url in fence not stripped', $body, 'href="#"');
 
@@ -396,9 +396,9 @@ $body = render('<pre>~~a~~ <code>b</code> ~~c~~</pre>');
 &assert_not_contains('pre-nested-code no del', $body, '<del>');
 
 # c++ / c# fences map to prism's canonical grammar names
-$body = render(qq{```c++\nint x;\n```});
+$body = render(qq(```c++\nint x;\n```));
 &assert_contains('cpp alias class', $body, '<pre><code class="language-cpp">');
-$body = render(qq{```c#\nint x;\n```});
+$body = render(qq(```c#\nint x;\n```));
 &assert_contains('csharp alias class', $body, '<pre><code class="language-csharp">');
 
 # --- render cache preconditions (Board.pm's bw_xboard_body_html rows) ---
@@ -543,7 +543,7 @@ $body = render(qq{```c#\nint x;\n```});
         # is in the LAST <CAP bytes still runs, but is budget+CAP bounded
         'residual-tail'   => ("word " x 12000) . "\n" . ("<x a=" x 800),
     );
-    for my $name (sort keys %flood) {
+    foreach my $name (sort keys %flood) {
         my $t0 = time;
         render($flood{$name});
         die sprintf("block-opener DoS regression [%s]: %.2fs (expected <2)\n",

@@ -355,7 +355,8 @@ sub has_career {
     my ($self, $uid) = @_;
     my $ki = $self->ki($uid);
     my $max_ki = $self->max_ki;
-    my $rv = $DBH->selectrow_array(qq(select count(*) from bw_user_career where uid=?), undef, $uid);
+    my $sql = qq(select count(*) from bw_user_career where uid=?);
+    my $rv = $DBH->selectrow_array($sql, undef, $uid);
     return $rv || $max_ki - $ki < 5 ? 1 : 0;
 }
 
@@ -474,15 +475,22 @@ sub del_degree {
     return $rv;
 }
 
-our %CAREER_TYPE = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');   # SINGLE SOURCE for the Perl side. Keep in
-# sync with the DB enum (db/20260708_create_career.sql) and the <option> list in
-# user/skin/default/career.tmpl — those two are parallel copies the template/SQL can't
-# read from here.
+# SINGLE SOURCE for the Perl side. Keep in sync with the DB enum
+# (db/20260708_create_career.sql) and the <option> list in
+# user/skin/default/career.tmpl -- those two are parallel copies the
+# template/SQL can't read from here.
+our %CAREER_TYPE = (employment=>'재직', internship=>'인턴', volunteer=>'봉사', research=>'연구', military=>'군복무', other=>'기타');
 sub career_types { return keys %CAREER_TYPE; }
 
 sub get_career {
     my ($self, $uid) = @_;
-    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, COALESCE(o.name,'(삭제된 기관)') AS organization, c.position, date_format(c.start_date,'%Y-%m') AS start_date, date_format(c.end_date,'%Y-%m') AS end_date FROM bw_user_career c LEFT JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
+    my $sql = qq(select c.career_id, c.type, c.organization_id,
+                        coalesce(o.name,'(삭제된 기관)') as organization, c.position,
+                        date_format(c.start_date,'%Y-%m') as start_date,
+                        date_format(c.end_date,'%Y-%m') as end_date
+                 from bw_user_career c left join organizations o on c.organization_id=o.org_id
+                 where c.uid=?
+                 order by (c.end_date is null) desc, c.end_date desc);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
     my $type = \%CAREER_TYPE;
     foreach my $r (@$rv) {
@@ -495,28 +503,32 @@ sub get_career {
 
 sub add_career {
     my ($self, $uid, $type, $org_id, $position, $s_date, $e_date) = @_;
-    my $sql = qq(INSERT INTO bw_user_career (uid,type,organization_id,position,start_date,end_date) VALUES (?,?,?,?,?,?));
+    my $sql = qq(insert into bw_user_career (uid, type, organization_id, position, start_date, end_date)
+                 values (?, ?, ?, ?, ?, ?));
     my $rv = $DBH->do($sql, undef, $uid, $type, $org_id, $position, $s_date, $e_date);
     return $rv;
 }
 
 sub update_career {
     my ($self, $career_id, $uid, $type, $org_id, $position, $s_date, $e_date) = @_;
-    my $sql = qq(UPDATE bw_user_career SET type=?,organization_id=?,position=?,start_date=?,end_date=? WHERE career_id=? && uid=?);
+    my $sql = qq(update bw_user_career
+                 set type=?, organization_id=?, position=?, start_date=?, end_date=?
+                 where career_id=? && uid=?);
     my $rv = $DBH->do($sql, undef, $type, $org_id, $position, $s_date, $e_date, $career_id, $uid);
     return $rv;
 }
 
 sub del_career {
     my ($self, $uid, $career_id) = @_;
-    my $sql = qq(DELETE FROM bw_user_career WHERE uid=? && career_id=?);
+    my $sql = qq(delete from bw_user_career where uid=? && career_id=?);
     my $rv = $DBH->do($sql, undef, $uid, $career_id);
     return $rv;
 }
 
 sub career_owned {
     my ($self, $career_id, $uid) = @_;
-    return $DBH->selectrow_array(qq(select 1 from bw_user_career where career_id=? && uid=?), undef, $career_id, $uid);
+    my $sql = qq(select 1 from bw_user_career where career_id=? && uid=?);
+    return $DBH->selectrow_array($sql, undef, $career_id, $uid);
 }
 
 sub career_set {
@@ -524,7 +536,11 @@ sub career_set {
     # inner join is deliberate: an orphaned career must NOT get an edit form, or a re-save
     # would resolve the '(삭제된 기관)' placeholder into a brand-new junk org. (get_career
     # LEFT JOINs for the read-only list; see its comment.)
-    my $sql = qq(SELECT c.career_id, c.type, c.organization_id, o.name AS organization, c.position, c.start_date, c.end_date FROM bw_user_career c JOIN organizations o ON c.organization_id=o.org_id WHERE c.uid=? ORDER BY (c.end_date IS NULL) DESC, c.end_date DESC);
+    my $sql = qq(select c.career_id, c.type, c.organization_id, o.name as organization,
+                        c.position, c.start_date, c.end_date
+                 from bw_user_career c join organizations o on c.organization_id=o.org_id
+                 where c.uid=?
+                 order by (c.end_date is null) desc, c.end_date desc);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, $uid) || [];
     my @rv;
     push @rv, { start_year=>$self->year_list, end_year=>$self->year_list, start_month=>$self->month_list, end_month=>$self->month_list };
@@ -554,12 +570,15 @@ sub org_suggest {
     $q =~ s/\s+$//;
     return [] unless length($q);
     # Names are stored HTML-escaped (house style, like degree department), so escape
-    # the query the same way BEFORE the prefix match — else a typed & / < / " never
+    # the query the same way BEFORE the prefix match -- else a typed & / < / " never
     # matches the stored &amp; / &lt; / &quot;. escapeHTML introduces no LIKE
     # metachars, so the LIKE-escape below still covers a literal % / _ / \ in $q.
     $q = $self->ui->cgi->escapeHTML($q);
     $q =~ s/([\\%_])/\\$1/g;
-    my $sql = qq(SELECT DISTINCT o.org_id, o.name FROM org_alias a JOIN organizations o ON a.org_id=o.org_id WHERE a.alias LIKE ? ORDER BY o.name LIMIT 10);
+    my $sql = qq(select distinct o.org_id, o.name
+                 from org_alias a join organizations o on a.org_id=o.org_id
+                 where a.alias like ?
+                 order by o.name limit 10);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}, "$q%") || [];
     return $rv;
 }
@@ -569,14 +588,21 @@ sub resolve_or_create_org {
     $name ||= '';
     $name =~ s/^\s+//;
     $name =~ s/\s+$//;
-    return 0 unless length($name);
-    my $id = $DBH->selectrow_array(qq(SELECT a.org_id FROM org_alias a JOIN organizations o ON a.org_id=o.org_id WHERE a.alias=? LIMIT 1), undef, $name);
-    return $id if $id;
-    my $rv = $DBH->do(qq(INSERT INTO organizations (name,created_by) VALUES (?,?)), undef, $name, $uid);
-    return 0 unless $rv;
-    $id = $DBH->selectrow_array(qq(SELECT LAST_INSERT_ID()));
-    unless (defined $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $name, $id)) {
-        $DBH->do(qq(DELETE FROM organizations WHERE org_id=?), undef, $id);   # no alias == invisible org
+    return 0 unless (length($name));
+    my $sql = qq(select a.org_id
+                 from org_alias a join organizations o on a.org_id=o.org_id
+                 where a.alias=? limit 1);
+    my $id = $DBH->selectrow_array($sql, undef, $name);
+    return $id if ($id);
+    $sql = qq(insert into organizations (name, created_by) values (?, ?));
+    my $rv = $DBH->do($sql, undef, $name, $uid);
+    return 0 unless ($rv);
+    $sql = qq(select last_insert_id());
+    $id = $DBH->selectrow_array($sql);
+    $sql = qq(insert into org_alias (alias, org_id) values (?, ?));
+    unless (defined $DBH->do($sql, undef, $name, $id)) {
+        $sql = qq(delete from organizations where org_id=?);
+        $DBH->do($sql, undef, $id); # no alias == invisible org
         return 0;
     }
     return $id;
@@ -584,31 +610,41 @@ sub resolve_or_create_org {
 
 sub org_list {
     my ($self) = @_;
-    my $sql = qq(SELECT o.org_id,o.name, COUNT(DISTINCT c.career_id) AS usage_count, GROUP_CONCAT(DISTINCT a.alias ORDER BY a.alias SEPARATOR ', ') AS aliases FROM organizations o LEFT JOIN bw_user_career c ON c.organization_id=o.org_id LEFT JOIN org_alias a ON a.org_id=o.org_id GROUP BY o.org_id,o.name ORDER BY o.name);
+    my $sql = qq(select o.org_id, o.name, count(distinct c.career_id) as usage_count,
+                        group_concat(distinct a.alias order by a.alias separator ', ') as aliases
+                 from organizations o left join bw_user_career c on c.organization_id=o.org_id
+                      left join org_alias a on a.org_id=o.org_id
+                 group by o.org_id, o.name
+                 order by o.name);
     my $rv = $DBH->selectall_arrayref($sql, {Slice=>{}}) || [];
     return $rv;
 }
 
 sub org_exists {
     my ($self, $id) = @_;
-    my $sql = qq(SELECT 1 FROM organizations WHERE org_id=?);
+    my $sql = qq(select 1 from organizations where org_id=?);
     return $DBH->selectrow_array($sql, undef, $id);
 }
 
 sub org_merge {
     my ($self, $from, $to) = @_;
     return unless ($from && $to && $from =~ /^\d+$/ && $to =~ /^\d+$/ && $from != $to);
-    return unless $self->org_exists($to);
+    return unless ($self->org_exists($to));
     # No transactions on MyISAM: verify each step; never delete the org until the repoint
     # has emptied it, else orphaned careers lose their EDIT FORM via the inner join in
     # career_set (get_career now LEFT JOINs and shows them as '(삭제된 기관)'). The two
-    # trailing DELETEs are best-effort cleanup — careers are already repointed, and a stale
+    # trailing DELETEs are best-effort cleanup -- careers are already repointed, and a stale
     # alias can't misresolve because resolve_or_create_org's lookup joins organizations (G4).
-    return unless defined $DBH->do(qq(UPDATE bw_user_career SET organization_id=? WHERE organization_id=?), undef, $to, $from);
-    return if $DBH->selectrow_array(qq(SELECT COUNT(*) FROM bw_user_career WHERE organization_id=?), undef, $from);
-    return unless defined $DBH->do(qq(UPDATE IGNORE org_alias SET org_id=? WHERE org_id=?), undef, $to, $from);
-    $DBH->do(qq(DELETE FROM org_alias WHERE org_id=?), undef, $from);
-    $DBH->do(qq(DELETE FROM organizations WHERE org_id=?), undef, $from);
+    my $sql = qq(update bw_user_career set organization_id=? where organization_id=?);
+    return unless (defined $DBH->do($sql, undef, $to, $from));
+    $sql = qq(select count(*) from bw_user_career where organization_id=?);
+    return if ($DBH->selectrow_array($sql, undef, $from));
+    $sql = qq(update ignore org_alias set org_id=? where org_id=?);
+    return unless (defined $DBH->do($sql, undef, $to, $from));
+    $sql = qq(delete from org_alias where org_id=?);
+    $DBH->do($sql, undef, $from);
+    $sql = qq(delete from organizations where org_id=?);
+    $DBH->do($sql, undef, $from);
     return 1;
 }
 
@@ -619,8 +655,10 @@ sub org_add_alias {
     $alias =~ s/\s+$//;
     return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
     $alias = $self->ui->cgi->escapeHTML($alias);
-    return '0E0' if $DBH->selectrow_array(qq(SELECT 1 FROM org_alias WHERE alias=? && org_id=?), undef, $alias, $org);
-    return $DBH->do(qq(INSERT INTO org_alias (alias,org_id) VALUES (?,?)), undef, $alias, $org);
+    my $sql = qq(select 1 from org_alias where alias=? && org_id=?);
+    return '0E0' if ($DBH->selectrow_array($sql, undef, $alias, $org));
+    $sql = qq(insert into org_alias (alias, org_id) values (?, ?));
+    return $DBH->do($sql, undef, $alias, $org);
 }
 
 sub org_del_alias {
@@ -630,10 +668,12 @@ sub org_del_alias {
     $alias =~ s/\s+$//;
     return unless ($org && $org =~ /^\d+$/ && $org > 0 && length($alias));
     $alias = $self->ui->cgi->escapeHTML($alias);
-    my $count = $DBH->selectrow_array(qq(SELECT COUNT(*) FROM org_alias WHERE org_id=?), undef, $org);
-    return unless defined $count;
-    return if $count <= 1;
-    my $rv = $DBH->do(qq(DELETE FROM org_alias WHERE org_id=? && alias=?), undef, $org, $alias);
+    my $sql = qq(select count(*) from org_alias where org_id=?);
+    my $count = $DBH->selectrow_array($sql, undef, $org);
+    return unless (defined $count);
+    return if ($count <= 1);
+    $sql = qq(delete from org_alias where org_id=? && alias=?);
+    my $rv = $DBH->do($sql, undef, $org, $alias);
     return $rv;
 }
 
@@ -885,7 +925,7 @@ sub get_guestbook_stat {
 # expect bw_xauth_passwd aliased as `a` in the outer query. Matching goes
 # through org_alias, so a search for any alias (e.g. Samsung) finds people
 # whose career is at the canonical org (삼성전자). The career column shows
-# ongoing orgs plus, as "(전) X", past orgs the keyword matched — so a hit on
+# ongoing orgs plus, as "(전) X", past orgs the keyword matched -- so a hit on
 # an ended career is visible. Career search is quid-pro-quo: the caller passes
 # has_career($viewer) and a viewer without it gets neither match nor display.
 my $CAREER_COL = qq((select group_concat(distinct o.name order by o.name separator ', ')

@@ -5,12 +5,12 @@
 --              lines stripped; the freq_bookmark view's prod DEFINER clause
 --              removed so the view is SELECTable in the test DB, which has
 --              no `bawi`@`localhost` user)
---   contains:  all migrations up to and including 20221221 — see
+--   contains:  all migrations up to and including 20221221 -- see
 --              15-baseline.sql, which records exactly that set.
 -- WHEN REFRESHING THIS FILE from prod: strip the DEFINER clause again and
 -- update 15-baseline.sql to list every dated migration the new dump
--- reflects — a missed entry is re-executed (non-idempotent DDL aborts
--- first boot; idempotent migrations re-run silently — verify by hand).
+-- reflects -- a missed entry is re-executed (non-idempotent DDL aborts
+-- first boot; idempotent migrations re-run silently -- verify by hand).
 -- ===========================================================================
 /*M!999999\- enable the sandbox mode */
 

@@ -393,3 +393,28 @@ div#bxmenu {
     width: 175px;
     float: left;
     }
+
+/* career.cgi */
+.org-wrap {
+    position: relative;
+    }
+
+.org-suggest {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 22px;
+    width: 446px;
+    border: 1px solid #999;
+    background: #fff;
+    z-index: 20;
+    }
+
+.org-suggest div {
+    padding: 2px 4px;
+    cursor: pointer;
+    }
+
+.org-suggest div.on {
+    background: #FFC129;
+    }

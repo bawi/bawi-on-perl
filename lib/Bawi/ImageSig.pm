@@ -11,6 +11,7 @@ package Bawi::ImageSig;
 # which previously each carried their own copy of the same magic-byte check.
 ################################################################################
 use strict;
+use warnings;
 
 # leading magic-byte signature -> canonical format name
 my @SIGNATURE = (
@@ -22,9 +23,9 @@ my @SIGNATURE = (
 # Return the canonical format name of $bytes' leading signature, or undef.
 sub sniff {
     my $bytes = shift;
-    return undef unless defined $bytes;
-    for my $s (@SIGNATURE) {
-        return $s->[0] if $bytes =~ $s->[1];
+    return undef unless (defined $bytes);
+    foreach my $s (@SIGNATURE) {
+        return $s->[0] if ($bytes =~ $s->[1]);
     }
     return undef;
 }

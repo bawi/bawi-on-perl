@@ -1,7 +1,7 @@
 # Web container for the bawi-on-perl LOCAL test environment.
 # Mirrors production: Ubuntu 22.04, Apache 2.4 + mod_perl2 (ModPerl::Registry),
 # Perl 5.34, MariaDB client libs. The application code is NOT baked into the
-# image — the repo working tree is bind-mounted at /home/bawi/bawi-spring.
+# image -- the repo working tree is bind-mounted at /home/bawi/bawi-spring.
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # HTML::ParseBrowser is a HARD dependency of Bawi::Auth (use'd at
 # lib/Bawi/Auth.pm:10, hit on every login) but is NOT packaged in Ubuntu
-# 22.04 ("Unable to locate package libhtml-parsebrowser-perl") — install it
+# 22.04 ("Unable to locate package libhtml-parsebrowser-perl") -- install it
 # from CPAN. The perl -M gate below fails the build if this ever breaks.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends cpanminus make \
