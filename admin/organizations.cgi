@@ -9,14 +9,9 @@ use Bawi::User;
 my $ui = new Bawi::Main::UI(-main_dir=>'admin', -template=>'organizations.tmpl');
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 
-unless ($auth->auth) {
-    print $auth->login_page($ui->cgiurl);
-    exit(1);
-}
-
-unless ($auth->is_admin) {
+unless ($auth->auth_admin) {
     print $auth->access_denied($ui->cgiurl);
-    exit(1);
+    exit (1);
 }
 
 $ui->tparam(HTMLTitle => "경력기관 관리");

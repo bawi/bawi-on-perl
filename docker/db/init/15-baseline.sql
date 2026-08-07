@@ -8,7 +8,7 @@
 --
 -- REGENERATE THIS LIST WHENEVER 10-schema.sql IS REFRESHED: add a baseline
 -- row for every dated migration the new dump reflects. A missed entry gets
--- re-executed on first boot — non-idempotent DDL aborts loudly (duplicate
+-- re-executed on first boot -- non-idempotent DDL aborts loudly (duplicate
 -- CREATE TABLE), but idempotent migrations (ALTER MODIFY, data UPDATEs,
 -- DROP IF EXISTS+CREATE) re-run SILENTLY, so verify those by hand.
 --
