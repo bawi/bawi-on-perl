@@ -48,10 +48,10 @@ $org =~ s/^\s+|\s+$//g;  $position =~ s/^\s+|\s+$//g;
 # 1001 (year) / 00 (month) = the '현재' sentinel emitted by year_list/month_list; it
 # means "no date" and maps to SQL NULL below (never a 1001-01-01 row).
 my $this_year = (localtime)[5] + 1900;
-$s_year = '' unless ($s_year eq '1001' || ($s_year =~ /\A\d{4}\z/ && $s_year >= 1991 && $s_year <= $this_year));
-$e_year = '' unless ($e_year eq '1001' || ($e_year =~ /\A\d{4}\z/ && $e_year >= 1991 && $e_year <= $this_year));
-$s_month = '' unless ($s_month =~ /\A(00|0[1-9]|1[0-2])\z/);
-$e_month = '' unless ($e_month =~ /\A(00|0[1-9]|1[0-2])\z/);
+$s_year = '' unless ($s_year eq '1001' || ($s_year =~ /^\d{4}$/ && $s_year >= 1991 && $s_year <= $this_year));
+$e_year = '' unless ($e_year eq '1001' || ($e_year =~ /^\d{4}$/ && $e_year >= 1991 && $e_year <= $this_year));
+$s_month = '' unless ($s_month =~ /^(00|0[1-9]|1[0-2])$/);
+$e_month = '' unless ($e_month =~ /^(00|0[1-9]|1[0-2])$/);
 
 my $s_date;
 if ($s_year && $s_year ne '1001') {

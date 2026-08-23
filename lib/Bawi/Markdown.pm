@@ -149,7 +149,7 @@ sub render {
         $code =~ s/'/&#39;/g;
         $pfx . "\n" . $pfx
             . $shield->('<pre><code'
-                        . ($lang ? qq{ class="language-$lang"} : '')
+                        . ($lang ? qq( class="language-$lang") : '')
                         . '>' . $code . '</code></pre>')
             . "\n" . $pfx;
     }egms;
@@ -223,7 +223,7 @@ sub render {
                 # The definition's backlink points at the first cite.
                 my $k = ++$fnseen{$1};
                 my $refid = $k == 1 ? "fnref-$uniq$n" : "fnref-$uniq$n-$k";
-                qq{<sup id="$refid"><a href="#fn-$uniq$n">$n</a></sup>};
+                qq(<sup id="$refid"><a href="#fn-$uniq$n">$n</a></sup>);
             } else {
                 "[^$1]";   # no such definition: leave it literal
             }
@@ -257,10 +257,10 @@ sub render {
     # 3b. the footnote list itself, appended last so its content may
     #     hold shielded math (restored by stage 9 below)
     if (@fnorder) {
-        my $fn = qq{<div class="footnotes"><hr /><ol>};
-        for my $i (1 .. @fnorder) {
-            $fn .= qq{<li id="fn-$uniq$i">} . _span_md($fndef{$fnorder[$i-1]})
-                 . qq{ <a href="#fnref-$uniq$i">&#8617;</a></li>};
+        my $fn = qq(<div class="footnotes"><hr /><ol>);
+        foreach my $i (1 .. @fnorder) {
+            $fn .= qq(<li id="fn-$uniq$i">) . _span_md($fndef{$fnorder[$i-1]})
+                 . qq( <a href="#fnref-$uniq$i">&#8617;</a></li>);
         }
         $body .= $fn . '</ol></div>';
     }
@@ -396,7 +396,7 @@ sub _pipe_tables {
                 my @align = map {
                     /^:-*:$/ ? 'center' : /-:$/ ? 'right' : /^:/ ? 'left' : ''
                 } @sep;
-                my $attr = sub { $align[$_[0]] ? qq{ align="$align[$_[0]]"} : '' };
+                my $attr = sub { $align[$_[0]] ? qq( align="$align[$_[0]]") : '' };
                 my $html = '<table><thead><tr>';
                 $html .= '<th' . $attr->($_) . '>' . _span_md($hdr[$_]) . '</th>'
                     for 0 .. $#hdr;

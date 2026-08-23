@@ -3,7 +3,7 @@
 # 1. Prepare BAWI_DATA_HOME (attachments) and the photo dir with www-data
 #    ownership. App config needs no step here: docker-compose.yml bind-mounts
 #    docker/conf/ read-only onto conf/, so the tracked test configs are always
-#    the live ones (edit docker/conf/*.conf on the host — the app re-reads
+#    the live ones (edit docker/conf/*.conf on the host -- the app re-reads
 #    configs on every request, no restart needed).
 # 2. Wait (bounded) for MariaDB so first-request behavior is deterministic.
 # 3. Run Apache in the foreground.

@@ -27,7 +27,7 @@ if ($auth->auth) {
 }
 
 my $board_id = $q->param('bid') || 0;
-$board_id = 0 unless $board_id =~ /^\d+$/;   # reflected into the url tparam (page-nav hrefs)
+$board_id = 0 unless ($board_id =~ /^\d+$/);   # reflected into the url tparam (page-nav hrefs)
 my $sql;
 my $rv;
 
@@ -46,7 +46,7 @@ my $tot_page = int ($articles / $article_per_page);
 ++$tot_page if ($articles % $article_per_page);
 $tot_page = 1 if ($tot_page < 1);
 my $p = $q->param('p') || '';
-$p = '' unless $p =~ /^\d+$/;   # no p sink in this page's templates; kept numeric so the $page arithmetic below stays sane
+$p = '' unless ($p =~ /^\d+$/);   # no p sink in this page's templates; kept numeric so the $page arithmetic below stays sane
 my $page = $p;
 $page = $tot_page unless ($page && $page <= $tot_page);
 
@@ -83,13 +83,13 @@ $t->param(pages=>\@pages);
 $t->param(p=>$p);
 $t->param(total=>$articles);
 
-# The board list page (read.cgi's p=) this article appears on — pages are
+# The board list page (read.cgi's p=) this article appears on -- pages are
 # reverse-numbered (tot_page = newest), matching get_tot_page/get_start in
 # Bawi::Board; read.cgi clamps if the denormalized c.articles has drifted.
 # CAST ... AS SIGNED: c.articles/c.article_per_page are UNSIGNED, so if the
 # counter has drifted low the CEIL-FLOOR difference goes negative and an
 # unsigned subtraction raises ER_DATA_OUT_OF_RANGE (1690) instead of letting
-# GREATEST clamp it — the SIGNED cast keeps the drift case a clamp, not a 500.
+# GREATEST clamp it -- the SIGNED cast keeps the drift case a clamp, not a 500.
 my $board_page = qq(IF(c.article_per_page > 0,
                        GREATEST(1, CAST(CEIL(c.articles / c.article_per_page) AS SIGNED) -
                                    CAST(FLOOR((SELECT count(*) FROM bw_xboard_header as h

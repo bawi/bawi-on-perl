@@ -51,7 +51,10 @@ if($q->param('image')) {
     # ImageMagick picks its coder by file content, not the .jpg name, so a forged
     # image/jpeg carrying SVG/MVG/MSL bytes would be parsed by the vulnerable
     # delegate (ImageTragick). Require a real JPEG SOI marker before Read().
-    open(my $sfh, '<', $temp_file); binmode($sfh); read($sfh, my $sig, 8); close($sfh);
+    open(my $sfh, '<', $temp_file);
+    binmode($sfh);
+    read($sfh, my $sig, 8);
+    close($sfh);
     if (Bawi::ImageSig::is_jpeg($sig)) {
         # Process with ImageMagick to strip metadata
         use Image::Magick;
