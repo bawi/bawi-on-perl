@@ -2,7 +2,6 @@
 use strict;
 use lib '../lib';
 use Text::Iconv;
-use Image::Magick;
 
 use Bawi::Auth;
 use Bawi::Board;
@@ -27,61 +26,90 @@ my $attach = $xb->get_attach(-attach_id=>$atid, -thumb=>$thumb);
 
 if ($attach and $$attach{filehandle}) {
     my $fh = $$attach{filehandle};
-    
-    # Check if this is an image type that could contain EXIF data
-    if ($$attach{is_img} eq 'y' && $$attach{content_type} =~ /image\/(jpeg|jpg|png|gif)/i) {
-        # Read the entire file content
-        my $file_content = '';
-        my $buffer;
-        while (my $len = read($fh, $buffer, 1024_000)) {
-            $file_content .= $buffer;
-        }
-        close $fh;
+    my $path = $$attach{path};
 
-        # A row can carry is_img='y' + an image/* content_type yet hold non-raster
-        # bytes -- stored raw before upload-time validation existed, or migrated by
-        # z2x.pl from a filename extension. Never feed those to ImageMagick
-        # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
-        # upload. is_raster_image is the same magic-byte check upload_attach uses.
-        if (Bawi::ImageSig::is_raster_image($file_content)) {
-            # Process with ImageMagick to strip metadata
-            my $im = new Image::Magick;
-            $im->BlobToImage($file_content);
+    # A row can carry is_img='y' + an image/* content_type yet hold non-raster
+    # bytes -- stored raw before upload-time validation existed, or migrated by
+    # z2x.pl from a filename extension. Never feed those to ImageMagick
+    # (ImageTragick); serve them inert (sandbox + nosniff) like any other as-is
+    # upload. $$attach{raster} is get_attach's magic-byte sniff of this very
+    # handle -- the same check upload_attach runs. Content-type gate is any
+    # image/*: legacy browsers stored image/pjpeg / image/x-png rows
+    # (is_img='y' via substring match), and those must heal like their
+    # canonical siblings; the magic sniff is the real ImageTragick gate.
+    if ($$attach{is_img} eq 'y'
+        && $$attach{content_type} =~ m{^image/}i
+        && $$attach{raster}) {
 
-            # Strip all metadata including EXIF/geotags
-            $im->Strip();
-
-            # Maintain quality for JPEG images
-            $im->Set(quality=>90) if $$attach{content_type} =~ /jpeg|jpg/i;
-
-            # Get processed image data
-            my $cleaned_image = $im->ImageToBlob();
-
-            # Update filesize
-            my $new_size = length($cleaned_image);
-
-            # Output the cleaned image
+        # $$attach{clean}: the sidecar marker, captured by get_attach BEFORE
+        # it opened the filehandle (marker-then-open means the opened inode
+        # is at least as new as the marker's rename; testing it here, after
+        # the open, could certify pre-heal bytes as clean). Contract lives
+        # at Bawi::Board::is_clean/mark_clean. Steady state is this branch
+        # -- stream the stored bytes, no ImageMagick. No CSP sandbox on the
+        # two raster branches: the bytes are magic-verified raster (and
+        # re-encoded output on the heal path), unlike the as-is branch below.
+        if ($$attach{clean}) {
             print $ui->cgi->header(
                 -type => $$attach{content_type},
-                -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-                -Content_length => $new_size,
-                -expires => '+3M'
-            );
-            print $cleaned_image;
-        } else {
-            # Non-raster bytes wearing an image/* content_type: serve as-is, sandboxed.
-            print $ui->cgi->header(
-                -type => $$attach{content_type},
-                -Content_Security_Policy => 'sandbox',
                 -X_Content_Type_Options => 'nosniff',
                 -Content_Disposition => qq(inline; filename="$$attach{filename}"),
-                -Content_length => length($file_content),
+                -Content_length => $$attach{filesize},
                 -expires => '+3M'
             );
-            print $file_content;
+            my $buffer;
+            while (my $len = read($fh, $buffer, 1024_000)) {
+                print $buffer;
+            }
+            close $fh;
+        } else {
+            # Legacy file saved before upload-time stripping existed:
+            # Bawi::Board::heal_attach does exactly what every view used to
+            # do (Strip + re-encode), persists the result, and marks it, so
+            # the ImageMagick pass runs once per file instead of per view.
+            #
+            # The persist DELIBERATELY rewrites the stored original: purging
+            # EXIF/geodata from disk is part of the point (serving stripped
+            # bytes while keeping geotagged originals would retain the
+            # exposure), and it matches upload policy -- add_attach has
+            # never kept originals either. What lands on disk is exactly
+            # what every view has been served since the per-view strip
+            # existed. Take a one-time backup of the attach tree before
+            # first deploy if recovery of pre-strip originals matters --
+            # and if attachment files are ever restored from a backup,
+            # delete the tree's *.clean markers afterward (restored bytes
+            # predate their markers; the heal re-certifies on next view).
+            close $fh;
+            my $cleaned_image =
+                Bawi::Board::heal_attach($path, $$attach{content_type});
+
+            if (defined $cleaned_image) {
+                print $ui->cgi->header(
+                    -type => $$attach{content_type},
+                    -X_Content_Type_Options => 'nosniff',
+                    -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                    -Content_length => length($cleaned_image),
+                    -expires => '+3M'
+                );
+                print $cleaned_image;
+            } else {
+                # Undecodable: nothing safe to serve (the raw bytes may
+                # carry the EXIF this path exists to strip). Fail closed
+                # with an empty, UNCACHED response -- a +3M expires here
+                # would mask a later repair for months. heal_attach already
+                # warned with the cause.
+                print $ui->cgi->header(
+                    -type => $$attach{content_type},
+                    -X_Content_Type_Options => 'nosniff',
+                    -Content_Disposition => qq(inline; filename="$$attach{filename}"),
+                    -Content_length => 0,
+                    -Cache_Control => 'no-store'
+                );
+            }
         }
     } else {
-        # For non-image files or image types unlikely to have EXIF, serve normally
+        # Non-raster bytes wearing an image/* content_type, and every other
+        # type (svg, html, ...), served as-is:
         print $ui->cgi->header(
             -type => $$attach{content_type},
             # Sandbox untrusted uploads served as-is (e.g. svg, html): if opened as a
@@ -95,10 +123,7 @@ if ($attach and $$attach{filehandle}) {
             -Content_length => $$attach{filesize},
             -expires => '+3M'
         );
-        
-        # Reset file handle to beginning (just in case)
-        seek($fh, 0, 0);
-        
+
         # Output file content
         my $buffer;
         while (my $len = read($fh, $buffer, 1024_000)) {
