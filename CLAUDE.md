@@ -50,6 +50,11 @@ for f in db/2*.sql; do echo "applying $f"; mariadb bawi < "$f"; done
 #   20220903_add_retraction.sql
 #   20221221_retroactive_change_delete_comment.sql
 ```
+This loop ignores per-file exit status and blind-applies everything, so:
+**read a new migration's header before applying it on prod** — some are not
+safe to blind-apply (e.g. `db/20260718_convert_hot_tables_innodb.sql`
+requires a maintenance window, prerequisite server config, and a post-apply
+verification query, all spelled out in its header).
 
 ### System Monitoring
 - `/admin/load.pl` - Records system load (runs via cron every minute)

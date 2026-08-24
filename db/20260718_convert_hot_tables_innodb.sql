@@ -1,0 +1,169 @@
+-- Convert the HOT tables from MyISAM to InnoDB.
+--
+-- WHY
+--   Every table below sits on the request path, and several are WRITTEN on
+--   the READ path: bw_xboard_header takes count=count+1 on every article
+--   view, bw_xauth_passwd takes accessed/access on every authenticated
+--   request, bw_xboard_board takes max_*_no on every post/comment,
+--   bw_xboard_bookmark on every "read new". Under MyISAM each of those
+--   UPDATEs takes a TABLE lock: one write blocks every concurrent reader of
+--   that table, so under load reads queue behind counter writes on the
+--   hottest tables. Prod evidence (2026-07-18): Table_locks_waited=29,431
+--   vs Table_locks_immediate=27,087,405 -- ~1 in 920 statements queued.
+--   InnoDB takes row locks instead, and recovers after a crash on its own:
+--   if mysqld dies or the host loses power mid-write, MyISAM leaves the
+--   table "marked as crashed"; MariaDB's default
+--   myisam_recover_options=BACKUP,QUICK then auto-repairs it at next open
+--   -- a BLOCKING table rebuild that can still lose rows, with a manual
+--   REPAIR TABLE needed when recovery would drop more than one row --
+--   while InnoDB replays its redo log and serves again in seconds
+--   (verified empirically: SIGKILL + restart on the test stack).
+--
+--   Sizes below are from the 2018-04 dump's AUTO_INCREMENT counters (header
+--   ~1.6M, comment ~4.5M, body = one row per article) -- 8 years stale;
+--   re-measure on prod before trusting any duration estimate.
+--
+-- SCOPE
+--   Hot set only. Cold/append-only MyISAM tables (bw_note, bw_user_gbook,
+--   stat tables, polls, ...) stay as they are -- convert opportunistically
+--   later if wanted; nothing in the app depends on engine uniformity.
+--
+-- ============================ BEFORE THE WINDOW ============================
+--   1. Rehearse for duration: restore the latest prod backup somewhere
+--      disposable and `time` this exact file against it. That timing -- not
+--      any number in this header -- decides the window. (Empty-ish test DB:
+--      seconds. 351MB laptop test set: 43s. Prod: measure.)
+--   2. Size the buffer pool FIRST. MyISAM leaned on key_buffer + OS page
+--      cache; InnoDB caches data+indexes in its buffer pool. Budget at
+--      least the sum reported by:
+--        SELECT round(sum(data_length+index_length)/1024/1024) AS mb
+--        FROM information_schema.tables WHERE table_schema=DATABASE()
+--        AND table_name IN ('bw_xauth_session','bw_xboard_bookmark',
+--          'bw_xboard_board','bw_xauth_passwd','bw_xboard_commentref',
+--          'bw_xboard_header','bw_xboard_comment','bw_xboard_body');
+--      then set innodb_buffer_pool_size in server config (restart needed).
+--      Measured consequence of skipping this: unindexed scans went 0.7s ->
+--      3.7s per scan under the 128MB default.
+--   3. Decide the durability knob. InnoDB's default
+--      innodb_flush_log_at_trx_commit=1 fsyncs EVERY commit -- and this
+--      app's per-view counter UPDATEs are each their own commit
+--      (autocommit=1). On SSD our write bench got FASTER (19.6s -> 15.3s);
+--      on slow spinning disks flush=1 can make the hot path SLOWER than
+--      MyISAM ever was. flush=2 (fsync ~1/s) is the standard setting for
+--      counter-grade data; set sync_binlog accordingly if binlogging.
+--      Measure on prod hardware before choosing.
+--   4. Optional FULLTEXT parity: innodb_ft_min_token_size defaults to 3
+--      where MyISAM's ft_min_word_len was 4 -- see FULLTEXT NOTES below.
+--      Set 4 (restart) only if strict parity is wanted; default keeps the
+--      recall improvement.
+--   5. Fresh backup immediately before the window. Free disk must exceed
+--      2x the largest table (ALTER=COPY holds both copies transiently).
+--
+-- ============================ THE WINDOW ============================
+--   Run from screen/tmux (a dropped SSH session kills a multi-minute ALTER
+--   mid-copy). Deploy the code half of this PR (news.cgi counter sums)
+--   BEFORE or WITH the ALTERs -- the sums work on both engines, and old
+--   news.cgi on InnoDB would pay a multi-second COUNT(*) per front-page
+--   view (measured 1.76s on a 1.5M-row header).
+--
+--   Availability truth, not the comforting version: each ALTER below is
+--   ALGORITHM=COPY, LOCK=SHARED -- pure reads of that table keep working,
+--   writes to it block until the copy finishes. BUT on this app writes
+--   ride the read path: during the bw_xboard_header ALTER every article
+--   view blocks on its own count=count+1 (lock_wait_timeout defaults to
+--   86400s, so requests HANG rather than fail), each hung request pins a
+--   mod_perl worker, and worker-pool exhaustion then queues even pure-read
+--   pages -- an effective site-wide outage for the duration. Same story
+--   for bw_xauth_passwd (every authenticated request) and comment/body
+--   (every post/comment). Practical guidance: the small tables convert in
+--   seconds and need nothing; put up a maintenance notice (or stop Apache)
+--   for the header, comment, and body ALTERs unless the rehearsal timed
+--   them well under a minute.
+--
+--   Apply one-shot or table-by-table (each statement is independent);
+--   order below is smallest-first so the fast wins land before the long
+--   copies start. The repo-root CLAUDE.md migration loop (the PROD
+--   channel: `for f in db/2*.sql; do mariadb bawi < "$f"; done`) ignores
+--   per-file exit status, so never assume success from the loop finishing
+--   -- run the AFTER verification. (The docker init runner is the
+--   opposite: set -euo pipefail, fails fast per file.) The sentinel
+--   CREATE TABLE below makes a blind REPLAY of this file abort before any
+--   ALTER runs -- re-running ENGINE=InnoDB on an already-converted table
+--   would otherwise repeat the full write-blocking copy.
+--
+-- ============================ AFTER ============================
+--   1. Verify engines (partial application must not pass silently):
+--        SELECT table_name, engine FROM information_schema.tables
+--        WHERE table_schema=DATABASE() AND table_name IN
+--          ('bw_xauth_session','bw_xboard_bookmark','bw_xboard_board',
+--           'bw_xauth_passwd','bw_xboard_commentref','bw_xboard_header',
+--           'bw_xboard_comment','bw_xboard_body');
+--      -- all 8 rows must say InnoDB.
+--   2. Smoke: read an article, post a comment, load the front page, run a
+--      search2.cgi query (FULLTEXT), check the error log.
+--   3. Housekeeping (later is fine): shrink key_buffer_size -- the MyISAM
+--      key cache is now mostly idle -- and give the RAM to the buffer pool.
+--   Rollback: ALTER TABLE ... ENGINE=MyISAM per table (same copy cost),
+--   or restore the backup. The news.cgi counter sums need no rollback
+--   either way (they run identically on both engines).
+--
+-- FULLTEXT NOTES
+--   bw_xboard_body(body) and bw_xboard_header(title) carry FULLTEXT indexes
+--   used by main/search2.cgi (MATCH ... AGAINST, natural language). MariaDB
+--   10.6 InnoDB supports FULLTEXT; the ALTER rebuilds them. THREE behavior
+--   deltas, all in the more-results direction:
+--     - min token length 3 (InnoDB) vs 4 (MyISAM): short Korean words
+--       become searchable. Kept deliberately; see BEFORE step 4.
+--     - MyISAM's natural-language mode suppressed terms present in >=50%
+--       of rows; InnoDB has no 50% rule, so ubiquitous terms go from
+--       zero results to matching much of the corpus.
+--     - stopword lists differ (InnoDB ships a small English list) --
+--       irrelevant for Korean content.
+--   Degenerate-term queries that overflow innodb_ft_result_cache_limit
+--   error out -- which, with RaiseError off, renders as a silently empty
+--   result page; worth knowing before a user reports "search is broken".
+--
+-- APP BEHAVIOR NOTES (no code changes required)
+--   - DBI runs autocommit=1; every statement stays its own transaction.
+--   - add_article still does LOCK TABLES head/body/board/bookmark WRITE;
+--     that is legal on InnoDB (takes InnoDB table locks for the section)
+--     and keeps article creation serialized exactly as today.
+--   - New error class: InnoDB statements can fail with a deadlock (1213)
+--     or lock-wait timeout where MyISAM writes just queued forever. No
+--     $DBH->do caller escalates a failed return (RaiseError off; at most
+--     follow-on work is skipped), so such a failure is a lost counter
+--     tick / bookmark update with only a PrintError line in the log.
+--     Acceptable for counter-grade data; known and deliberate, not a bug
+--     to rediscover.
+--   - Whole-table COUNT(*) loses MyISAM's O(1) shortcut. The two big-table
+--     sites (bw_xboard_header/comment vanity totals in main/news.cgi) are
+--     swapped to counter sums in this PR. The bw_xauth_passwd COUNT(*)
+--     sites STAY as they are -- the users total in main/news.cgi,
+--     Auth::tot_user (board/userlist.cgi pagination), and User.pm's
+--     tot_user (currently uncalled) -- because the table is small (~17K
+--     rows in the 2018 dump; milliseconds on InnoDB). Any future audit of
+--     this kind must sweep lib/ too, not just the CGI directories.
+--   - Zero datetime defaults ('0000-00-00') are accepted by the default
+--     MariaDB 10.6 sql_mode (NO_ZERO_DATE not set); the ALTER preserves
+--     them. AUTO_INCREMENT counters persist across restart and crash
+--     recovery on MariaDB >= 10.2.4 (verified empirically on 10.6: no id
+--     reuse after delete-newest + clean restart, nor after SIGKILL).
+--
+-- ALGORITHM=COPY, LOCK=SHARED pins the documented concurrency contract
+-- (reads allowed, writes blocked, full copy) rather than assuming it.
+
+-- Replay sentinel: errors ("table exists") on a second application, so a
+-- blind re-run of this file aborts HERE instead of repeating the
+-- write-blocking table copies. Matches the accidental convention of every
+-- other migration in db/ (their CREATE/ADD statements fail on replay).
+CREATE TABLE bw_migration_20260718_innodb_applied (applied TINYINT NOT NULL)
+    ENGINE=InnoDB;
+
+ALTER TABLE bw_xauth_session    ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_bookmark  ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_board     ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xauth_passwd     ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_commentref ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_header    ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_comment   ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
+ALTER TABLE bw_xboard_body      ENGINE=InnoDB, ALGORITHM=COPY, LOCK=SHARED;
