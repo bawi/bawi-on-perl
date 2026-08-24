@@ -99,8 +99,10 @@ my $allow_comment = $grp->authz(-uid   => $uid,
 
 my $allow_recom = $xb->allow_recom;
 my $allow_scrap = $xb->allow_scrap;
+my $inline_attach = $xb->inline_attach;
 $t->param(allow_recom=>$allow_recom);
 $t->param(allow_scrap=>$allow_scrap);
+$t->param(inline_attach=>$inline_attach);
 $t->param(a_read =>$xb->a_read);
 
 my $article_set;

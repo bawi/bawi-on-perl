@@ -190,6 +190,12 @@ sub allow_attach {
     return $self->{allow_attach};
 }
 
+sub inline_attach {
+    my $self = shift;
+    if (@_) { $self->{inline_attach} = shift }
+    return $self->{inline_attach};
+}
+
 sub allow_recom {
     my $self = shift;
     if (@_) { $self->{allow_recom} = shift }
@@ -345,6 +351,7 @@ sub save_instance {
                      image_width=?,
                      thumb_width=?,
                      allow_attach=?,
+                     inline_attach=?,
                      allow_recom=?,
                      allow_scrap=?,
                      skin=?,
@@ -375,6 +382,7 @@ sub save_instance {
                                    $self->image_width,
                                    $self->thumb_width,
                                    $self->allow_attach,
+                                   $self->inline_attach,
                                    $self->allow_recom,
                                    $self->allow_scrap,
                                    $self->skin,
