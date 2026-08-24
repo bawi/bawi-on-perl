@@ -91,6 +91,45 @@ sub send_msg {
     return $rv;
 }
 
+sub notify_mentions {
+    my $self = shift;
+    my $body = shift || "";
+    my $from_id = shift || "";
+    my $from_name = shift || "";
+    my $url = shift || "";
+
+    return 0 if ($body eq "" || $from_id eq "" || $from_name eq "" || $url eq "");
+
+    # callers build $url from the request (Host header): accept only a
+    # plain http(s)://host[:port]/path shape -- a forged Host must not
+    # smuggle markup or control chars into the stored note.
+    return 0 unless ($url =~ m{^https?://[A-Za-z0-9.\-]+(?::\d+)?/[\w\-./?;=&#%]*$});
+
+    my (@ids, %seen);
+    while ($body =~ /(?:^|[\s\(\[\>])\@([A-Za-z0-9_]{2,10})\b/g) {
+        next if ($1 eq $from_id || $seen{$1});
+        $seen{$1} = 1;
+        push @ids, $1;
+        last if (@ids >= 5); # cap: notify at most 5 mentioned users per post
+    }
+
+    # msg is rendered as HTML by the note pages: keep the interpolated
+    # request-derived fields inert.
+    my ($e_name, $e_id, $e_url) = ($from_name, $from_id, $url);
+    for ($e_name, $e_id, $e_url) {
+        s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; s/"/&quot;/g;
+    }
+
+    my $sent = 0;
+    foreach my $id (@ids) {
+        my $user = $self->get_user_info_by_id($id);
+        next unless ($user && $user->{name});
+        my $msg = "[언급] ${e_name}(${e_id})님이 회원님을 언급했습니다: $e_url";
+        ++$sent if $self->send_msg($id, $user->{name}, $from_id, $from_name, $msg);
+    }
+    return $sent;
+}
+
 sub delete_msg {
     my $self = shift;
     my $msg_id = shift;
