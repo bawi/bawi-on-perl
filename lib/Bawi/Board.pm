@@ -2324,10 +2324,12 @@ sub add_pollset {
                 grep { /$i/ && $q->param($_) }
                 @opt;
         if ($poll && @o && $#o > 0) {
+            my $uopt = $q->param($i.'_uopt') ? 1 : 0;
             my $pid = $self->add_poll(-board_id=>$bid,
                                       -article_id=>$aid,
                                       -duration=>$dur,
-                                      -poll=>$poll);
+                                      -poll=>$poll,
+                                      -allow_user_opt=>$uopt);
             if ($pid) {
                 foreach my $j (@o) {
                     my $rv = $self->add_opt(-poll_id=>$pid, -opt=>$j);
@@ -2346,11 +2348,12 @@ sub add_poll {
                    exists $arg{-poll});
 
     my ($bid, $aid, $dur) = ($arg{-board_id}, $arg{-article_id}, $arg{-duration});
+    my $uopt = $arg{-allow_user_opt} ? 1 : 0;
     $dur = 7 unless ($dur =~ /^[1-9]\d+$/);
-    my $sql = qq(INSERT INTO $TBL{poll} 
-                 (board_id, article_id, poll, created, closed) 
-                 VALUES (?, ?, ?, now(), now() + INTERVAL ? DAY));
-    my $rv = $DBH->do($sql, undef, $bid, $aid, $arg{-poll}, $dur);
+    my $sql = qq(INSERT INTO $TBL{poll}
+                 (board_id, article_id, poll, allow_user_opt, created, closed)
+                 VALUES (?, ?, ?, ?, now(), now() + INTERVAL ? DAY));
+    my $rv = $DBH->do($sql, undef, $bid, $aid, $arg{-poll}, $uopt, $dur);
     if ($rv) {
         &inc_has_poll($aid);
         my $poll_id = get_max_poll_id($bid, $aid);
@@ -2390,7 +2393,8 @@ sub add_opt {
 
     my $sql = qq(INSERT INTO $TBL{opt} (poll_id, opt) VALUES (?, ?));
     my $rv = $DBH->do($sql, undef, $arg{-poll_id}, $arg{-opt});
-    return $rv;
+    # the new opt_id; callers that only want a truth value still work.
+    return $rv ? $DBH->{mysql_insertid} : 0;
 }
 
 sub add_ans {
@@ -2440,6 +2444,7 @@ sub get_pollset {
     my @arg = ($arg{-article_id});
     push @arg, $pid if ($pid);
     my $sql = qq(SELECT a.poll_id, a.board_id, a.article_id, a.poll,
+                        a.allow_user_opt,
                         DATE_FORMAT(a.created, '%m/%d') as created,
                         DATE_FORMAT(a.closed, '%m/%d') as closed,
                         a.closed < now() as is_closed,
@@ -2495,6 +2500,88 @@ sub get_optset {
                 #####TEMP CODE#####
                 $_; } @rv;
     return \@rv;
+}
+
+sub is_tally_hidden {
+    # election polls whose tallies are policy-hidden: get_optset blanks
+    # their counts (TEMP CODE above), and get_poll_xtab refuses them
+    # outright -- a raw cross-tab would reconstruct the hidden numbers.
+    my $pid = shift || 0;
+    return scalar grep { $pid == $_ }
+        (1427,
+         9696, 9698,  ## 11대 동창회장 선거
+         9804,        ## 12대 동창회장 선거
+         9857,        ## 13대 동창회장 선거
+         9884, 9886); ## 14대 동창회장 선거
+}
+
+sub get_poll_xtab {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-poll_id1} && exists $arg{-poll_id2} &&
+                   exists $arg{-board_id} && exists $arg{-article_id});
+
+    my $p1 = $arg{-poll_id1} || 0;
+    my $p2 = $arg{-poll_id2} || 0;
+    my $bid = $arg{-board_id} || 0;
+    my $aid = $arg{-article_id} || 0;
+    my $uid = $arg{-uid} || 0;
+    # crossing a poll with itself just reproduces its own tally (a
+    # margin), which get_optset may deliberately hide; refuse it.
+    return if ($p1 == $p2);
+    return if (&is_tally_hidden($p1) || &is_tally_hidden($p2));
+
+    my $sql = qq(SELECT poll_id, board_id, article_id, poll,
+                        closed < now() as is_closed
+                 FROM $TBL{poll}
+                 WHERE poll_id=?);
+    my $poll1 = $DBH->selectrow_hashref($sql, undef, $p1);
+    my $poll2 = $DBH->selectrow_hashref($sql, undef, $p2);
+    # bind both polls to the board/article the caller was authorized
+    # for; poll ids lifted from another (possibly private) article
+    # must yield nothing.
+    return unless ($poll1 && $poll2 &&
+                   $$poll1{board_id}   == $bid &&
+                   $$poll2{board_id}   == $bid &&
+                   $$poll1{article_id} == $aid &&
+                   $$poll2{article_id} == $aid);
+    # _pollset hides an open poll's results until the viewer answered;
+    # the cross-tab must not show joint counts any earlier.
+    return unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
+                   ($$poll2{is_closed} || &is_answered($p2, $uid)));
+
+    my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
+                  FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
+                  WHERE a1.poll_id=? && a2.poll_id=?
+                  GROUP BY 1, 2);
+    my $rv = $DBH->selectall_arrayref($sql2, undef, $p1, $p2);
+    my %cnt;
+    my $n = 0;
+    foreach my $i (@$rv) {
+        $cnt{$$i[0]}{$$i[1]} = $$i[2];
+        $n += $$i[2];
+    }
+
+    my $opt1 = &get_optset($p1, 0, 0);
+    my $opt2 = &get_optset($p2, 0, 0);
+    my @col = map { { opt=>$$_{opt} } } @$opt2;
+    my @row;
+    my $small = 0;
+    foreach my $i (@$opt1) {
+        my @cell = map { my $c = $cnt{$$i{opt_id}}{$$_{opt_id}} || 0;
+                         ++$small if ($c && $c < 3);
+                         { cnt => $c } }
+                   @$opt2;
+        push @row, { opt=>$$i{opt}, cell=>\@cell };
+    }
+    # per-option totals are already public once results are visible, so
+    # any per-cell mask could be solved back from its row/column
+    # marginal; when a cell would identify fewer than 3 voters, publish
+    # no table at all instead of a reversible mask.
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, suppressed=>1 }
+        if ($small);
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
+             cols=>\@col, rows=>\@row, n=>$n,
+             colspan=>scalar(@col) + 1 };
 }
 
 sub inc_has_poll {

@@ -23,6 +23,13 @@
 </tmpl_if>
 </tr>
   </tmpl_loop>
+<tmpl_if allow_vote><tmpl_if allow_user_opt>
+<tr class="option">
+  <td class="num"></td>
+  <td class="option"><input type="text" name="opt_text" maxlength="100" placeholder="기타 (직접 입력)" /></td>
+  <td class="button radio"></td>
+</tr>
+</tmpl_if></tmpl_if>
 <tr class="bottom">
   <td colspan="2">
     <tmpl_var created> - <tmpl_var closed>
