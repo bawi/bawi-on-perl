@@ -371,30 +371,37 @@ print "seeding 40 notes\n";
 # (app-wide superuser, deliberately outside the property under test).
 # One article and one note carry unique canary strings; t/smoke.sh asserts
 # each is served to who it belongs to and to nobody else (wrong member,
-# non-member, logged-out). The ARTICLE token lives in the body (teaser/body
-# surfaces); the TITLE token lives in the article title (list surfaces:
-# news.cgi $recent, board indexes -- title rendering is a separate leak
-# channel from body rendering). Grep-proof tokens: never reuse them in any
-# other seeded text. Ids are DERIVED (next free board_id / msg_id), never
-# hardcoded, so growing @BOARDS or the notes loop cannot collide.
+# non-member, logged-out) -- except the news.cgi title channel, pinned
+# there as a KNOWN leak until the app gains a membership filter. The
+# ARTICLE token lives in the body (teaser/body surfaces); the TITLE token
+# lives in the article title (list surfaces: news.cgi $recent, board
+# indexes -- title rendering is a separate leak channel from body
+# rendering). Grep-proof tokens: never reuse them in any other seeded
+# text. Ids are DERIVED (next free board_id / msg_id), never hardcoded,
+# so growing @BOARDS or the notes loop cannot collide.
+# Invariants t/smoke.sh's news.cgi pin CONSUMES (keep them true):
+#   - the canary article must stay within the 40 highest article_ids
+#     (append future seed blocks BEFORE this one, or re-derive);
+#   - the canary board must keep allow_recom=1 / is_anonboard=0 (set
+#     explicitly below -- news.cgi's $recent filters on them).
 print "seeding privacy canaries (closed canary board, canary article + note)\n";
 use constant CANARY_ARTICLE => 'CANARY-ARTICLE-b7a2f9';
 use constant CANARY_TITLE   => 'CANARY-TITLE-c7d4e2';
 use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
 {
-    my $cb = 1 + (sort { $b <=> $a } map { $$_[0] } @BOARDS)[0];  # next free board_id
+    my $cb = 1 + (sort { $b <=> $a } map { $_->[0] } @BOARDS)[0];  # next free board_id
     $dbh->do(q(
         INSERT INTO bw_xboard_board
             (board_id, keyword, gid, title, uid, id, name, skin, seq, created,
              g_read, m_read, a_read, g_write, m_write, a_write,
-             g_comment, m_comment, a_comment)
+             g_comment, m_comment, a_comment, allow_recom, is_anonboard)
         VALUES (?, 'secret', 3, ?, 2, ?, ?, 'default', ?, ?,
-                1,0,0, 1,0,0, 1,0,0)),
+                1,0,0, 1,0,0, 1,0,0, 1, 0)),
         undef, $cb, '비공개 테스트판', $uid2id{2}, $uname{2}, $cb,
         dt(BASE_EPOCH + 86400 * 7));
 
     my $ca = ++$article_id;
-    # title = 24 bytes Korean + space + 19 ASCII = 44 bytes, within char(64)
+    # title = 28 chars (42 bytes utf8) -- well inside char(64) = 64 chars
     $dbh->do(q(
         INSERT INTO bw_xboard_header
             (article_id, article_no, parent_no, thread_no, board_id, category,

@@ -36,8 +36,10 @@ to delete.
 
 Ports default to **8080** (web) and **3307** (db) on localhost. Each
 uniquely-named checkout gets its own compose project (project = directory
-basename; same-named checkouts would share one — use `docker compose -p` to
-disambiguate). To run stacks side by side, give later ones their own ports —
+basename; same-named checkouts would share one — disambiguate with
+`COMPOSE_PROJECT_NAME=<name>` in the gitignored `.env`, NOT a bare
+`docker compose -p`: seed/reseed.sh and t/smoke.sh run plain `docker
+compose` from the checkout dir and would target the wrong project). To run stacks side by side, give later ones their own ports —
 persistently, via a gitignored `.env`:
 
 ```sh
@@ -151,9 +153,10 @@ retrying — a half-initialized data dir skips init on the next start.
 
 ## Validation checklist (what "working" looks like)
 
-The whole checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (23 checks,
-including privacy-canary assertions the manual list below does not cover). The
-items below remain as the hand-debug annex.
+The checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (currently 24
+checks -- the script asserts its own count, see `EXPECTED` -- including the
+privacy-canary assertions the manual list below does not cover). The items
+below remain as the hand-debug annex.
 
 1. `docker compose ps` — the db and web containers both `Up`.
 2. `docker compose exec -T db mariadb -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 64 lines: 1 column-header line + 62 tables (incl. `schema_migrations` and the `bw_migration_20260718_innodb_applied` replay sentinel) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)

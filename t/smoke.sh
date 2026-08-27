@@ -6,15 +6,19 @@
 #   (the script waits for the web container itself, so up + seed + run works)
 #
 # Tiers:
-#   0  compile every *.cgi and *.pl entry point in the web-mapped script dirs
-#      (admin board main user reg postman; search/ is a non-web-mapped
-#      "Closed." placeholder and */skin/* holds .cgi-NAMED HTML templates --
-#      both excluded) plus lib/**/*.pm; run t/markdown_smoke.pl
+#   0  compile every *.cgi and *.pl entry point in the script dirs (five
+#      web-mapped: admin board main user reg, plus postman's mail-pipe
+#      scripts; search/ is a non-web-mapped "Closed." placeholder and
+#      */skin/* holds .cgi-NAMED HTML templates -- both excluded) plus
+#      lib/**/*.pm; run t/markdown_smoke.pl
 #   1  stack/schema: DB reachable, migration ledger complete, db-test.cgi
-#   2  golden path over HTTP: login, list, read, post, comment, logout
+#   2  golden path over HTTP: login, list, read (plain + markdown render
+#      cache), post, comment, logout
 #   3  privacy canaries: the closed-board article and the private note are
 #      served to who they belong to and to NOBODY else (logged-out,
-#      non-member, wrong member). Seeded by seed/seed.pl ("privacy
+#      non-member, wrong member) -- EXCEPT the news.cgi title channel,
+#      deliberately pinned as a KNOWN leak until the app gains a
+#      membership filter (see that check). Seeded by seed/seed.pl ("privacy
 #      canaries"); tokens: article BODY carries CANARY-ARTICLE-*, article
 #      TITLE carries CANARY-TITLE-* (title-rendering surfaces are a separate
 #      leak channel from body-rendering ones).
@@ -24,23 +28,31 @@
 # NEVER inside $(...) (a subshell would swallow both). db/has are
 # subshell-safe. The response body always lands in $TMP/body. Every check
 # prints "ok N ..." or dies with "FAIL ..."; the run only passes if exactly
-# $EXPECTED checks ran. Exit 0 = all green.
+# $EXPECTED checks ran. Exit 0 = all green. Do NOT overlap runs (or a
+# reseed) on one stack: reseed TRUNCATEs mid-suite, and two runs race the
+# app's one-live-session-per-user rule.
 # =============================================================================
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=23
+EXPECTED=24
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
 CANARY_NOTE='CANARY-NOTE-n5c3e1'
 
 # Port: compose reads the gitignored .env; a shell running this script does
-# not. Resolve the same way compose does so HTTP and `compose exec` target
-# the SAME stack (env var wins, then .env, then 8080).
+# not. Resolve like compose (env var wins, then .env, then 8080) so HTTP
+# and `compose exec` target the same stack -- assuming .env is unchanged
+# since `docker compose up`. Tolerate the common dotenv shapes (export
+# prefix, quotes, CRLF) and refuse anything non-numeric rather than
+# silently targeting the wrong port.
 if [ -z "${BAWI_HTTP_PORT:-}" ] && [ -f .env ]; then
-    BAWI_HTTP_PORT=$(sed -n 's/^BAWI_HTTP_PORT=//p' .env | tail -1)
+    BAWI_HTTP_PORT=$(sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}BAWI_HTTP_PORT=//p' .env | tail -1 | tr -d '"\r' | tr -d "'")
 fi
+case "${BAWI_HTTP_PORT:-8080}" in
+    *[!0-9]*) echo "FAIL: unparseable BAWI_HTTP_PORT: '${BAWI_HTTP_PORT}'" >&2; exit 1 ;;
+esac
 BASE="http://localhost:${BAWI_HTTP_PORT:-8080}"
 
 if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
@@ -49,9 +61,12 @@ N=0
 ok()   { N=$((N+1)); echo "ok $N  $*"; }
 fail() {
     echo "FAIL: $*" >&2
+    echo "---- last HTTP code: ${CODE:-none}" >&2
     if [ -s "${TMP:-}/body" ]; then
-        echo "---- last HTTP code: ${CODE:-none}; first lines of last body:" >&2
+        echo "---- first bytes of last body:" >&2
         head -c 2000 "$TMP/body" >&2; echo >&2
+    else
+        echo "---- (last body empty)" >&2
     fi
     exit 1
 }
@@ -75,11 +90,13 @@ has() { grep -q "$1" "$TMP/body"; }   # case-sensitive; subshell-safe
 
 # db <sql> -> rows on stdout. Credentials come from the db container's OWN
 # env (the variables that created the account -- correct by construction, and
-# no fifth copy of the tuple docker-compose.yml enumerates). Fails loudly:
-# a DB-side error must never surface as a downstream "LEAK"/ledger message.
+# no fifth copy of the tuple docker-compose.yml enumerates). On error the
+# TRUE cause prints here (2>&1: some compose versions merge exec streams) --
+# but fail()'s exit dies inside the caller's $(...) subshell, so every call
+# site MUST append `|| exit 1` or the downstream check misdiagnoses.
 db() {
-    _out=$($DC exec -T db sh -c 'exec mariadb -N -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "$1"' dbq "$1" 2>"$TMP/db.err") \
-        || fail "db query failed: $1 -- $(cat "$TMP/db.err")"
+    _out=$($DC exec -T db sh -c 'exec mariadb -N -u"$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "$1" 2>&1' dbq "$1") \
+        || fail "db query failed: $1 -- $_out"
     printf '%s\n' "$_out"
 }
 
@@ -112,7 +129,7 @@ $DC exec -T web sh -c '
         d=$(dirname "$f"); b=$(basename "$f"); n=$((n+1))
         out=$( cd "$d" && perl -c "$b" 2>&1 ) || { echo "compile FAIL: $f"; echo "$out"; rc=1; }
     done
-    [ "$n" -ge 90 ] || { echo "compile sweep found only $n entry points (dir renamed?)"; rc=1; }
+    [ "$n" -ge 105 ] || { echo "compile sweep found only $n entry points (dir renamed?)"; rc=1; }
     m=0
     for f in $(find lib -name "*.pm") ; do
         m=$((m+1))
@@ -137,7 +154,7 @@ ok "test DB reachable with container credentials"
 
 for f in db/2*.sql; do
     m=$(basename "$f")
-    got=$(db "SELECT COUNT(*) FROM schema_migrations WHERE filename='$m'")
+    got=$(db "SELECT COUNT(*) FROM schema_migrations WHERE filename='$m'") || exit 1
     [ "$got" = "1" ] || fail "migration not in ledger: $m (got '$got')"
 done
 ok "all $(ls db/2*.sql | wc -l | tr -d ' ') migrations recorded in schema_migrations"
@@ -159,12 +176,24 @@ fetch "$J2" "$BASE/board/index.cgi"
 [ "$CODE" = "200" ] || fail "board index: HTTP $CODE"
 ok "board index serves for a member"
 
-aid=$(db "SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=2")
+aid=$(db "SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
 [ -n "$aid" ] && [ "$aid" != "NULL" ] || fail "no seeded article on board 2 (got '$aid')"
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$aid"
 [ "$CODE" = "200" ] || fail "read bid=2 aid=$aid: HTTP $CODE"
 has "자유게시판" || fail "read: board title missing"
 ok "read an open-board article"
+
+# markdown render path: category=1 article -> Bawi::Markdown via
+# Board.pm format_article -> bw_xboard_body_html read-through cache
+# (INSTALLATION.md checklist item 7).
+maid=$(db "SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=2 AND category=1") || exit 1
+[ -n "$maid" ] && [ "$maid" != "NULL" ] || fail "no seeded markdown article on board 2"
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$maid"
+[ "$CODE" = "200" ] || fail "markdown read: HTTP $CODE"
+has "<h2" || fail "markdown article did not render HTML"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_body_html WHERE article_id=$maid") || exit 1
+[ "$got" = "1" ] || fail "markdown render cache row not created (got '$got')"
+ok "markdown article renders and populates the body_html cache"
 
 marker="smoke-post-$$"
 fetch "$J2" "$BASE/board/write.cgi" \
@@ -172,7 +201,7 @@ fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "title=smoke test article" \
       --data-urlencode "body=posted by t/smoke.sh $marker"
 [ "$CODE" = "302" ] || fail "write: expected 302 redirect, got $CODE"
-newaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2")
+newaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
 [ -n "$newaid" ] && [ "$newaid" != "NULL" ] || fail "post: no article found after write"
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$newaid"
 has "$marker" || fail "posted article not readable back"
@@ -184,7 +213,7 @@ fetch "$J2" "$BASE/board/comment.cgi" \
       --data-urlencode "aid=$newaid" \
       --data-urlencode "body=smoke comment $marker"
 [ "$CODE" = "302" ] || [ "$CODE" = "200" ] || fail "comment: HTTP $CODE"
-got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE article_id=$newaid")
+got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE article_id=$newaid") || exit 1
 [ "$got" = "1" ] || fail "comment row not created (got '$got')"
 ok "post a comment"
 
@@ -198,9 +227,9 @@ fetch "$J2" "$BASE/board/index.cgi"
 ok "logout invalidates the session (302 to login)"
 
 # ==================================================== tier 3: privacy canaries
-cbid=$(db "SELECT board_id FROM bw_xboard_board WHERE keyword='secret'")
+cbid=$(db "SELECT board_id FROM bw_xboard_board WHERE keyword='secret'") || exit 1
 [ -n "$cbid" ] && [ "$cbid" != "NULL" ] || fail "canary board not seeded (keyword 'secret')"
-caid=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$cbid LIMIT 1")
+caid=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$cbid LIMIT 1") || exit 1
 [ -n "$caid" ] && [ "$caid" != "NULL" ] || fail "canary article not seeded (board $cbid)"
 ok "canary board ($cbid) and article ($caid) present"
 
@@ -240,17 +269,21 @@ fetch "$J7" "$BASE/board/write.cgi" \
       --data-urlencode "bid=$cbid" \
       --data-urlencode "title=should-not-land" \
       --data-urlencode "body=intrusion-$$"
-got=$(db "SELECT COUNT(*) FROM bw_xboard_header WHERE board_id=$cbid AND title='should-not-land'")
+got=$(db "SELECT COUNT(*) FROM bw_xboard_header WHERE board_id=$cbid AND title='should-not-land'") || exit 1
 [ "$got" = "0" ] || fail "LEAK: non-member wrote into the closed board (got '$got')"
 ok "non-member cannot post into the closed board"
 
 # The front page's hot-teaser (bodies) reads bw_xboard_stat_article, which
-# news.cgi joins WITHOUT a permission filter. What keeps closed-board BODIES
-# off the front page today is only that closed-board rows are not in that
-# table. Pin that invariant directly at the DB (the teaser's 5-day window +
-# fixed seed dates make an HTTP assertion on this channel structurally
-# vacuous -- it could never fail).
-got=$(db "SELECT COUNT(*) FROM bw_xboard_stat_article WHERE board_id=$cbid")
+# news.cgi joins WITHOUT a permission filter -- and prod's populator
+# (main/sql/update_article_stat.sql) admits rows on engagement alone, no
+# privacy clause, so on PROD a popular closed-board article's body teaser
+# IS reachable (verified by running that cron SQL against a qualifying
+# canary). This DB pin therefore guards the SEED's data shape only (the
+# canary stays out of the table for lack of engagement); the real fix --
+# an m_read filter in the cron and in news.cgi -- lands in the stacked
+# news-fix PR, where this pin becomes a live test. HTTP assertion here
+# would be structurally vacuous (5-day window vs fixed seed dates).
+got=$(db "SELECT COUNT(*) FROM bw_xboard_stat_article WHERE board_id=$cbid") || exit 1
 [ "$got" = "0" ] || fail "closed-board article entered bw_xboard_stat_article (front-page teaser feeder)"
 ok "closed board absent from the front-page teaser feeder (stat_article)"
 
@@ -258,14 +291,21 @@ ok "closed board absent from the front-page teaser feeder (stat_article)"
 # titles) has NO membership filter, so the closed board's article TITLE is
 # on the front page for every logged-in member (empirically confirmed;
 # PR #32 discussion). The body token must still be absent (bodies are not
-# served there). When news.cgi gains a membership/closed-group filter, the
-# first assertion below will fail -- that is the signal to FLIP it to
-# `has ... && fail "LEAK"` like its siblings. Until then CI documents the
+# served there). The window pin below keeps the \$CANARY_TITLE assertion
+# honest: it fails as "stale stack" when the canary merely aged out of the
+# 40-newest list (each non-reseeded run posts one newer article), and only
+# blames news.cgi when the canary is provably still in the window. When
+# news.cgi gains a membership/closed-group filter, the \$CANARY_TITLE
+# assertion fails WITH the window pin green -- that is the signal to FLIP
+# it to `has ... && fail "LEAK"` like its siblings, KEEPING the window pin
+# as the flipped check's non-vacuity control. Until then CI documents the
 # truth instead of certifying a safety that does not exist.
+newer=$(db "SELECT COUNT(*) FROM bw_xboard_header WHERE article_id > $caid") || exit 1
+[ "$newer" -lt 40 ] || fail "canary fell off the 40-newest list ($newer newer articles) -- stale stack: reseed and re-run"
 fetch "$J7" "$BASE/main/news.cgi"
 [ "$CODE" = "200" ] || fail "news.cgi: HTTP $CODE"
 has "자유게시판" || fail "news.cgi recent list not rendering seeded data (liveness)"
-has "$CANARY_TITLE" || fail "closed-board title no longer on the front page -- news.cgi behavior changed; FLIP this known-leak assertion (see PR #32)"
+has "$CANARY_TITLE" || fail "closed-board title off the front page while the canary IS in the recent window -- news.cgi gained a filter; FLIP this known-leak assertion, keep the window pin (see PR #32)"
 has "$CANARY_ARTICLE" && fail "LEAK: canary BODY served on the front page"
 ok "front page: bodies safe; title leak pinned as KNOWN (flip when news.cgi is fixed)"
 

@@ -17,7 +17,9 @@
 #
 # Compose project name comes from the checkout directory BASENAME, so each
 # uniquely-named worktree gets its own isolated stack (two checkouts with the
-# same basename would share one -- disambiguate with `docker compose -p`).
+# same basename would share one -- disambiguate with COMPOSE_PROJECT_NAME in
+# the gitignored .env, not `docker compose -p`: reseed.sh and t/smoke.sh run
+# plain `docker compose` and would miss a -p-scoped project).
 # Override the two host ports to run several stacks at once, persistently via
 # a gitignored .env file: printf 'BAWI_HTTP_PORT=8081\nBAWI_DB_PORT=3308\n' > .env
 # (a one-off env prefix works too, but is forgotten by the next bare

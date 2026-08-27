@@ -15,13 +15,24 @@ use Time::HiRes qw(time);
 # Correctness assertions are never scaled.
 my $TF = $ENV{BAWI_SMOKE_TIME_FACTOR};
 if (defined $TF) {
-    die "BAWI_SMOKE_TIME_FACTOR must be a positive number\n"
+    die "BAWI_SMOKE_TIME_FACTOR must be a positive number (got '$TF')\n"
         unless $TF =~ /^\d+(?:\.\d+)?$/ && $TF > 0;
 } else {
-    my $cal0 = time; my $x = 0; $x++ for 1 .. 2_000_000;
-    my $cal = time - $cal0;
+    # min of 3 samples: elapsed-time noise only ever ADDS time, so the
+    # smallest sample is closest to true host speed -- one scheduler blip
+    # during a single probe must not relax every bound for the run.
+    my $cal = 9**9;
+    for (1 .. 3) {
+        my $cal0 = time; my $x = 0; $x++ for 1 .. 2_000_000;
+        my $one = time - $cal0;
+        $cal = $one if $one < $cal;
+    }
     $TF = $cal / 0.05;
     $TF = 1 if $TF < 1;      # fast machines keep the original bounds
+    # cap: 40x is the largest slowdown ever measured; far beyond that is a
+    # broken clock, and unbounded TF would let real regressions pass.
+    die sprintf("markdown_smoke: calibration absurd (%.1fx) -- broken clock?\n", $TF)
+        if $TF > 200;
     warn sprintf("markdown_smoke: slow host, scaling time bounds %.1fx\n", $TF)
         if $TF > 2;
 }
