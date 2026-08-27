@@ -16,9 +16,10 @@
 #      cache), post, comment, logout
 #   3  privacy canaries: the closed-board article and the private note are
 #      served to who they belong to and to NOBODY else (logged-out,
-#      non-member, wrong member) -- EXCEPT the news.cgi title channel,
-#      deliberately pinned as a KNOWN leak until the app gains a
-#      membership filter (see that check). Seeded by seed/seed.pl ("privacy
+#      non-member, wrong member) -- including the front page, where the
+#      REAL stat crons are run against an engagement-qualifying closed
+#      canary (only the m_read filter keeps it out) with an open control
+#      article proving the channel live. Seeded by seed/seed.pl ("privacy
 #      canaries"); tokens: article BODY carries CANARY-ARTICLE-*, article
 #      TITLE carries CANARY-TITLE-* (title-rendering surfaces are a separate
 #      leak channel from body-rendering ones).
@@ -40,6 +41,7 @@ PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
 CANARY_NOTE='CANARY-NOTE-n5c3e1'
+CANARY_CONTROL='CONTROL-HOT-a9d2c4'
 
 # Port: compose reads the gitignored .env; a shell running this script does
 # not. Resolve like compose (env var wins, then .env, then 8080) so HTTP
@@ -273,41 +275,41 @@ got=$(db "SELECT COUNT(*) FROM bw_xboard_header WHERE board_id=$cbid AND title='
 [ "$got" = "0" ] || fail "LEAK: non-member wrote into the closed board (got '$got')"
 ok "non-member cannot post into the closed board"
 
-# The front page's hot-teaser (bodies) reads bw_xboard_stat_article, which
-# news.cgi joins WITHOUT a permission filter -- and prod's populator
-# (main/sql/update_article_stat.sql) admits rows on engagement alone, no
-# privacy clause, so on PROD a popular closed-board article's body teaser
-# IS reachable (verified by running that cron SQL against a qualifying
-# canary). This DB pin therefore guards the SEED's data shape only (the
-# canary stays out of the table for lack of engagement); the real fix --
-# an m_read filter in the cron and in news.cgi -- lands in the stacked
-# news-fix PR, where this pin becomes a live test. HTTP assertion here
-# would be structurally vacuous (5-day window vs fixed seed dates).
+# Front-page channels, tested LIVE end to end. The closed canary article
+# carries qualifying engagement (recom 5, count 50, created within the hot
+# window -- see seed.pl), so when we run the REAL stat populators below,
+# only their new m_read=1 filter keeps it out of the feeder tables; the
+# open control article (same engagement + CANARY_CONTROL body token) MUST
+# come through, proving the cron and the hot teaser are actually live --
+# no assertion here can pass vacuously.
+ctrlaid=$(db "SELECT article_id FROM bw_xboard_body WHERE body LIKE '%$CANARY_CONTROL%' LIMIT 1") || exit 1
+[ -n "$ctrlaid" ] && [ "$ctrlaid" != "NULL" ] || fail "hot-control article not seeded"
+# SQL passed as an argument, not stdin: `compose exec < file` hangs on some
+# compose versions (v2.0.0-beta.4 measured); the -e argv path is the same
+# shape db() uses and works everywhere. mariadb -e runs multi-statement.
+db "$(cat main/sql/update_article_stat.sql)" >/dev/null \
+    || fail "update_article_stat.sql failed against the seeded DB"
+db "$(cat main/sql/update_xboard_stat.sql)" >/dev/null \
+    || fail "update_xboard_stat.sql failed against the seeded DB"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_stat_article WHERE article_id=$ctrlaid") || exit 1
+[ "$got" = "1" ] || fail "open control did not enter stat_article -- cron test is vacuous (got '$got')"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_stat_article WHERE board_id=$cbid") || exit 1
-[ "$got" = "0" ] || fail "closed-board article entered bw_xboard_stat_article (front-page teaser feeder)"
-ok "closed board absent from the front-page teaser feeder (stat_article)"
+[ "$got" = "0" ] || fail "LEAK: engaged closed-board article entered stat_article through the cron"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_stat_board WHERE board_id=$cbid") || exit 1
+[ "$got" = "0" ] || fail "LEAK: closed board entered stat_board through the cron"
+ok "stat crons admit the control and exclude the closed board (live)"
 
-# KNOWN LEAK, pinned deliberately: news.cgi's \$recent list (40 newest
-# titles) has NO membership filter, so the closed board's article TITLE is
-# on the front page for every logged-in member (empirically confirmed;
-# PR #32 discussion). The body token must still be absent (bodies are not
-# served there). The window pin below keeps the \$CANARY_TITLE assertion
-# honest: it fails as "stale stack" when the canary merely aged out of the
-# 40-newest list (each non-reseeded run posts one newer article), and only
-# blames news.cgi when the canary is provably still in the window. When
-# news.cgi gains a membership/closed-group filter, the \$CANARY_TITLE
-# assertion fails WITH the window pin green -- that is the signal to FLIP
-# it to `has ... && fail "LEAK"` like its siblings, KEEPING the window pin
-# as the flipped check's non-vacuity control. Until then CI documents the
-# truth instead of certifying a safety that does not exist.
+# window pin: keeps the title assertions below non-vacuous (the canary must
+# still be within news.cgi's 40-newest \$recent window to be assertable).
 newer=$(db "SELECT COUNT(*) FROM bw_xboard_header WHERE article_id > $caid") || exit 1
 [ "$newer" -lt 40 ] || fail "canary fell off the 40-newest list ($newer newer articles) -- stale stack: reseed and re-run"
 fetch "$J7" "$BASE/main/news.cgi"
 [ "$CODE" = "200" ] || fail "news.cgi: HTTP $CODE"
 has "자유게시판" || fail "news.cgi recent list not rendering seeded data (liveness)"
-has "$CANARY_TITLE" || fail "closed-board title off the front page while the canary IS in the recent window -- news.cgi gained a filter; FLIP this known-leak assertion, keep the window pin (see PR #32)"
-has "$CANARY_ARTICLE" && fail "LEAK: canary BODY served on the front page"
-ok "front page: bodies safe; title leak pinned as KNOWN (flip when news.cgi is fixed)"
+has "$CANARY_CONTROL" || fail "hot teaser not serving the open control body (channel vacuous)"
+has "$CANARY_TITLE" && fail "LEAK: closed-board title served on the front page"
+has "$CANARY_ARTICLE" && fail "LEAK: closed-board body served on the front page"
+ok "front page: hot teaser live; closed board fully absent (titles + bodies)"
 
 # private note: recipient inbox and sender sent-box see it; nobody else.
 login tester02; J2=$JAR

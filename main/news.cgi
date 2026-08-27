@@ -148,6 +148,13 @@ foreach my $i (@boards[7..8]) {
 }
 $t->param(box=>\@box);
 
+# m_read=1 (here and in $recent below) mirrors Group::authz: those boards
+# are readable by EVERY logged-in user (news.cgi is auth-gated), so their
+# titles/teasers on this global page leak nothing; m_read=0 boards are
+# group-gated and must never reach it. Viewer-independent by design: a
+# per-viewer membership join would cost a query per row for a page cached
+# in no way -- closed-group members browse their boards directly.
+#
 # The page shows a ~16-word teaser per article, so pull 1000 chars of body,
 # not the whole TEXT column, and cap the row count (was unbounded: every
 # qualifying article of the last 5 days, full body each, on every front-page
@@ -163,6 +170,7 @@ select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, 
 from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d
 where d.id = b.id && a.board_id=b.board_id && b.article_id=c.article_id
    && b.ki > 1 && b.created > date_sub(now(), interval 5 day)
+   && a.m_read = 1
 order by (score - expiry) desc limit 20);
 #my $hot = qq(select a.title as board_title, b.board_id, b.article_id, b.title, b.id, b.name, d.uid, date_format(b.created, '%m/%d') as created, round(b.count * 0.01 + b.recom * 3 + 10 * b.recom * 100 / ( b.count ) + b.comments * 0.3 ) as score from bw_xboard_board as a, bw_xboard_stat_article as b, bw_xboard_body as c, bw_xauth_passwd as d where d.id like b.id && a.board_id=b.board_id && b.article_id=c.article_id && b.ki > 1 order by score desc limit 10);
 
@@ -193,7 +201,7 @@ foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> 
 
 $t->param(hot_stat=>\@hot_stat);
 
-my $board = qq(select a.title, b.board_id from bw_xboard_board as a, bw_xboard_stat_board as b where a.board_id=b.board_id and b.board_id != 688 order by round(b.articles * 3 + b.counts * 0.1 + b.recoms * 3 + (b.counts + b.comments * 5 + b.recoms * 50) / b.articles) desc limit 3);
+my $board = qq(select a.title, b.board_id from bw_xboard_board as a, bw_xboard_stat_board as b where a.board_id=b.board_id and a.m_read=1 and b.board_id != 688 order by round(b.articles * 3 + b.counts * 0.1 + b.recoms * 3 + (b.counts + b.comments * 5 + b.recoms * 50) / b.articles) desc limit 3);
 
 my $board_stat = $dbh->selectall_arrayref($board);
 my @board_stat = map { { title=>$$_[0], board_id=>$$_[1] } } @$board_stat;
@@ -210,7 +218,7 @@ my $gbook = $dbh->selectall_arrayref(qq(select a.ki, b.name, b.id, b.uid, count(
 my @gbook = map { { name=>$$_[1], id=>$$_[2], uid=>$$_[3] } } @$gbook;
 $t->param(gbook_stat=>\@gbook);
 
-my $nb = qq(select title, board_id, date_format(created, '%m/%d') as created, id, name from bw_xboard_board where created > date_sub(now(), interval 7 day) && articles > 0);
+my $nb = qq(select title, board_id, date_format(created, '%m/%d') as created, id, name from bw_xboard_board where m_read=1 && created > date_sub(now(), interval 7 day) && articles > 0);
 my $new_board = $dbh->selectall_hashref($nb, 'board_id');
 
 my @new_board = map { $$new_board{$_} } sort { $$new_board{$b}->{board_id} <=> $$new_board{$a}->{board_id} } keys %$new_board;
@@ -268,7 +276,7 @@ LEFT JOIN bw_xboard_header b
 ON t.article_id = b.article_id
 LEFT JOIN bw_xboard_board a
 ON a.board_id = b.board_id
-WHERE a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 
+WHERE a.gid!=18 && a.is_anonboard=0 && a.allow_recom=1 && a.m_read=1
 order by b.article_id desc limit 40;
 /;
 
