@@ -21,11 +21,13 @@
 #
 #   SEEDED: bw_xauth_passwd (50 users, all password "test1234"),
 #     bw_user_ki, bw_user_basic, bw_user_sig, bw_user_access,
-#     bw_group (3), bw_group_user, bw_xboard_board (6),
-#     bw_xboard_header/body (320 articles; 5 are category=1 markdown, to
-#     exercise Bawi::Markdown + the bw_xboard_body_html render cache),
+#     bw_group (3), bw_group_user, bw_xboard_board (7; board 7 is the
+#     closed-group privacy-canary board, see t/smoke.sh),
+#     bw_xboard_header/body (321 articles; 5 are category=1 markdown, to
+#     exercise Bawi::Markdown + the bw_xboard_body_html render cache;
+#     article 321 is the closed-board canary),
 #     bw_xboard_comment (320),
-#     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (40),
+#     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (41),
 #     bw_xboard_poll/_opt/_ans (2 article polls), bw_xpoll/_question/_choice
 #     (1 survey), countries, schools, majors, circles, registers,
 #     bw_data_major, bw_user_major, bw_user_degree, bw_user_circle,
@@ -359,6 +361,46 @@ print "seeding 40 notes\n";
                     dt($sent),
                     ($i < 30 ? dt($sent + 3600) : undef));   # last 10 unread
     }
+}
+
+# -------------------------------------------------------- privacy canaries
+# Board 7 lives in the CLOSED group (gid 3, members uid 2..6 only) with
+# m_read=0: Group::authz then grants read to group members only (plus root
+# and the board owner -- owner is tester02 here, itself a member, so the
+# only-members property stays exact). One article and one note carry unique
+# canary strings; t/smoke.sh asserts they are served to the members they
+# belong to and to NOBODY else (wrong member, non-member, logged-out, front
+# page). Grep-proof tokens: never reuse them in any other seeded text.
+print "seeding privacy canaries (closed board 7, canary article + note)\n";
+use constant CANARY_ARTICLE => 'CANARY-ARTICLE-b7a2f9';
+use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
+{
+    $dbh->do(q(
+        INSERT INTO bw_xboard_board
+            (board_id, keyword, gid, title, uid, id, name, skin, seq, created,
+             g_read, m_read, a_read, g_write, m_write, a_write,
+             g_comment, m_comment, a_comment)
+        VALUES (7, 'secret', 3, ?, 2, 'tester02', ?, 'default', 7, ?,
+                1,0,0, 1,0,0, 1,0,0)),
+        undef, '비공개 테스트판', $uname{2}, dt(BASE_EPOCH + 86400 * 7));
+
+    my $ca = ++$article_id;
+    $dbh->do(q(
+        INSERT INTO bw_xboard_header
+            (article_id, article_no, parent_no, thread_no, board_id, category,
+             title, uid, id, name, count, recom, scrap, comments,
+             has_attach, has_poll, created)
+        VALUES (?, 1, 0, 1, 7, 0, ?, 2, 'tester02', ?, 0, 0, 0, 0, 0, 0, ?)),
+        undef, $ca, '비공개 카나리아 글', $uname{2}, dt(BASE_EPOCH + 86400 * 401));
+    $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, 7, ?)),
+        undef, $ca, "이 글은 폐쇄 그룹 전용입니다.\n" . CANARY_ARTICLE . "\n(synthetic canary, members uid 2..6 only)");
+
+    $dbh->do(q(
+        INSERT INTO bw_note (msg_id, to_id, to_name, from_id, from_name, msg, sent_time, read_time)
+        VALUES (41, ?, ?, ?, ?, ?, ?, NULL)),
+        undef, $uid2id{2}, $uname{2}, $uid2id{3}, $uname{3},
+        "카나리아 쪽지: " . CANARY_NOTE . " (synthetic; only tester02 may see this)",
+        dt(BASE_EPOCH + 86400 * 401));
 }
 
 # ------------------------------------------------------------ article polls
