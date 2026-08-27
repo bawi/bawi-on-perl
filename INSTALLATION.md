@@ -36,8 +36,10 @@ to delete.
 
 Ports default to **8080** (web) and **3307** (db) on localhost. Each
 uniquely-named checkout gets its own compose project (project = directory
-basename; same-named checkouts would share one — use `docker compose -p` to
-disambiguate). To run stacks side by side, give later ones their own ports —
+basename; same-named checkouts would share one — disambiguate with
+`COMPOSE_PROJECT_NAME=<name>` in the gitignored `.env`, NOT a bare
+`docker compose -p`: seed/reseed.sh and t/smoke.sh run plain `docker
+compose` from the checkout dir and would target the wrong project). To run stacks side by side, give later ones their own ports —
 persistently, via a gitignored `.env`:
 
 ```sh
@@ -63,7 +65,7 @@ Useful URLs once logged in:
 - `http://localhost:8080/board/index.cgi` — bookmarks / board overview
 - `http://localhost:8080/board/boards.cgi` — board list
 - `http://localhost:8080/main/news.cgi` — recent articles
-- `http://localhost:8080/main/note.cgi` — notes (40 seeded; each of the first 10 users has 1 unread)
+- `http://localhost:8080/main/note.cgi` — notes (41 seeded; each of the first 10 users has 1 unread, plus a second unread privacy-canary note for tester02 — see `t/smoke.sh`)
 - `http://localhost:8080/main/db-test.cgi` — plain-text DB connectivity check
 
 ## Everyday commands
@@ -151,9 +153,14 @@ retrying — a half-initialized data dir skips init on the next start.
 
 ## Validation checklist (what "working" looks like)
 
+The checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (currently 24
+checks -- the script asserts its own count, see `EXPECTED` -- including the
+privacy-canary assertions the manual list below does not cover). The items
+below remain as the hand-debug annex.
+
 1. `docker compose ps` — the db and web containers both `Up`.
 2. `docker compose exec -T db mariadb -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 64 lines: 1 column-header line + 62 tables (incl. `schema_migrations` and the `bw_migration_20260718_innodb_applied` replay sentinel) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
-3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the six seeded board titles (no 500).
+3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the seven seeded board titles — including the closed privacy-canary board `비공개 테스트판` (no 500; see `t/smoke.sh` tier 3).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.
 6. `curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi` → bookmark page listing seeded boards.

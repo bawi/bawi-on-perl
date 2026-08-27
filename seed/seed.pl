@@ -21,11 +21,13 @@
 #
 #   SEEDED: bw_xauth_passwd (50 users, all password "test1234"),
 #     bw_user_ki, bw_user_basic, bw_user_sig, bw_user_access,
-#     bw_group (3), bw_group_user, bw_xboard_board (6),
-#     bw_xboard_header/body (320 articles; 5 are category=1 markdown, to
-#     exercise Bawi::Markdown + the bw_xboard_body_html render cache),
+#     bw_group (3), bw_group_user, bw_xboard_board (7; board 7 is the
+#     closed-group privacy-canary board, see t/smoke.sh),
+#     bw_xboard_header/body (321 articles; 5 are category=1 markdown, to
+#     exercise Bawi::Markdown + the bw_xboard_body_html render cache;
+#     article 321 is the closed-board canary),
 #     bw_xboard_comment (320),
-#     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (40),
+#     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (41),
 #     bw_xboard_poll/_opt/_ans (2 article polls), bw_xpoll/_question/_choice
 #     (1 survey), countries, schools, majors, circles, registers,
 #     bw_data_major, bw_user_major, bw_user_degree, bw_user_circle,
@@ -359,6 +361,67 @@ print "seeding 40 notes\n";
                     dt($sent),
                     ($i < 30 ? dt($sent + 3600) : undef));   # last 10 unread
     }
+}
+
+# -------------------------------------------------------- privacy canaries
+# Canary board: gid 3 (CLOSED group, members uid 2..6) with g_read=1,
+# m_read=0, a_read=0 -- Bawi::Board::Group::authz (lib/Bawi/Board/Group.pm)
+# then grants read to gid-3 members only, plus two unconditional bypasses:
+# the board owner (tester02, itself a gid-3 member, so harmless) and root
+# (app-wide superuser, deliberately outside the property under test).
+# One article and one note carry unique canary strings; t/smoke.sh asserts
+# each is served to who it belongs to and to nobody else (wrong member,
+# non-member, logged-out) -- except the news.cgi title channel, pinned
+# there as a KNOWN leak until the app gains a membership filter. The
+# ARTICLE token lives in the body (teaser/body surfaces); the TITLE token
+# lives in the article title (list surfaces: news.cgi $recent, board
+# indexes -- title rendering is a separate leak channel from body
+# rendering). Grep-proof tokens: never reuse them in any other seeded
+# text. Ids are DERIVED (next free board_id / msg_id), never hardcoded,
+# so growing @BOARDS or the notes loop cannot collide.
+# Invariants t/smoke.sh's news.cgi pin CONSUMES (keep them true):
+#   - the canary article must stay within the 40 highest article_ids
+#     (append future seed blocks BEFORE this one, or re-derive);
+#   - the canary board must keep allow_recom=1 / is_anonboard=0 (set
+#     explicitly below -- news.cgi's $recent filters on them).
+print "seeding privacy canaries (closed canary board, canary article + note)\n";
+use constant CANARY_ARTICLE => 'CANARY-ARTICLE-b7a2f9';
+use constant CANARY_TITLE   => 'CANARY-TITLE-c7d4e2';
+use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
+{
+    my $cb = 1 + (sort { $b <=> $a } map { $_->[0] } @BOARDS)[0];  # next free board_id
+    $dbh->do(q(
+        INSERT INTO bw_xboard_board
+            (board_id, keyword, gid, title, uid, id, name, skin, seq, created,
+             g_read, m_read, a_read, g_write, m_write, a_write,
+             g_comment, m_comment, a_comment, allow_recom, is_anonboard)
+        VALUES (?, 'secret', 3, ?, 2, ?, ?, 'default', ?, ?,
+                1,0,0, 1,0,0, 1,0,0, 1, 0)),
+        undef, $cb, '비공개 테스트판', $uid2id{2}, $uname{2}, $cb,
+        dt(BASE_EPOCH + 86400 * 7));
+
+    my $ca = ++$article_id;
+    # title = 28 chars (42 bytes utf8) -- well inside char(64) = 64 chars
+    $dbh->do(q(
+        INSERT INTO bw_xboard_header
+            (article_id, article_no, parent_no, thread_no, board_id, category,
+             title, uid, id, name, count, recom, scrap, comments,
+             has_attach, has_poll, created)
+        VALUES (?, 1, 0, 1, ?, 0, ?, 2, ?, ?, 0, 0, 0, 0, 0, 0, ?)),
+        undef, $ca, $cb, '비공개 카나리아 ' . CANARY_TITLE, $uid2id{2}, $uname{2},
+        dt(BASE_EPOCH + 86400 * 401));
+    $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, ?, ?)),
+        undef, $ca, $cb, "이 글은 폐쇄 그룹 전용입니다.\n" . CANARY_ARTICLE . "\n(synthetic canary, members uid 2..6 only)");
+
+    my ($max_msg) = $dbh->selectrow_array(q(SELECT COALESCE(MAX(msg_id),0) FROM bw_note));
+    $dbh->do(q(
+        INSERT INTO bw_note (msg_id, to_id, to_name, from_id, from_name, msg, sent_time, read_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)),
+        undef, $max_msg + 1, $uid2id{2}, $uname{2}, $uid2id{3}, $uname{3},
+        "카나리아 쪽지: " . CANARY_NOTE
+            . " (synthetic; visible only to recipient tester02's inbox"
+            . " and sender tester03's sent box)",
+        dt(BASE_EPOCH + 86400 * 401));
 }
 
 # ------------------------------------------------------------ article polls
