@@ -1,8 +1,9 @@
 # CI smoke test: boot the docker test stack on a fresh runner, seed the
 # deterministic SYNTHETIC dataset (seed/seed.pl -- no production data exists
 # anywhere in CI), and run t/smoke.sh (compile sweep, migration ledger,
-# golden-path HTTP, privacy-canary assertions). See t/smoke.sh for the
-# check list; INSTALLATION.md documents the same stack for humans.
+# golden-path HTTP, privacy-canary assertions). Readiness waits live in the
+# consumers: seed.pl waits for the DB, t/smoke.sh waits for the web
+# container -- so the same three commands work locally, verbatim.
 name: smoke
 
 on:
@@ -19,15 +20,6 @@ jobs:
 
       - name: Build and start the stack
         run: docker compose up -d --build
-
-      - name: Wait for the web container to serve
-        run: |
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || true)
-            [ "$code" = "200" ] && exit 0
-            sleep 5
-          done
-          echo "web never became ready"; exit 1
 
       - name: Seed synthetic data
         run: ./seed/reseed.sh

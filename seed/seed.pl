@@ -364,42 +364,56 @@ print "seeding 40 notes\n";
 }
 
 # -------------------------------------------------------- privacy canaries
-# Board 7 lives in the CLOSED group (gid 3, members uid 2..6 only) with
-# m_read=0: Group::authz then grants read to group members only (plus root
-# and the board owner -- owner is tester02 here, itself a member, so the
-# only-members property stays exact). One article and one note carry unique
-# canary strings; t/smoke.sh asserts they are served to the members they
-# belong to and to NOBODY else (wrong member, non-member, logged-out, front
-# page). Grep-proof tokens: never reuse them in any other seeded text.
-print "seeding privacy canaries (closed board 7, canary article + note)\n";
+# Canary board: gid 3 (CLOSED group, members uid 2..6) with g_read=1,
+# m_read=0, a_read=0 -- Bawi::Board::Group::authz (lib/Bawi/Board/Group.pm)
+# then grants read to gid-3 members only, plus two unconditional bypasses:
+# the board owner (tester02, itself a gid-3 member, so harmless) and root
+# (app-wide superuser, deliberately outside the property under test).
+# One article and one note carry unique canary strings; t/smoke.sh asserts
+# each is served to who it belongs to and to nobody else (wrong member,
+# non-member, logged-out). The ARTICLE token lives in the body (teaser/body
+# surfaces); the TITLE token lives in the article title (list surfaces:
+# news.cgi $recent, board indexes -- title rendering is a separate leak
+# channel from body rendering). Grep-proof tokens: never reuse them in any
+# other seeded text. Ids are DERIVED (next free board_id / msg_id), never
+# hardcoded, so growing @BOARDS or the notes loop cannot collide.
+print "seeding privacy canaries (closed canary board, canary article + note)\n";
 use constant CANARY_ARTICLE => 'CANARY-ARTICLE-b7a2f9';
+use constant CANARY_TITLE   => 'CANARY-TITLE-c7d4e2';
 use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
 {
+    my $cb = 1 + (sort { $b <=> $a } map { $$_[0] } @BOARDS)[0];  # next free board_id
     $dbh->do(q(
         INSERT INTO bw_xboard_board
             (board_id, keyword, gid, title, uid, id, name, skin, seq, created,
              g_read, m_read, a_read, g_write, m_write, a_write,
              g_comment, m_comment, a_comment)
-        VALUES (7, 'secret', 3, ?, 2, 'tester02', ?, 'default', 7, ?,
+        VALUES (?, 'secret', 3, ?, 2, ?, ?, 'default', ?, ?,
                 1,0,0, 1,0,0, 1,0,0)),
-        undef, '비공개 테스트판', $uname{2}, dt(BASE_EPOCH + 86400 * 7));
+        undef, $cb, '비공개 테스트판', $uid2id{2}, $uname{2}, $cb,
+        dt(BASE_EPOCH + 86400 * 7));
 
     my $ca = ++$article_id;
+    # title = 24 bytes Korean + space + 19 ASCII = 44 bytes, within char(64)
     $dbh->do(q(
         INSERT INTO bw_xboard_header
             (article_id, article_no, parent_no, thread_no, board_id, category,
              title, uid, id, name, count, recom, scrap, comments,
              has_attach, has_poll, created)
-        VALUES (?, 1, 0, 1, 7, 0, ?, 2, 'tester02', ?, 0, 0, 0, 0, 0, 0, ?)),
-        undef, $ca, '비공개 카나리아 글', $uname{2}, dt(BASE_EPOCH + 86400 * 401));
-    $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, 7, ?)),
-        undef, $ca, "이 글은 폐쇄 그룹 전용입니다.\n" . CANARY_ARTICLE . "\n(synthetic canary, members uid 2..6 only)");
+        VALUES (?, 1, 0, 1, ?, 0, ?, 2, ?, ?, 0, 0, 0, 0, 0, 0, ?)),
+        undef, $ca, $cb, '비공개 카나리아 ' . CANARY_TITLE, $uid2id{2}, $uname{2},
+        dt(BASE_EPOCH + 86400 * 401));
+    $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, ?, ?)),
+        undef, $ca, $cb, "이 글은 폐쇄 그룹 전용입니다.\n" . CANARY_ARTICLE . "\n(synthetic canary, members uid 2..6 only)");
 
+    my ($max_msg) = $dbh->selectrow_array(q(SELECT COALESCE(MAX(msg_id),0) FROM bw_note));
     $dbh->do(q(
         INSERT INTO bw_note (msg_id, to_id, to_name, from_id, from_name, msg, sent_time, read_time)
-        VALUES (41, ?, ?, ?, ?, ?, ?, NULL)),
-        undef, $uid2id{2}, $uname{2}, $uid2id{3}, $uname{3},
-        "카나리아 쪽지: " . CANARY_NOTE . " (synthetic; only tester02 may see this)",
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)),
+        undef, $max_msg + 1, $uid2id{2}, $uname{2}, $uid2id{3}, $uname{3},
+        "카나리아 쪽지: " . CANARY_NOTE
+            . " (synthetic; visible only to recipient tester02's inbox"
+            . " and sender tester03's sent box)",
         dt(BASE_EPOCH + 86400 * 401));
 }
 

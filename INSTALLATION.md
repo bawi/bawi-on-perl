@@ -63,7 +63,7 @@ Useful URLs once logged in:
 - `http://localhost:8080/board/index.cgi` — bookmarks / board overview
 - `http://localhost:8080/board/boards.cgi` — board list
 - `http://localhost:8080/main/news.cgi` — recent articles
-- `http://localhost:8080/main/note.cgi` — notes (40 seeded; each of the first 10 users has 1 unread)
+- `http://localhost:8080/main/note.cgi` — notes (41 seeded; each of the first 10 users has 1 unread, plus a second unread privacy-canary note for tester02 — see `t/smoke.sh`)
 - `http://localhost:8080/main/db-test.cgi` — plain-text DB connectivity check
 
 ## Everyday commands
@@ -151,9 +151,13 @@ retrying — a half-initialized data dir skips init on the next start.
 
 ## Validation checklist (what "working" looks like)
 
+The whole checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (23 checks,
+including privacy-canary assertions the manual list below does not cover). The
+items below remain as the hand-debug annex.
+
 1. `docker compose ps` — the db and web containers both `Up`.
 2. `docker compose exec -T db mariadb -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 64 lines: 1 column-header line + 62 tables (incl. `schema_migrations` and the `bw_migration_20260718_innodb_applied` replay sentinel) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
-3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the six seeded board titles (no 500).
+3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the seven seeded board titles — including the closed privacy-canary board `비공개 테스트판` (no 500; see `t/smoke.sh` tier 3).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.
 6. `curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi` → bookmark page listing seeded boards.

@@ -6,6 +6,26 @@ use Bawi::Markdown;
 use Digest::MD5 ();   # the render-fingerprint block calls md5_hex directly
 use Time::HiRes qw(time);
 
+# Wall-clock DoS tripwires below are calibrated to healthy hardware; a slow
+# or loaded docker VM (measured 40x slower than baseline) trips them falsely.
+# Auto-calibrate: time a fixed pure-Perl loop (~0.05s on the reference
+# hardware) and scale every timing bound by the measured ratio, so a real
+# O(n^2) regression (>10x blowup) stays loud on any machine while an honest
+# slow VM passes. BAWI_SMOKE_TIME_FACTOR overrides the calibration when set.
+# Correctness assertions are never scaled.
+my $TF = $ENV{BAWI_SMOKE_TIME_FACTOR};
+if (defined $TF) {
+    die "BAWI_SMOKE_TIME_FACTOR must be a positive number\n"
+        unless $TF =~ /^\d+(?:\.\d+)?$/ && $TF > 0;
+} else {
+    my $cal0 = time; my $x = 0; $x++ for 1 .. 2_000_000;
+    my $cal = time - $cal0;
+    $TF = $cal / 0.05;
+    $TF = 1 if $TF < 1;      # fast machines keep the original bounds
+    warn sprintf("markdown_smoke: slow host, scaling time bounds %.1fx\n", $TF)
+        if $TF > 2;
+}
+
 # The denylist below mirrors escape_tags' CODE FALLBACK. Production
 # reads the per-board bw_xboard_board.escaped_tags column, whose schema
 # default omits "head style link" -- so keep sanitization assertions to
@@ -300,8 +320,8 @@ $body = render(qq(```html\n<a href="javascript:alert(1)">x</a>\n```));
 {
     my $t0 = time;
     $body = render((">" x 150) . " ```\n" . (">" x 150) . " deep\n" . (">" x 150) . " ```");
-    die sprintf("deep-quote perf regression: %.2fs (expected <1)\n", time - $t0)
-        if time - $t0 > 1;
+    die sprintf("deep-quote perf regression: %.2fs (expected <%gs)\n", time - $t0, 1*$TF)
+        if time - $t0 > 1*$TF;
 }
 &assert_contains('deep quote fence renders', $body, '<pre><code>');
 {
@@ -336,8 +356,8 @@ $body = render('함수 $f = \(x\)$ 로 둔다');
     # on this 64KB input). Generous 2s bound tolerates load spikes.
     my $t0 = time;
     $body = render(('\(x ' x 16000) . '\)\]');   # 64KB, two branches live
-    die sprintf("math ReDoS regression: render took %.2fs (expected <2)\n", time - $t0)
-        if time - $t0 > 2;
+    die sprintf("math ReDoS regression: render took %.2fs (expected <%gs)\n", time - $t0, 2*$TF)
+        if time - $t0 > 2*$TF;
 }
 &assert_not_contains('mixed openers no sentinel', $body, "\x{1A}");
 # a large display formula (~4KB, well past round-2's removed 2000-byte
@@ -546,9 +566,9 @@ $body = render(qq(```c#\nint x;\n```));
     foreach my $name (sort keys %flood) {
         my $t0 = time;
         render($flood{$name});
-        die sprintf("block-opener DoS regression [%s]: %.2fs (expected <2)\n",
-                    $name, time - $t0)
-            if time - $t0 > 2;
+        die sprintf("block-opener DoS regression [%s]: %.2fs (expected <%gs)\n",
+                    $name, time - $t0, 2*$TF)
+            if time - $t0 > 2*$TF;
     }
     # the flooded lines still render (as text), nothing is swallowed
     $body = render("<pre>\nsome text follows here\n\n" x 2000);
