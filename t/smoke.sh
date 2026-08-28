@@ -26,7 +26,7 @@
 #
 #   4  mention notes: @id -> bw_note lifecycle (send, self-silence, sent
 #      box until Save, grace-window retraction sparing saved notes +
-#      scope pin, manual unsend, commentx round-trip) + profile-link
+#      scope pin, manual unsend) + profile-link
 #      rendering and the anonboard negative
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
@@ -41,7 +41,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=42
+EXPECTED=41
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -294,9 +294,13 @@ fetch - "$BASE/board/comment.cgi?bid=$cbid&aid=$caid"
 [ "$CODE" = "302" ] || fail "logged-out closed-board comment.cgi: expected 302, got $CODE"
 ok "comment.cgi bounces logged-out visitors off the closed board"
 
+# commentx.cgi is retired (nothing ever linked it; its actions were dead
+# since the svn import) -- the placeholder must serve no board data
 fetch - "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid"
-[ "$CODE" = "302" ] || fail "logged-out closed-board commentx.cgi: expected 302, got $CODE"
-ok "commentx.cgi bounces logged-out visitors off the closed board"
+[ "$CODE" = "200" ] || fail "retired commentx.cgi: HTTP $CODE"
+has "Closed." || fail "commentx.cgi placeholder body missing"
+has "비공개 테스트판" && fail "LEAK: closed board NAME from retired commentx.cgi"
+ok "commentx.cgi retired: serves only the Closed placeholder"
 
 # members-only anonboard: is_anonboard masks author identity, it must NOT
 # admit guests (the PR #34 review regression: an earlier guard draft
@@ -418,8 +422,6 @@ ok "canary note not served logged-out"
 #     comment's notes (best-effort retraction, not history rewriting)
 #   - the sender can manually unsend an unsaved mention note from the
 #     sent box like any other note (delete_msg has no origin special-case)
-#   - both note producers (comment.cgi AND commentx.cgi) round-trip
-#     against the retraction's shared mention_note_tail
 # All note counts are scoped to the fresh article's aid so seeded notes
 # (e.g. the tier-3 canary) can never satisfy or pollute a check.
 # Variables are named by role (saved/retract/unsend/x), not posting order.
@@ -528,22 +530,6 @@ fetch "$J2" "$BASE/main/note.cgi" -d "r_msg_id=$msgid_unsend&action=Delete"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid_unsend") || exit 1
 [ "$got" = "0" ] || fail "sent-box Delete did not remove the mention note (got '$got')"
 ok "sender can unsend an unsaved mention note from the sent box"
-
-# --- commentx.cgi round-trip: the OTHER producer of the note URL tail
-fetch "$J2" "$BASE/board/commentx.cgi" \
-      --data-urlencode "action=add" \
-      --data-urlencode "bid=2" \
-      --data-urlencode "aid=$mnaid" \
-      --data-urlencode "p=1" \
-      --data-urlencode "body=via commentx @tester05 mention-smoke-$$"
-cid_x=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
-got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
-[ "$got" = "1" ] || fail "commentx mention note not sent (got '$got')"
-grace_guard "$cid_x"
-fetch "$J2" "$BASE/board/commentx.cgi" -d "action=delete&bid=2&aid=$mnaid&p=1&cid=$cid_x"
-got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
-[ "$got" = "0" ] || fail "commentx grace delete did not retract the mention note (got '$got')"
-ok "commentx.cgi round-trip: mention sent and retracted on grace delete"
 
 # --- rendered mention: @id links to the profile pop-up (note-compose stays
 # one click away inside the profile header), never to note.cgi. The unsend

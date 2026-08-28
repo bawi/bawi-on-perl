@@ -125,8 +125,8 @@ sub notify_mentions {
     return $sent;
 }
 
-# Single owner of the mention-link tail: comment.cgi / commentx.cgi /
-# write.cgi prepend the request-derived scheme://host/dir to this when
+# Single owner of the mention-link tail: comment.cgi / write.cgi
+# prepend the request-derived scheme://host/dir to this when
 # composing the note URL, and retract_mention_notes rebuilds it for the
 # retraction match -- one constructor, so the two sides cannot drift.
 # Plain function, not a method.
