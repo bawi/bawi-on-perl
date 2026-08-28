@@ -36,7 +36,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=39
+EXPECTED=40
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -495,6 +495,15 @@ fetch "$J2" "$BASE/main/note.cgi" -d "r_msg_id=$msgid4&action=Delete"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid4") || exit 1
 [ "$got" = "0" ] || fail "sent-box Delete did not remove the mention note (got '$got')"
 ok "sender can unsend an unread mention note from the sent box"
+
+# rendered mention: @id links to the profile pop-up (note-compose stays
+# one click away inside the profile header), never to note.cgi. The last
+# mention comment above still exists -- only its note was unsent.
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$mnaid"
+[ "$CODE" = "200" ] || fail "mention render: read.cgi HTTP $CODE"
+has 'profile.cgi?id=tester05">@tester05</a>' || fail "mention did not render as a profile link"
+has "to_default=tester05" && fail "mention renders a note-compose link (tester05 authored nothing here)"
+ok "rendered @mention links to the profile pop-up"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"

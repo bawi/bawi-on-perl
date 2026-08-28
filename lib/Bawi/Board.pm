@@ -3123,14 +3123,17 @@ sub make_hyperlink {
        (?=\s|[,;\.\)\]]|\D|$)
     } !<a href="#c$3" class="auto comment_no">$2</a>!iogx;
 
-    # @id -> note-compose link, same grammar as _name_id.tmpl (id opens a
-    # note, name opens a profile). Kept last so URLs rewritten above are
-    # not corrupted; skipped on anonymous boards.
+    # @id -> profile pop-up: the same link _name_id.tmpl puts on the NAME.
+    # A reader clicking a mention is asking "who is this"; the profile
+    # header itself renders name (id) via _name_id.tmpl, so note-compose
+    # stays one click away. Token grammar matches Note.pm notify_mentions.
+    # Kept last so URLs rewritten above are not corrupted; skipped on
+    # anonymous boards.
     unless ($self->is_anonboard) {
-      my $note_url = $self->cfg->NoteURL || '../main/note.cgi';
+      my $user_url = $self->cfg->UserURL || '../user';
       s{ ( ^ | [\s\(\[\>] )
          \@ ([A-Za-z0-9_]{2,10}) \b
-      } !$1<a class="user-message" target="bw_message" href="$note_url?to_default=$2">\@$2</a>!ogx;
+      } !$1<a class="user-profile" target="bw_profile" href="$user_url/profile.cgi?id=$2">\@$2</a>!ogx;
     }
 
   }
