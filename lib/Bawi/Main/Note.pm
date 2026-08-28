@@ -130,6 +130,30 @@ sub notify_mentions {
     return $sent;
 }
 
+sub retract_mention_notes {
+    my $self = shift;
+    my $from_id = shift || "";
+    my $bid = shift || "";
+    my $aid = shift || "";
+    my $comment_no = shift || "";
+
+    # digits-only also guarantees the LIKE tail below carries no wildcards
+    return 0 unless ($from_id ne "" && $bid =~ /^\d+$/ && $aid =~ /^\d+$/
+                     && $comment_no =~ /^\d+$/);
+
+    # A comment hard-deleted inside its 1-minute grace window takes the
+    # mention target with it: retract the pings nobody has read yet.
+    # Read (saved) notes stay -- retraction is best-effort, not history
+    # rewriting. The tail must mirror the URL comment.cgi/commentx.cgi
+    # pass to notify_mentions; if that format ever drifts this simply
+    # stops matching (fails open to keeping the note).
+    my $tail = "read.cgi?bid=$bid;aid=$aid#c$comment_no";
+    my $stmt = "DELETE FROM $DBTABLE WHERE from_id = ? AND read_time IS NULL AND msg LIKE ?";
+    my $sth = $self->{'-dbh'}->prepare($stmt);
+    my $rv = $sth->execute($from_id, "[언급] %: %$tail");
+    return $rv;
+}
+
 sub delete_msg {
     my $self = shift;
     my $msg_id = shift;
