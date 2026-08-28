@@ -36,7 +36,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=32
+EXPECTED=39
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -400,6 +400,101 @@ fetch - "$BASE/main/note.cgi"
 [ "$CODE" = "302" ] || fail "logged-out note.cgi: expected 302, got $CODE"
 has "$CANARY_NOTE" && fail "LEAK: canary note served logged-out"
 ok "canary note not served logged-out"
+
+# ======================================================== tier 4: mention notes
+# @id in an authored comment sends the mentioned user a note (bw_note).
+# Lifecycle contract under test:
+#   - self-mentions are silent
+#   - the note sits in the sender's sent box while unread; the recipient's
+#     Save (read_time) moves it out
+#   - deleting the comment inside its 1-minute grace window retracts
+#     UNREAD mention notes and spares saved ones (best-effort retraction,
+#     not history rewriting)
+#   - the sender can manually unsend an unread mention note from the sent
+#     box like any other note (delete_msg has no origin special-case)
+# All note counts are scoped to the fresh article's aid so seeded notes
+# (e.g. the tier-3 canary) can never satisfy or pollute a check.
+login tester02; J2=$JAR
+
+fetch "$J2" "$BASE/board/write.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "title=mention smoke article" \
+      --data-urlencode "body=mention lifecycle host $$"
+[ "$CODE" = "302" ] || fail "mention: write host article: HTTP $CODE"
+mnaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+[ -n "$mnaid" ] && [ "$mnaid" != "NULL" ] || fail "mention: host article not created"
+
+fetch "$J2" "$BASE/board/comment.cgi" \
+      --data-urlencode "action=add" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$mnaid" \
+      --data-urlencode "body=ping @tester05 mention-smoke-$$"
+cid1=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
+[ -n "$cid1" ] && [ "$cid1" != "NULL" ] || fail "mention: comment 1 not created"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+[ "$got" = "1" ] || fail "mention note not sent (got '$got')"
+msgid1=$(db "SELECT msg_id FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+ok "@mention in a comment sends the mentioned user a note"
+
+fetch "$J2" "$BASE/board/comment.cgi" \
+      --data-urlencode "action=add" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$mnaid" \
+      --data-urlencode "body=note to self @tester02 mention-smoke-$$"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester02' AND from_id='tester02' AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+[ "$got" = "0" ] || fail "self-mention produced a note (got '$got')"
+ok "self-mention stays silent"
+
+fetch "$J2" "$BASE/main/note.cgi?mbox=sent"
+[ "$CODE" = "200" ] || fail "sender sent box: HTTP $CODE"
+has "aid=$mnaid#c" || fail "unread mention note missing from the sender's sent box"
+ok "mention note appears in the sender's sent box while unread"
+
+# recipient saves it -> read_time set -> leaves the sender's sent box
+login tester05; J5=$JAR
+fetch "$J5" "$BASE/main/note.cgi" -d "r_msg_id=$msgid1&action=Save"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid1 AND read_time IS NOT NULL") || exit 1
+[ "$got" = "1" ] || fail "Save did not set read_time on the mention note (got '$got')"
+fetch "$J2" "$BASE/main/note.cgi?mbox=sent"
+has "aid=$mnaid#c" && fail "saved mention note still listed in the sender's sent box"
+ok "recipient's Save moves the note out of the sender's sent box"
+
+# grace-window delete of the mentioning comment: the SAVED note survives
+fetch "$J2" "$BASE/board/comment.cgi" -d "action=delete&bid=2&aid=$mnaid&cid=$cid1"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE comment_id=$cid1") || exit 1
+[ "$got" = "0" ] || fail "grace-window delete left the comment row (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid1") || exit 1
+[ "$got" = "1" ] || fail "retraction deleted a SAVED note (got '$got')"
+ok "grace-window delete spares the already-saved mention note"
+
+# unread mention + grace-window delete: the note is retracted with the comment
+fetch "$J2" "$BASE/board/comment.cgi" \
+      --data-urlencode "action=add" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$mnaid" \
+      --data-urlencode "body=again @tester05 mention-smoke-$$"
+cid3=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+[ "$got" = "1" ] || fail "second mention note not sent (got '$got')"
+fetch "$J2" "$BASE/board/comment.cgi" -d "action=delete&bid=2&aid=$mnaid&cid=$cid3"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE comment_id=$cid3") || exit 1
+[ "$got" = "0" ] || fail "grace-window delete left comment 2 (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+[ "$got" = "0" ] || fail "unread mention note survived the grace-window delete (got '$got')"
+ok "grace-window comment delete retracts the unread mention note"
+
+# manual unsend: the sender deletes an unread mention note from the sent box
+fetch "$J2" "$BASE/board/comment.cgi" \
+      --data-urlencode "action=add" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$mnaid" \
+      --data-urlencode "body=once more @tester05 mention-smoke-$$"
+msgid4=$(db "SELECT MAX(msg_id) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
+[ -n "$msgid4" ] && [ "$msgid4" != "NULL" ] || fail "third mention note not sent"
+fetch "$J2" "$BASE/main/note.cgi" -d "r_msg_id=$msgid4&action=Delete"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid4") || exit 1
+[ "$got" = "0" ] || fail "sent-box Delete did not remove the mention note (got '$got')"
+ok "sender can unsend an unread mention note from the sent box"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"
