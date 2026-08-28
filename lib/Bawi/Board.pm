@@ -2127,6 +2127,7 @@ sub get_attach {
             seek(FH, 0, 0);
             my %attach = (
                 article_id=> $$rv{article_id},
+                board_id=> $$rv{board_id}, # thumb.cgi gates on the board's anon-read flag
                 filename=> $$rv{filename},
                 filesize=> $filesize,
                 content_type=> $$rv{content_type},
