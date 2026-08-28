@@ -88,7 +88,7 @@ if ($xb->board_id && $allow_comment) {
                 my $proto = $ENV{HTTPS} ? 'https' : 'http';
                 my $dir = $ENV{SCRIPT_NAME} || '';
                 $dir =~ s#[^/]*$##;
-                my $url = "$proto://$ENV{HTTP_HOST}${dir}read.cgi?bid=$bid;aid=$aid#c$rv";
+                my $url = "$proto://$ENV{HTTP_HOST}${dir}" . Bawi::Main::Note::mention_note_tail($bid, $aid, $rv);
                 my $note = new Bawi::Main::Note(-dbh=>$ui->dbh);
                 $note->notify_mentions($body, $id, $name, $url);
             }
@@ -107,6 +107,19 @@ if ($action eq 'save') {
 
 } elsif ($action eq 'update') {
     print $ui->output(-type=>'text/xml');
+}
+
+# mirrors comment.cgi's check_param -- this sibling never had it, so the
+# add/delete actions above died with "Undefined subroutine" since their
+# introduction (each ModPerl::Registry script is its own package; nothing
+# imports it). Exposed by smoke tier 4's commentx round-trip.
+sub check_param {
+    my ($q, @list) = @_;
+    my $check = 0;
+    foreach my $i (@list) {
+        ++$check unless (defined $q->param($i) && $q->param($i) ne '');
+    }
+    return $check;
 }
 
 1;

@@ -180,7 +180,7 @@ if ($allow_write && $bid) {
             my $proto = $ENV{HTTPS} ? 'https' : 'http';
             my $dir = $ENV{SCRIPT_NAME} || '';
             $dir =~ s#[^/]*$##;
-            my $url = "$proto://$ENV{HTTP_HOST}${dir}read.cgi?bid=$bid;aid=$article_id";
+            my $url = "$proto://$ENV{HTTP_HOST}${dir}" . Bawi::Main::Note::mention_note_tail($bid, $article_id);
             my $note = new Bawi::Main::Note(-dbh=>$ui->dbh);
             $note->notify_mentions($fbody, $id, $name, $url);
         }

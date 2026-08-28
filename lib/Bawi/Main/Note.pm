@@ -25,11 +25,6 @@ sub new {
     },$class;
 }
 
-sub DESTROY {
-    my $self = shift;
-    $self->{'-dbh'}->disconnect;
-}
-
 sub note_per_page {
     my $self = shift;
     if (@_) { $self->{note_per_page} = shift }
@@ -130,6 +125,18 @@ sub notify_mentions {
     return $sent;
 }
 
+# Single owner of the mention-link tail: comment.cgi / commentx.cgi /
+# write.cgi prepend the request-derived scheme://host/dir to this when
+# composing the note URL, and retract_mention_notes rebuilds it for the
+# retraction match -- one constructor, so the two sides cannot drift.
+# Plain function, not a method.
+sub mention_note_tail {
+    my ($bid, $aid, $comment_no) = @_;
+    my $tail = "read.cgi?bid=$bid;aid=$aid";
+    $tail .= "#c$comment_no" if (defined $comment_no && $comment_no ne "");
+    return $tail;
+}
+
 sub retract_mention_notes {
     my $self = shift;
     my $from_id = shift || "";
@@ -142,15 +149,18 @@ sub retract_mention_notes {
                      && $comment_no =~ /^\d+$/);
 
     # A comment hard-deleted inside its 1-minute grace window takes the
-    # mention target with it: retract the pings nobody has read yet.
-    # Read (saved) notes stay -- retraction is best-effort, not history
-    # rewriting. The tail must mirror the URL comment.cgi/commentx.cgi
-    # pass to notify_mentions; if that format ever drifts this simply
-    # stops matching (fails open to keeping the note).
-    my $tail = "read.cgi?bid=$bid;aid=$aid#c$comment_no";
+    # mention target with it: retract the pings the recipient has not
+    # SAVED yet. read_time is set only by the explicit Save action --
+    # merely reading the inbox never sets it (the schema has no read
+    # receipt), and read_time IS NULL is also exactly the sent-box
+    # manual-unsend rule. Saved notes stay: retraction is best-effort,
+    # not history rewriting; a non-matching msg fails open to keeping
+    # the note. The middle literal in the pattern below must byte-match
+    # the msg template in notify_mentions above.
+    my $tail = mention_note_tail($bid, $aid, $comment_no);
     my $stmt = "DELETE FROM $DBTABLE WHERE from_id = ? AND read_time IS NULL AND msg LIKE ?";
     my $sth = $self->{'-dbh'}->prepare($stmt);
-    my $rv = $sth->execute($from_id, "[언급] %: %$tail");
+    my $rv = $sth->execute($from_id, "[언급] %님이 회원님을 언급했습니다: %$tail");
     return $rv;
 }
 

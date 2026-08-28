@@ -1468,8 +1468,10 @@ sub del_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
 
-    # Check whether the comment is created within 1 minute
-    my $query_sql = qq(SELECT comment_id, comment_no, id FROM $TBL{comment}
+    # Check whether the comment is created within 1 minute; the row also
+    # carries the author id + board/article/comment numbers for the
+    # mention-note retraction below
+    my $query_sql = qq(SELECT comment_id, comment_no, id, board_id, article_id FROM $TBL{comment}
                  WHERE comment_id=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
 
     my $query_rv = $DBH->selectrow_hashref($query_sql, undef, $arg{-comment_id}, 
@@ -1492,14 +1494,18 @@ sub del_comment {
             $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
 
             # the mention notes sent when this comment was posted now
-            # point at a hard-deleted target: retract the unread ones
-            # (read/saved notes stay -- see Note.pm)
-            if ($arg{-board_id}) {
-                require Bawi::Main::Note;
-                Bawi::Main::Note->new(-dbh=>$DBH)->retract_mention_notes(
-                    $query_rv->{id}, $arg{-board_id}, $arg{-article_id},
-                    $query_rv->{comment_no});
-            }
+            # point at a hard-deleted target: retract the ones the
+            # recipient has not saved (saved notes stay -- see Note.pm).
+            # Every key comes from the deleted row itself, never the
+            # request: a mismatched bid/aid in the delete request must
+            # not skip or mis-aim the retraction.
+            require Bawi::Main::Note;
+            # row `id` = the author's login id (the note's from_id),
+            # NOT the comment's id -- that is comment_id
+            my $author_id = $query_rv->{id};
+            Bawi::Main::Note->new(-dbh=>$DBH)->retract_mention_notes(
+                $author_id, $query_rv->{board_id},
+                $query_rv->{article_id}, $query_rv->{comment_no});
         }
         return $rv;
     }
@@ -1518,6 +1524,8 @@ sub del_commentset {
 
     # this is deprecated because deletes only user id generated comments
     # so be careful in using this!
+    # NB: unlike del_comment's grace branch, this does NOT retract
+    # mention notes -- add that if this sub is ever revived
 
     my $sql = qq(DELETE FROM $TBL{comment} WHERE board_id=? && article_id=?);
     my $rv = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
