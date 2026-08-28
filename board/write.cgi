@@ -23,6 +23,16 @@ my $q = $ui->cgi;
 my ($bid, $aid, $resize, $img) = map { $q->param($_) || undef } qw( bid aid resize img);
 
 my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
+
+# Anonymous visitors reach this CGI when AllowAnonAccess=1, but only boards
+# marked publicly readable may render ANYTHING: even the page SHELL leaks
+# the board name, its group's name, and the owner's name/id (verified --
+# PR #34). Members-only boards bounce anonymous visitors to login here,
+# before any board data is emitted. Anon boards keep guest access.
+unless ($auth->auth || ($xb->a_read || 0) == 1 || $xb->is_anonboard) {
+    print $auth->login_page($ui->cgiurl);
+    exit (1);
+}
 my $skin = $xb->skin;
 
 my ($uid, $id, $name);

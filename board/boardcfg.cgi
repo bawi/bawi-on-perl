@@ -36,6 +36,16 @@ unless ($xb and $xb->board_id) {
     print $ui->output; exit;
 }
 
+# Anonymous visitors reach this CGI when AllowAnonAccess=1, but only boards
+# marked publicly readable may render ANYTHING: even the page SHELL leaks
+# the board name, its group's name, and the owner's name/id (verified --
+# PR #34). Members-only boards bounce anonymous visitors to login here,
+# before any board data is emitted. Anon boards keep guest access.
+unless ($auth->auth || ($xb->a_read || 0) == 1 || $xb->is_anonboard) {
+    print $auth->login_page($ui->cgiurl);
+    exit (1);
+}
+
 my $uid = $auth->uid || 0;
 my $is_root = $uid == 1 ? 1 : 0;
 my $is_owner = ($uid == $xb->uid) || $is_root ? 1 : 0;

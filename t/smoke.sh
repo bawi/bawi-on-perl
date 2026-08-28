@@ -36,7 +36,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=24
+EXPECTED=26
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -161,10 +161,10 @@ for f in db/2*.sql; do
 done
 ok "all $(ls db/2*.sql | wc -l | tr -d ' ') migrations recorded in schema_migrations"
 
+# db-test.cgi enumerates every board title -> members only (PR #34).
 fetch - "$BASE/main/db-test.cgi"
-[ "$CODE" = "200" ] || fail "db-test.cgi: HTTP $CODE"
-has "before query" || fail "db-test.cgi: missing marker output"
-ok "db-test.cgi serves and reaches the DB"
+[ "$CODE" = "302" ] || fail "unauthenticated db-test.cgi: expected 302, got $CODE"
+ok "db-test.cgi requires login"
 
 # ======================================================== tier 2: golden path
 fetch - "$BASE/"
@@ -177,6 +177,11 @@ ok "login tester02 -> 302 + session cookie"
 fetch "$J2" "$BASE/board/index.cgi"
 [ "$CODE" = "200" ] || fail "board index: HTTP $CODE"
 ok "board index serves for a member"
+
+fetch "$J2" "$BASE/main/db-test.cgi"
+[ "$CODE" = "200" ] || fail "authed db-test.cgi: HTTP $CODE"
+has "before query" || fail "db-test.cgi: missing marker output"
+ok "db-test.cgi serves its diagnostics to a member"
 
 aid=$(db "SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
 [ -n "$aid" ] && [ "$aid" != "NULL" ] || fail "no seeded article on board 2 (got '$aid')"
@@ -245,17 +250,26 @@ has "$CANARY_ARTICLE" || fail "member tester03 cannot read the canary body (test
 has "$CANARY_TITLE"   || fail "member tester03 does not see the canary title (test would be vacuous)"
 ok "canary readable by a non-owner group member (positive control)"
 
-# logged-out: never a token. With AllowAnonAccess=1 (this stack AND the
-# conf samples) board CGIs serve anonymous visitors a 200 page SHELL and let
-# authz suppress the article; with AllowAnonAccess=0 they 302 to login.
-# Either status is policy -- the privacy property is the absent tokens.
-# (Note: the shell does expose the closed BOARD's name to anonymous
-# visitors -- board existence, not content; see PR #32 discussion.)
+# logged-out: members-only boards now bounce anonymous visitors BEFORE any
+# board data is emitted (PR #34) -- even the shell used to leak the board
+# name, group name, and owner id. Assert the redirect AND the absence of
+# every one of those strings, then prove the guard did not over-block:
+# the a_read=1 notice board must still serve guests (the feature
+# AllowAnonAccess exists for).
 fetch - "$BASE/board/read.cgi?bid=$cbid&aid=$caid"
-[ "$CODE" = "200" ] || [ "$CODE" = "302" ] || fail "logged-out canary read: HTTP $CODE"
+[ "$CODE" = "302" ] || fail "logged-out closed-board read: expected 302, got $CODE"
 has "$CANARY_ARTICLE" && fail "LEAK: canary body served logged-out"
 has "$CANARY_TITLE"   && fail "LEAK: canary title served logged-out"
-ok "canary not served logged-out"
+has "비공개 테스트판"  && fail "LEAK: closed board NAME in the anonymous response"
+has "비공개 테스트"    && fail "LEAK: closed GROUP name in the anonymous response"
+ok "closed-board shell not served logged-out (name/group/owner hidden)"
+
+naid=$(db "SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=1") || exit 1
+[ -n "$naid" ] && [ "$naid" != "NULL" ] || fail "no seeded article on the notice board"
+fetch - "$BASE/board/read.cgi?bid=1&aid=$naid"
+[ "$CODE" = "200" ] || fail "guest read of the a_read=1 notice board: HTTP $CODE (guard over-blocked)"
+has "공지사항" || fail "notice board not rendering for a guest"
+ok "public notice board still serves guests (guard does not over-block)"
 
 # wrong member (tester07 is not in gid 3): never. This is THE member-to-member
 # leak assertion.
