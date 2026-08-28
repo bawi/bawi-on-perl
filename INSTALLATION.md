@@ -66,7 +66,7 @@ Useful URLs once logged in:
 - `http://localhost:8080/board/boards.cgi` — board list
 - `http://localhost:8080/main/news.cgi` — recent articles
 - `http://localhost:8080/main/note.cgi` — notes (41 seeded; each of the first 10 users has 1 unread, plus a second unread privacy-canary note for tester02 — see `t/smoke.sh`)
-- `http://localhost:8080/main/db-test.cgi` — plain-text DB connectivity check
+- `http://localhost:8080/main/db-test.cgi` — plain-text DB connectivity check (members-only since PR #34; log in first)
 
 ## Everyday commands
 
@@ -94,11 +94,10 @@ prod path hardcoded in `apache2/startup.pl`), so host edits are live.
 Through the real stack (recommended — exercises mod_perl exactly like prod):
 
 ```sh
-curl -s http://localhost:8080/main/db-test.cgi
-
-# authenticated: log in once, keep the session cookie
+# log in once, keep the session cookie (db-test.cgi is members-only, PR #34)
 curl -s -c /tmp/bawi.jar -d 'id=tester02&passwd=test1234' \
      http://localhost:8080/main/login.cgi -o /dev/null
+curl -s -b /tmp/bawi.jar http://localhost:8080/main/db-test.cgi
 curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi
 ```
 
@@ -111,6 +110,7 @@ cd /home/bawi/bawi-spring/main
 export BAWI_PERL_HOME=/home/bawi/bawi-spring/ BAWI_DATA_HOME=/home/bawi/bawi-data/
 perl -I/home/bawi/bawi-spring/lib -c db-test.cgi        # compile check
 REQUEST_METHOD=GET QUERY_STRING='' perl -I/home/bawi/bawi-spring/lib db-test.cgi
+# (prints the login redirect: db-test.cgi is members-only since PR #34)
 ```
 
 ## Migrations
@@ -153,14 +153,14 @@ retrying — a half-initialized data dir skips init on the next start.
 
 ## Validation checklist (what "working" looks like)
 
-The checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (currently 24
-checks -- the script asserts its own count, see `EXPECTED` -- including the
+The checklist is automated: `./seed/reseed.sh && sh t/smoke.sh` (the script
+asserts its own check count, see `EXPECTED` -- including the
 privacy-canary assertions the manual list below does not cover). The items
 below remain as the hand-debug annex.
 
 1. `docker compose ps` — the db and web containers both `Up`.
 2. `docker compose exec -T db mariadb -u bawi_test -pbawi-local-test-pw bawi -e "SHOW TABLES" | wc -l` → 64 lines: 1 column-header line + 62 tables (incl. `schema_migrations` and the `bw_migration_20260718_innodb_applied` replay sentinel) + the `freq_bookmark` view. (Grows by one per table a migration adds — cross-check against the runner's state listing in `docker compose logs db`.)
-3. `curl -s http://localhost:8080/main/db-test.cgi` → three `before query:/after query:/dbh->errstr:` lines then the seven seeded board titles — including the closed privacy-canary board `비공개 테스트판` (no 500; see `t/smoke.sh` tier 3).
+3. `curl -s http://localhost:8080/main/db-test.cgi` → 302 to the login page (members-only since PR #34). With the session jar from item 5: `curl -s -b /tmp/bawi.jar http://localhost:8080/main/db-test.cgi` → the three `before query:/after query:/dbh->errstr:` lines and a `boards: N` row count — the title dump is gone (it enumerated closed boards to any member; no 500; see `t/smoke.sh` tiers 1-2).
 4. `curl -s http://localhost:8080/` → login page HTML (200).
 5. Login POST (see above) → `302` with `Set-Cookie: bawi_session=…`.
 6. `curl -s -b /tmp/bawi.jar http://localhost:8080/board/index.cgi` → bookmark page listing seeded boards.

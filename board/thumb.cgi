@@ -3,13 +3,31 @@ use strict;
 use lib '../lib';
 use Bawi::Board::UI;
 use Bawi::Board;
+use Bawi::Auth;
 
 my $ui = new Bawi::Board::UI;
+my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 
 my $atid = $ui->cparam('atid');
 
 my $xb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 my $attach = $xb->get_attach(-attach_id=>$atid, -thumb=>1);
+
+# Thumbnails are board content: full files go through attach.cgi's auth
+# gate, but this CGI served any atid to anyone (PR #34). Guests may fetch
+# a thumbnail only off boards that grant anonymous read (a_read=1, the
+# same predicate as read.cgi's shell guard); members keep today's
+# behavior. A row whose board is gone fails closed for guests; a no-row
+# atid skips the gate -- there is nothing to leak -- and keeps the
+# pre-existing not-found path.
+if ($attach) {
+    my $bxb = new Bawi::Board(-cfg=>$ui->cfg, -dbh=>$ui->dbh,
+                              -board_id=>$$attach{board_id});
+    unless ($auth->auth || ($bxb->a_read || 0) == 1) {
+        print $auth->login_page($ui->cgiurl);
+        exit (1);
+    }
+}
 
 if ($attach and $$attach{filehandle}) {
     # This is the thumbnail URL the templates actually emit, so it takes

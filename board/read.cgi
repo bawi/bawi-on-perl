@@ -50,11 +50,12 @@ my $xb = new Bawi::Board(-board_id     => $bid,
                           -session_key  => $session_key);
 
 # Anonymous visitors reach this CGI when AllowAnonAccess=1, but only boards
-# marked publicly readable may render ANYTHING: even the page SHELL leaks
-# the board name, its group's name, and the owner's name/id (verified --
-# PR #34). Members-only boards bounce anonymous visitors to login here,
-# before any board data is emitted. Anon boards keep guest access.
-unless ($auth->auth || ($xb->a_read || 0) == 1 || $xb->is_anonboard) {
+# whose OWN config grants guests the read action may render anything: even
+# the page SHELL leaks the board name, its group's name, and the owner's
+# name/id (verified -- PR #34). The predicate mirrors Group::authz, where
+# a guest (uid 0) is granted read solely by a_read==1. is_anonboard is an
+# identity-masking flag, never an access grant, so it plays no part here.
+unless ($auth->auth || ($xb->a_read || 0) == 1) {
     print $auth->login_page($ui->cgiurl);
     exit (1);
 }

@@ -21,13 +21,26 @@ my ($action, $bid, $aid, $p, $img) = map {$q->param($_) || ''} qw(action bid aid
 my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh)
     if ($bid);
 
-# Anonymous visitors reach this CGI when AllowAnonAccess=1, but only boards
-# marked publicly readable may render ANYTHING: even the page SHELL leaks
-# the board name, its group's name, and the owner's name/id (verified --
-# PR #34). Members-only boards bounce anonymous visitors to login here,
-# before any board data is emitted. Anon boards keep guest access.
-unless (!$xb || $auth->auth || ($xb->a_read || 0) == 1 || $xb->is_anonboard) {
-    print $auth->login_page($ui->cgiurl);
+# Action endpoint: no page shell renders here (every exit is a redirect
+# or XML), but bounce anonymous requests against members-only boards
+# before any processing, in parity with read.cgi's shell guard (PR #34).
+# Guests proceed when the board grants anonymous read or anonymous
+# comment (authz(-aperm=>a_comment) below still gates the actual action).
+# is_anonboard masks author identity, it never grants access. !$xb: a
+# bid-less request has no board to leak; it falls through to the
+# pre-existing error path at the Group constructor below.
+unless (!$xb || $auth->auth || ($xb->a_read || 0) == 1 || ($xb->a_comment || 0) == 1) {
+    # A POST's return URL must not carry the request params: cgiurl
+    # rebuilds the query from them, comment body included -- member text
+    # in the Location header and access logs, and a long body 414s the
+    # login redirect (the post-login GET replay could not re-add the
+    # comment anyway). Point a bounced POST back at the article.
+    my $back = $ui->cgiurl;
+    if (($q->request_method || '') eq 'POST') {
+        ($back = $q->url(-path_info=>1)) =~ s{comment\.cgi\z}{read.cgi};
+        $back .= '?bid=' . $q->escape($bid) . ';aid=' . $q->escape($aid);
+    }
+    print $auth->login_page($back);
     exit (1);
 }
 

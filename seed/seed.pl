@@ -462,6 +462,43 @@ use constant CANARY_CONTROL => 'CONTROL-HOT-a9d2c4';
         dt(BASE_EPOCH + 86400 * 401));
 }
 
+# ------------------------------------------------- PR #34 guard fixtures
+# Pin the per-action anonymous predicate from both sides, plus one
+# attachment ROW (no file on disk needed: thumb.cgi's gate keys on the
+# row's board and fires before any bytes are read).
+#   - members-only anonboard (is_anonboard=1, a_read=0): is_anonboard
+#     masks author identity and grants NO access -- anon must bounce.
+#   - guest drop-box (a_write=1, a_read=0): the write form must still
+#     serve guests (the over-block direction).
+# Ids derived from the DB; no articles added, so the canary "40 highest
+# article_ids" invariant above is untouched.
+print "seeding PR #34 guard fixtures (anonboard, drop-box, canary attach row)\n";
+{
+    my ($maxb) = $dbh->selectrow_array(q(SELECT MAX(board_id) FROM bw_xboard_board));
+    my $b = $dbh->prepare(q(
+        INSERT INTO bw_xboard_board
+            (board_id, keyword, gid, title, uid, id, name, skin, seq, created,
+             g_read, m_read, a_read, g_write, m_write, a_write,
+             g_comment, m_comment, a_comment, is_anonboard)
+        VALUES (?,?,?,?,1,'root',?,'default',?,?, ?,?,?, ?,?,?, ?,?,?, ?)));
+    $b->execute($maxb + 1, 'anonymous', 2, '익명 비공개판 테스트', $uname{1},
+                $maxb + 1, dt(BASE_EPOCH + 86400 * 8),
+                1,1,0, 1,1,0, 1,1,0, 1);
+    $b->execute($maxb + 2, 'dropbox', 1, '건의함 테스트', $uname{1},
+                $maxb + 2, dt(BASE_EPOCH + 86400 * 9),
+                1,1,0, 1,1,1, 1,1,0, 0);
+
+    my ($cb2) = $dbh->selectrow_array(
+        q(SELECT board_id FROM bw_xboard_board WHERE title='비공개 테스트판'));
+    my ($ca2) = $dbh->selectrow_array(
+        q(SELECT MIN(article_id) FROM bw_xboard_header WHERE board_id=?), undef, $cb2);
+    $dbh->do(q(
+        INSERT INTO bw_xboard_attach
+            (board_id, article_id, filename, filesize, content_type, is_img)
+        VALUES (?,?,?,123,'image/jpeg','y')),
+        undef, $cb2, $ca2, 'canary-attach.jpg');
+}
+
 # ------------------------------------------------------------ article polls
 print "seeding 2 article polls\n";
 {

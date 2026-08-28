@@ -3,16 +3,17 @@ use strict;
 use warnings;
 use lib '../lib';
 use Bawi::Main::UI;
+use Bawi::Auth;
 
 #$ENV{BAWI_PERL_HOME} = "/home/bawi/bawi-perl/";
 #$ENV{BAWI_DATA_HOME} = "/home/bawi/bawi-data/";
 
 my $ui = new Bawi::Main::UI(-template=>'index.tmpl');
 
-# Diagnostic page: enumerates every board title. Members only -- this was
-# reachable unauthenticated on prod, handing anonymous visitors a complete
-# board directory (closed boards included). PR #34.
-use Bawi::Auth;
+# DB diagnostic page, members only (PR #34): it was reachable
+# unauthenticated on prod. It also used to print every board title
+# (board_id < 100), which after 3839308's front-page fix would hand any
+# member the closed-board directory -- so it now reports only a row count.
 my $auth = new Bawi::Auth(-cfg=>$ui->cfg, -dbh=>$ui->dbh);
 unless ($auth->auth) {
     print $auth->login_page($ui->cgiurl);
@@ -27,7 +28,7 @@ print "after query: ",$dbh->state,"\n";
 print "dbh->errstr: ",$dbh->errstr,"\n";
 $sth->execute(100);
 
-while( my @tmp = $sth->fetchrow_array() ) {
-    print $tmp[0],"\n";
-}
+my $n = 0;
+$n++ while $sth->fetchrow_array();
+print "boards: $n\n";
 $dbh->disconnect();

@@ -25,12 +25,22 @@ my ($bid, $aid, $resize, $img) = map { $q->param($_) || undef } qw( bid aid resi
 my $xb = new Bawi::Board(-board_id=>$bid, -cfg=>$ui->cfg, -dbh=>$ui->dbh);
 
 # Anonymous visitors reach this CGI when AllowAnonAccess=1, but only boards
-# marked publicly readable may render ANYTHING: even the page SHELL leaks
-# the board name, its group's name, and the owner's name/id (verified --
-# PR #34). Members-only boards bounce anonymous visitors to login here,
-# before any board data is emitted. Anon boards keep guest access.
-unless ($auth->auth || ($xb->a_read || 0) == 1 || $xb->is_anonboard) {
-    print $auth->login_page($ui->cgiurl);
+# whose OWN config grants guests an action here may render anything: even
+# the page SHELL leaks the board name, its group's name, and the owner's
+# name/id (verified -- PR #34). Guests get the write form when the board
+# grants anonymous read OR anonymous write (an a_write=1 guest drop-box
+# must ship its form; authz(-aperm=>a_write) below still gates the actual
+# post). is_anonboard masks author identity, it never grants access.
+unless ($auth->auth || ($xb->a_read || 0) == 1 || ($xb->a_write || 0) == 1) {
+    # Same POST rule as comment.cgi: never round-trip a POST body through
+    # the return URL (Location/access logs, 414 past ~8KB, and a GET
+    # replay would mint a history-replayable create URL). Send a bounced
+    # POST back to the blank write form for this board.
+    my $back = $ui->cgiurl;
+    if (($q->request_method || '') eq 'POST') {
+        $back = $q->url(-path_info=>1) . '?bid=' . $q->escape($bid || '');
+    }
+    print $auth->login_page($back);
     exit (1);
 }
 my $skin = $xb->skin;
