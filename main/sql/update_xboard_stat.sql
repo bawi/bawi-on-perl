@@ -3,7 +3,7 @@ delete from bw_xboard_stat_board;
 insert into bw_xboard_stat_board (board_id, counts, articles, comments, recoms)
   select a.board_id, sum(count) as counts, count(b.article_id) as articles, sum(comments) as comments, sum(recom) as recoms
     from bw_xboard_board as a, bw_xboard_header as b
-      where a.board_id=b.board_id && a.board_id !=637 && a.board_id != 688 && b.created> date_sub(now(), interval 7 day)
+      where a.board_id=b.board_id && a.m_read=1 && a.board_id !=637 && a.board_id != 688 && b.created> date_sub(now(), interval 7 day)
         group by a.board_id order by counts desc;
 
 delete from bw_xboard_stat_user;

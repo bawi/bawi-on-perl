@@ -23,9 +23,11 @@
 #     bw_user_ki, bw_user_basic, bw_user_sig, bw_user_access,
 #     bw_group (3), bw_group_user, bw_xboard_board (7; board 7 is the
 #     closed-group privacy-canary board, see t/smoke.sh),
-#     bw_xboard_header/body (321 articles; 5 are category=1 markdown, to
+#     bw_xboard_header/body (322 articles; 5 are category=1 markdown, to
 #     exercise Bawi::Markdown + the bw_xboard_body_html render cache;
-#     article 321 is the closed-board canary),
+#     article 321 is the closed-board canary, 322 the open hot-channel
+#     control -- both carry NOW()-relative engagement, see the canary
+#     block),
 #     bw_xboard_comment (320),
 #     bw_xboard_notice, bw_xboard_recom, bw_xboard_bookmark, bw_note (41),
 #     bw_xboard_poll/_opt/_ans (2 article polls), bw_xpoll/_question/_choice
@@ -388,6 +390,7 @@ print "seeding privacy canaries (closed canary board, canary article + note)\n";
 use constant CANARY_ARTICLE => 'CANARY-ARTICLE-b7a2f9';
 use constant CANARY_TITLE   => 'CANARY-TITLE-c7d4e2';
 use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
+use constant CANARY_CONTROL => 'CONTROL-HOT-a9d2c4';
 {
     my $cb = 1 + (sort { $b <=> $a } map { $_->[0] } @BOARDS)[0];  # next free board_id
     $dbh->do(q(
@@ -412,6 +415,41 @@ use constant CANARY_NOTE    => 'CANARY-NOTE-n5c3e1';
         dt(BASE_EPOCH + 86400 * 401));
     $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, ?, ?)),
         undef, $ca, $cb, "이 글은 폐쇄 그룹 전용입니다.\n" . CANARY_ARTICLE . "\n(synthetic canary, members uid 2..6 only)");
+
+    # ---- engagement, for the front-page HOT/teaser channel tests ----
+    # The stat cron (main/sql/update_article_stat.sql) admits articles on
+    # recom>2 && count 21..3999 && created within 30 days; news.cgi's $hot
+    # additionally needs created within 5 days and >1 distinct recommender
+    # ki. Give the CLOSED canary qualifying engagement (recommenders =
+    # closed-group members uid 2..5, distinct ki by construction) so the
+    # cron's m_read=1 filter is what excludes it -- a live test, not a
+    # ranking accident. Seed an OPEN control article (board 2) with the
+    # same engagement plus a body token: it MUST come through the cron and
+    # the hot teaser (channel liveness / positive control for t/smoke.sh).
+    # Deterministic caveat: these two use NOW()-relative created dates --
+    # the hot window is wall-clock; everything else stays fixed-epoch.
+    $dbh->do(q(UPDATE bw_xboard_header
+               SET recom=5, count=50, created=DATE_SUB(NOW(), INTERVAL 2 HOUR)
+               WHERE article_id=?), undef, $ca);
+    my $rec = $dbh->prepare(q(
+        INSERT INTO bw_xboard_recom (uid, article_id, rectime) VALUES (?,?,NOW())));
+    $rec->execute($_, $ca) for 2 .. 5;
+
+    my $ctrl = ++$article_id;
+    my ($ctrl_no) = $dbh->selectrow_array(
+        q(SELECT COALESCE(MAX(article_no),0)+1 FROM bw_xboard_header WHERE board_id=2));
+    $dbh->do(q(
+        INSERT INTO bw_xboard_header
+            (article_id, article_no, parent_no, thread_no, board_id, category,
+             title, uid, id, name, count, recom, scrap, comments,
+             has_attach, has_poll, created)
+        VALUES (?, ?, 0, ?, 2, 0, ?, 3, ?, ?, 60, 6, 0, 0, 0, 0,
+                DATE_SUB(NOW(), INTERVAL 1 HOUR))),
+        undef, $ctrl, $ctrl_no, $ctrl_no, '핫 컨트롤 글 ' . CANARY_CONTROL,
+        $uid2id{3}, $uname{3});
+    $dbh->do(q(INSERT INTO bw_xboard_body (article_id, board_id, body) VALUES (?, 2, ?)),
+        undef, $ctrl, "공개 컨트롤 글입니다.\n" . CANARY_CONTROL . "\n(synthetic hot-channel control)");
+    $rec->execute($_, $ctrl) for 10 .. 13;
 
     my ($max_msg) = $dbh->selectrow_array(q(SELECT COALESCE(MAX(msg_id),0) FROM bw_note));
     $dbh->do(q(
@@ -629,13 +667,16 @@ $dbh->do(q(UPDATE bw_xboard_board b SET
 
 # stat tables (hot/stat pages) aggregated from the seeded data
 $dbh->do(q(INSERT INTO bw_xboard_stat_board (board_id, counts, articles, comments, recoms)
-           SELECT board_id, SUM(count), COUNT(*), SUM(comments), SUM(recom)
-           FROM bw_xboard_header GROUP BY board_id));
+           SELECT h.board_id, SUM(h.count), COUNT(*), SUM(h.comments), SUM(h.recom)
+           FROM bw_xboard_header h JOIN bw_xboard_board b ON b.board_id=h.board_id
+           WHERE b.m_read=1 GROUP BY h.board_id));
 $dbh->do(q(INSERT INTO bw_xboard_stat_article
                (board_id, article_id, title, id, name, count, recom, comments, created, ki)
            SELECT h.board_id, h.article_id, h.title, h.id, h.name,
                   h.count, h.recom, h.comments, h.created, COALESCE(k.ki, 0)
            FROM bw_xboard_header h LEFT JOIN bw_user_ki k ON k.uid = h.uid
+           JOIN bw_xboard_board b ON b.board_id = h.board_id
+           WHERE b.m_read = 1
            ORDER BY h.recom DESC, h.article_id LIMIT 30));
 $dbh->do(q(INSERT INTO bw_xboard_stat_user (id, name, articles, counts, comments, recoms)
            SELECT h.id, h.name, COUNT(*), SUM(h.count), SUM(h.comments), SUM(h.recom)
