@@ -1,7 +1,7 @@
 # CI smoke test: boot the docker test stack on a fresh runner, seed the
 # deterministic SYNTHETIC dataset (seed/seed.pl -- no production data exists
 # anywhere in CI), and run t/smoke.sh (compile sweep, migration ledger,
-# golden-path HTTP, privacy-canary assertions, mention-note lifecycle, attachment round-trip). Readiness waits live in the
+# golden-path HTTP, privacy-canary assertions, mention-note lifecycle, attachment round-trip, write-in polls). Readiness waits live in the
 # consumers: seed.pl waits for the DB, t/smoke.sh waits for the web
 # container -- so the same three commands work locally, verbatim.
 name: smoke

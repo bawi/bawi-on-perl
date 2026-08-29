@@ -28,10 +28,12 @@
 #      silence, sent box until Save, grace-window retraction sparing
 #      saved + sibling + unrelated notes, manual unsend) + profile-link
 #      rendering and the anonboard negative
-#   5  attachments: upload -> detach round-trip (row/file/link) + the
-#      ghost-row detach (file missing must not keep the row)
-#   6  polls: 1-seed write-in poll saves (uopt lifts the >=2 gate) and a
-#      write-in vote creates the voter option
+#   5  attachments: upload -> detach round-trip (row/file/link), the
+#      ghost-row detach (file missing must not keep the row), and the
+#      ghost-image counter balance
+#   6  polls: write-in (uopt) polls save with 1 or 0 seed options, the
+#      vote creates the option once (dedup) recording every answer, and
+#      the 0-seed poll renders without a phantom option row
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -45,7 +47,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=46
+EXPECTED=48
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -596,16 +598,17 @@ ataid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || e
 atid=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$ataid") || exit 1
 [ -n "$atid" ] && [ "$atid" != "NULL" ] || fail "attach row not created"
 am=$((atid % 100))
-af=$($DC exec -T web sh -c "ls /home/bawi/bawi-data/attach/2/2/$am/$atid 2>/dev/null")
-[ -n "$af" ] || fail "attach file not written under AttachDir"
+af=$($DC exec -T web sh -c "test -e /home/bawi/bawi-data/attach/2/2/$am/$atid && echo yes || echo no") || exit 1
+[ "$af" = "yes" ] || fail "attach file not written under AttachDir (probe: '$af')"
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$ataid"
 has "attach.cgi?atid=$atid" || fail "attachment link not rendered on the article"
 fetch "$J2" "$BASE/board/detach.cgi?atid=$atid&bid=2"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$atid") || exit 1
 [ "$got" = "0" ] || fail "detach left the attach row (got '$got')"
-af=$($DC exec -T web sh -c "ls /home/bawi/bawi-data/attach/2/2/$am/$atid 2>/dev/null")
-[ -z "$af" ] || fail "detach left the file on disk"
+af=$($DC exec -T web sh -c "test -e /home/bawi/bawi-data/attach/2/2/$am/$atid && echo yes || echo no") || exit 1
+[ "$af" = "no" ] || fail "detach left the file on disk (probe: '$af')"
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$ataid"
+has "attach smoke host" || fail "article body not rendered (negative would be vacuous)"
 has "attach.cgi?atid=$atid" && fail "detached attachment still linked on the article"
 ok "attachment upload and detach round-trip (row, file, link all clear)"
 
@@ -617,15 +620,41 @@ gatid=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$gaid")
 [ -n "$gatid" ] && [ "$gatid" != "NULL" ] || fail "ghost: attach row not created"
 gm=$((gatid % 100))
 $DC exec -T web sh -c "rm -f /home/bawi/bawi-data/attach/2/2/$gm/$gatid" || fail "ghost: could not remove file out-of-band"
+gf=$($DC exec -T web sh -c "test -e /home/bawi/bawi-data/attach/2/2/$gm/$gatid && echo yes || echo no") || exit 1
+[ "$gf" = "no" ] || fail "ghost: file still present after rm (probe: '$gf')"
 fetch "$J2" "$BASE/board/detach.cgi?atid=$gatid&bid=2"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$gatid") || exit 1
 [ "$got" = "0" ] || fail "ghost row survived detach (old silent no-op is back; got '$got')"
 ok "detach clears a ghost row whose file is already missing"
 
+# ghost IMAGE: the board image counter tracks ROWS (dec_image_count joins
+# the attach row on is_img='y'), so a ghost-image detach must decrement
+# it -- keyed on unlink success it drifted upward forever
+img0=$(db "SELECT images FROM bw_xboard_board WHERE board_id=2") || exit 1
+$DC exec -T web perl -MImage::Magick -e 'my $i=Image::Magick->new(size=>"4x4"); $i->ReadImage("xc:red"); binmode STDOUT; $i->Write("png:-")' > "$TMP/att.png" || fail "ghost image: could not generate test PNG"
+[ -s "$TMP/att.png" ] || fail "ghost image: generated PNG is empty"
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=ghost image smoke" \
+      -F "body=ghost image host $$" -F "attach_no=1" -F "attach1=@$TMP/att.png;type=image/png"
+[ "$CODE" = "302" ] || fail "ghost image: write: HTTP $CODE"
+giaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+giatid=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$giaid") || exit 1
+[ -n "$giatid" ] && [ "$giatid" != "NULL" ] || fail "ghost image: attach row not created"
+got=$(db "SELECT is_img FROM bw_xboard_attach WHERE attach_id=$giatid") || exit 1
+[ "$got" = "y" ] || fail "ghost image: PNG not sniffed as image (is_img='$got') -- counter check would be vacuous"
+gim=$((giatid % 100))
+$DC exec -T web sh -c "rm -f /home/bawi/bawi-data/attach/2/2/$gim/$giatid" || fail "ghost image: rm failed"
+fetch "$J2" "$BASE/board/detach.cgi?atid=$giatid&bid=2"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$giatid") || exit 1
+[ "$got" = "0" ] || fail "ghost image row survived detach (got '$got')"
+img1=$(db "SELECT images FROM bw_xboard_board WHERE board_id=2") || exit 1
+[ "$img1" = "$img0" ] || fail "board image counter drifted on ghost-image detach ($img0 -> $img1)"
+ok "ghost-image detach keeps the board image counter balanced"
+
 # ============================================================= tier 6: polls
 # Write-in polls: a poll with "voters may add an option" (uopt) needs NO
 # preset-option minimum (fixed polls keep the >=2 gate). Pins the gate
-# relaxation AND the write-in vote path (option created + vote counted).
+# relaxation, the write-in vote path (option created once + every answer
+# recorded), and the 0-seed poll's clean render (no phantom option row).
 login tester02; J2=$JAR
 fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "bid=2" \
@@ -654,7 +683,50 @@ fetch "$J5" "$BASE/board/poll.cgi" \
       --data-urlencode "opt_text=voter supplied $$"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$plid") || exit 1
 [ "$got" = "2" ] || fail "write-in vote did not create the voter option (got '$got')"
-ok "write-in vote creates the voter option"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id=$plid") || exit 1
+[ "$got" = "1" ] || fail "write-in vote not recorded in poll_ans (got '$got')"
+# a second voter typing the SAME text must land on the existing option
+fetch "$J2" "$BASE/board/poll.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$plaid" \
+      --data-urlencode "pid=$plid" \
+      --data-urlencode "opt_text=voter supplied $$"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$plid") || exit 1
+[ "$got" = "2" ] || fail "duplicate write-in created a second option (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id=$plid") || exit 1
+[ "$got" = "2" ] || fail "duplicate write-in vote not recorded (got '$got')"
+ok "write-in votes create the option once and record every answer"
+
+# 0-seed write-in poll: saves clean (no phantom autovivified option row)
+# and takes its first write-in vote
+fetch "$J2" "$BASE/board/write.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "title=zeroseed poll smoke" \
+      --data-urlencode "body=zeroseed poll host $$" \
+      --data-urlencode "poll=1" \
+      --data-urlencode "poll1=zeroseed poll $$" \
+      --data-urlencode "poll1_uopt=1" \
+      --data-urlencode "duration=7"
+[ "$CODE" = "302" ] || fail "zeroseed poll: write: HTTP $CODE"
+zaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+zpid=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$zaid") || exit 1
+[ -n "$zpid" ] && [ "$zpid" != "NULL" ] || fail "0-seed write-in poll was dropped on save"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$zpid") || exit 1
+[ "$got" = "0" ] || fail "0-seed poll has options (got '$got')"
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$zaid"
+[ "$CODE" = "200" ] || fail "zeroseed read: HTTP $CODE"
+has "zeroseed poll" || fail "0-seed poll not rendered (phantom check would be vacuous)"
+has "width: %;" && fail "phantom autovivified option row rendered for the 0-seed poll"
+fetch "$J5" "$BASE/board/poll.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$zaid" \
+      --data-urlencode "pid=$zpid" \
+      --data-urlencode "opt_text=zeroseed choice $$"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$zpid") || exit 1
+[ "$got" = "1" ] || fail "0-seed write-in vote did not create the option (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id=$zpid") || exit 1
+[ "$got" = "1" ] || fail "0-seed write-in vote not recorded (got '$got')"
+ok "0-seed write-in poll saves clean and takes its first write-in vote"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"

@@ -2036,13 +2036,23 @@ sub add_attach {
     my @path = $self->attach_file_path($bid, $atid); 
     for (my $i = 1; $i < $#path; $i++) {
         my $dir = File::Spec->catdir(@path[0..$i]);
-        $dir =~ m/^([\w.\-\/]+)$/;
-        $dir = $1;
+        # bind untaint to the match -- a failed match must yield undef,
+        # never a stale $1 from an earlier capture
+        $dir = ($dir =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
+        unless (defined $dir) {
+            warn("add_attach: untaint failed for attach dir under '"
+                 . $self->cfg->AttachDir . "' -- upload not saved");
+            return;
+        }
         mkdir($dir) unless (-e $dir);
     }
     my $file = File::Spec->catfile(@path);
-    $file =~ m/^([\w.\-\/]+)$/;
-    $file = $1;
+    $file = ($file =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
+    unless (defined $file) {
+        warn("add_attach: untaint failed for attach path under '"
+             . $self->cfg->AttachDir . "' -- upload not saved");
+        return;
+    }
 
     if (defined $cleaned_image) {
         # Save the stripped bytes; mark clean only if the write fully landed
@@ -2085,22 +2095,29 @@ sub del_attach {
     my $bid = $arg{-board_id};
     my $attach = $self->get_attach(-attach_id=>$atid);
     my $aid = $$attach{article_id} || 0;
-    my @path = $self->attach_file_path($bid, $atid);
-    my $file = File::Spec->catfile(@path); 
-    $file =~ m/^([\w.\-\/]+)$/;
-    $file = $1;
+    # path from the ROW's board, never the caller's: a stale or crafted
+    # bid must not aim the unlink at the wrong path while the row delete
+    # proceeds (del_attachset already passes the row's board_id)
+    my $row_bid = $$attach{board_id} || $bid;
+    my @path = $self->attach_file_path($row_bid, $atid);
+    my $file = File::Spec->catfile(@path);
+    # bind untaint to the match -- a failed match must yield undef,
+    # never a stale $1 from an earlier capture
+    $file = ($file =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
     # Best-effort file cleanup FIRST, row delete ALWAYS. The old shape put
     # the row delete inside if(unlink): any unlink failure (file already
     # missing, permissions, untaint miss) silently kept the row, which
     # kept rendering links forever and made detach a no-op the author
     # could never escape (observed on prod). An orphaned file is inert
     # litter; a ghost row is a live bug -- prefer the litter, and warn.
-    if (defined $file && unlink $file) {
-        &dec_image_count($bid, $atid);
-    } else {
+    # The images counter tracks ROWS (dec_image_count joins the attach
+    # row on is_img='y'), so it runs before the delete regardless of
+    # unlink outcome -- it self-guards for non-images and missing rows.
+    &dec_image_count($row_bid, $atid);
+    unless (defined $file && unlink $file) {
         warn("del_attach: could not unlink "
-             . (defined $file ? $file : "(untaint failed)")
-             . " for atid $atid ($!); deleting row anyway");
+             . (defined $file ? "$file ($!)" : "(untaint failed)")
+             . " for atid $atid; deleting row anyway");
     }
     if (defined $file) {
         my $thumb = $file . 't';
@@ -2113,7 +2130,9 @@ sub del_attach {
     }
     my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
     my $rv = $DBH->do($sql, undef, $atid);
-    &dec_has_attach($aid) if ($rv);
+    # "0E0" (0-row delete, e.g. a lost double-detach race) is truthy but
+    # must not decrement
+    &dec_has_attach($aid) if ($rv && $rv > 0);
     return $rv;
 }
 
@@ -2349,7 +2368,7 @@ sub add_pollset {
         my $poll = $q->param($i) || '';
         $poll =~ s/^\s+//g;
         $poll =~ s/\s+$//g;
-        my @o = grep { $_ } 
+        my @o = grep { defined && length } 
                 map { my $t = $q->param($_) || ''; 
                       $t =~ s/^\s+//g; 
                       $t =~ s/\s+$//g;
@@ -2357,7 +2376,7 @@ sub add_pollset {
                 map { $_->[0] }
                 sort { $a->[1] <=> $b->[1] } 
                 map { [$_, /(\d+)/] }
-                grep { /$i/ && $q->param($_) }
+                grep { /^\Q${i}\E_\d+$/ && defined $q->param($_) }
                 @opt;
         my $uopt = $q->param($i.'_uopt') ? 1 : 0;
         # Write-in polls need no preset-option minimum -- voters supply
@@ -2372,7 +2391,12 @@ sub add_pollset {
                                       -allow_user_opt=>$uopt);
             if ($pid) {
                 foreach my $j (@o) {
-                    my $rv = $self->add_opt(-poll_id=>$pid, -opt=>$j);
+                    # stored HTML-escaped, matching poll.cgi's write-in
+                    # inserts: one encoding keeps the write-in dup check
+                    # (string eq) sound, and _pollset.tmpl prints opt
+                    # unescaped
+                    my $rv = $self->add_opt(-poll_id=>$pid,
+                                            -opt=>$q->escapeHTML($j));
                 }
             }
         }
@@ -2498,7 +2522,8 @@ sub get_pollset {
                    my $allow_vote = $is_ans || $$rv{$_}->{is_closed} ? 0 : 1;
                    $$rv{$_}->{allow_vote} = $allow_vote;
                    $$rv{$_}->{optset} = &get_optset($_, $uid, $allow_vote);
-                   $$rv{$_}->{tot} = $$rv{$_}->{optset}->[0]->{tot} || 0;
+                   $$rv{$_}->{tot} = @{$$rv{$_}->{optset} || []}
+                                     ? ($$rv{$_}->{optset}->[0]->{tot} || 0) : 0;
                    $$rv{$_}; }
              keys %$rv;
     return \@rv;
