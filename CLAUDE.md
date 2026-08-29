@@ -95,11 +95,21 @@ Each major section (board, user, admin) has its own set of CGI scripts and corre
 
 ## Git Branch Information
 
-The canonical branch is **`main`** (promoted from the former `resp2` line, which was the
-deployed branch). As captured from the production host on 2026-07-06, the deploy tree at
-`/home/bawi/bawi-spring` was checked out on `resp2`; the maintenance cutover repoints it at
-`main`. Always confirm with `git -C /home/bawi/bawi-spring branch --show-current` rather than
-trusting this note.
+The canonical branch is **`main`**. The production deploy tree at
+`/home/bawi/bawi-spring` (host `orange`) is a direct checkout of `main` tracking
+`origin/main` (cutover from the former `resp2` line completed; verified live
+2026-08-28). Deploying merged work is: `git pull`, then restart Apache as
+root — `sudo` is refused on this host, so `su -` into root and run
+`apache2ctl graceful` (mod_perl caches `lib/*.pm` per worker) — plus any new
+`db/` migrations applied in filename order BEFORE the pull when a PR adds
+them. Always confirm with
+`git -C /home/bawi/bawi-spring branch --show-current` and `git status` rather
+than trusting this note — stale branch-state notes have already misled one
+deploy plan (a session assumed `resp2` from the 2026-07-06 snapshot message).
+Historical branches `resp2` and `resp2-live-snapshot` are archives of the
+pre-cutover line and its working-tree drift; `promote/live-state` (a fully
+merged live-mirror experiment) was deleted 2026-08-28 — do not recreate a
+mirror branch, read the box.
 
 **Git identity on the host**: user "bawi service account", email `bawi@orange.bawi.org`.
 
@@ -112,6 +122,11 @@ git -C /home/bawi/bawi-spring status
 ```
 The 2026-07 snapshot of that drift was preserved on branch `resp2-live-snapshot`. Credential
 files (`conf/*.tmp`) are gitignored and stay on the host only — never commit them.
+
+## Known Local Deviations
+
+- `lib/Bawi/Board.pm` mkdir (~line 1617): production keeps the historical 0777
+  permission; not changed in git.
 
 ## Code Management Guidelines
 
