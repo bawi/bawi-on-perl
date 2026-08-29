@@ -1482,9 +1482,12 @@ sub del_comment {
         my $rv = $DBH->do($sql, undef, $arg{-comment_id});
 
         if ($rv) {
-            &dec_comment_count($arg{-article_id});
-            &update_max_comment_no( $arg{-board_id} );
-            &update_bookmark( $arg{-board_id} );
+            # keyed off the row, like the retraction below -- a crafted
+            # delete with mismatched bid/aid must not decrement another
+            # article's counter or recompute another board's high-water
+            &dec_comment_count($query_rv->{article_id});
+            &update_max_comment_no( $query_rv->{board_id} );
+            &update_bookmark( $query_rv->{board_id} );
 
             # remove also for the commentref
             $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);

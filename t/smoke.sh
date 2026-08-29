@@ -24,9 +24,10 @@
 #      TITLE carries CANARY-TITLE-* (title-rendering surfaces are a separate
 #      leak channel from body-rendering ones).
 #
-#   4  mention notes: @id -> bw_note lifecycle (send, self-silence, sent
-#      box until Save, grace-window retraction sparing saved notes +
-#      scope pin, manual unsend) + profile-link
+#   4  mention notes: @id -> bw_note lifecycle (both producers, self-
+#      silence, sent
+#      box until Save, grace-window retraction sparing saved + sibling +
+#      unrelated notes, manual unsend) + profile-link
 #      rendering and the anonboard negative
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
@@ -41,7 +42,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=41
+EXPECTED=42
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -298,7 +299,10 @@ ok "comment.cgi bounces logged-out visitors off the closed board"
 # since the svn import) -- the placeholder must serve no board data
 fetch - "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid"
 [ "$CODE" = "200" ] || fail "retired commentx.cgi: HTTP $CODE"
-has "Closed." || fail "commentx.cgi placeholder body missing"
+has 'Closed\.' || fail "commentx.cgi placeholder body missing"
+has "Content-type:" && fail "raw CGI header leaked into the placeholder body (ParseHeaders is off on this vhost)"
+ct=$(curl -s -o /dev/null -w '%{content_type}' "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid")
+case "$ct" in text/plain*) ;; *) fail "retired commentx.cgi content-type: '$ct' (expected text/plain)";; esac
 has "비공개 테스트판" && fail "LEAK: closed board NAME from retired commentx.cgi"
 ok "commentx.cgi retired: serves only the Closed placeholder"
 
@@ -424,7 +428,9 @@ ok "canary note not served logged-out"
 #     sent box like any other note (delete_msg has no origin special-case)
 # All note counts are scoped to the fresh article's aid so seeded notes
 # (e.g. the tier-3 canary) can never satisfy or pollute a check.
-# Variables are named by role (saved/retract/unsend/x), not posting order.
+# Both producers are exercised: comment.cgi (#c tail) and write.cgi (the
+# anchor-less article variant, via the host article's own @mention).
+# Variables are named by role (saved/self/pin/keep/retract), not order.
 login tester02; J2=$JAR
 login tester05; J5=$JAR   # recipient jar up front, outside any grace window
 
@@ -439,10 +445,14 @@ grace_guard() {
 fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "bid=2" \
       --data-urlencode "title=mention smoke article" \
-      --data-urlencode "body=mention lifecycle host $$"
+      --data-urlencode "body=mention lifecycle host $$ cc @tester05"
 [ "$CODE" = "302" ] || fail "mention: write host article: HTTP $CODE"
 mnaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
 [ -n "$mnaid" ] && [ "$mnaid" != "NULL" ] || fail "mention: host article not created"
+# write.cgi producer: article mentions carry NO #c anchor (end-anchored tail)
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND read_time IS NULL AND msg LIKE '%aid=$mnaid'") || exit 1
+[ "$got" = "1" ] || fail "article mention note not sent via write.cgi (got '$got')"
+ok "article @mention sends an anchor-less note (write.cgi producer)"
 
 # --- saved-note lifecycle: send -> sent box -> Save -> grace delete spares it
 fetch "$J2" "$BASE/board/comment.cgi" \
@@ -500,6 +510,15 @@ fetch "$J2" "$BASE/main/note.cgi" \
       --data-urlencode "msg=unrelated scope pin $$"
 pin_msgid=$(db "SELECT MAX(msg_id) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND msg LIKE '%scope pin%'") || exit 1
 [ -n "$pin_msgid" ] && [ "$pin_msgid" != "NULL" ] || fail "scope-pin note not sent"
+# a sibling KEEP mention comment: its note must survive the retract --
+# this pins the #c tail term of the DELETE, not just the [언급] prefix
+fetch "$J2" "$BASE/board/comment.cgi" \
+      --data-urlencode "action=add" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$mnaid" \
+      --data-urlencode "body=keeper @tester05 mention-smoke-$$"
+cid_keep=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
+cn_keep=$(db "SELECT comment_no FROM bw_xboard_comment WHERE comment_id=$cid_keep") || exit 1
 fetch "$J2" "$BASE/board/comment.cgi" \
       --data-urlencode "action=add" \
       --data-urlencode "bid=2" \
@@ -507,33 +526,30 @@ fetch "$J2" "$BASE/board/comment.cgi" \
       --data-urlencode "body=again @tester05 mention-smoke-$$"
 cid_retract=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
-[ "$got" = "1" ] || fail "second mention note not sent (got '$got')"
+[ "$got" = "2" ] || fail "expected two unsaved comment-mention notes before the retract (got '$got')"
 grace_guard "$cid_retract"
 fetch "$J2" "$BASE/board/comment.cgi" -d "action=delete&bid=2&aid=$mnaid&cid=$cid_retract"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE comment_id=$cid_retract") || exit 1
 [ "$got" = "0" ] || fail "grace-window delete left the comment row (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c$cn_keep'") || exit 1
+[ "$got" = "1" ] || fail "sibling comment's note was retracted -- the #c tail term is not scoping (got '$got')"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
-[ "$got" = "0" ] || fail "unsaved mention note survived the grace-window delete (got '$got')"
+[ "$got" = "1" ] || fail "retraction did not remove exactly one note (got '$got')"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$pin_msgid") || exit 1
 [ "$got" = "1" ] || fail "retraction over-reached: unrelated note from the same sender deleted"
-ok "grace-window delete retracts exactly that comment's unsaved note"
+ok "grace-window delete retracts exactly its own comment's unsaved note"
 
-# --- manual unsend from the sent box
-fetch "$J2" "$BASE/board/comment.cgi" \
-      --data-urlencode "action=add" \
-      --data-urlencode "bid=2" \
-      --data-urlencode "aid=$mnaid" \
-      --data-urlencode "body=once more @tester05 mention-smoke-$$"
+# --- manual unsend from the sent box (the keeper's surviving note)
 msgid_unsend=$(db "SELECT MAX(msg_id) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND read_time IS NULL AND msg LIKE '%aid=$mnaid#c%'") || exit 1
-[ -n "$msgid_unsend" ] && [ "$msgid_unsend" != "NULL" ] || fail "mention note for the unsend check not sent"
+[ -n "$msgid_unsend" ] && [ "$msgid_unsend" != "NULL" ] || fail "keeper mention note missing for the unsend check"
 fetch "$J2" "$BASE/main/note.cgi" -d "r_msg_id=$msgid_unsend&action=Delete"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg_id=$msgid_unsend") || exit 1
 [ "$got" = "0" ] || fail "sent-box Delete did not remove the mention note (got '$got')"
 ok "sender can unsend an unsaved mention note from the sent box"
 
 # --- rendered mention: @id links to the profile pop-up (note-compose stays
-# one click away inside the profile header), never to note.cgi. The unsend
-# comment above still exists -- only its note was unsent.
+# one click away inside the profile header), never to note.cgi. The keeper
+# comment and the host article body still carry @tester05 mentions.
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$mnaid"
 [ "$CODE" = "200" ] || fail "mention render: read.cgi HTTP $CODE"
 has 'profile.cgi?id=tester05">@tester05</a>' || fail "mention did not render as a profile link"
@@ -541,7 +557,7 @@ has "to_default=tester05" && fail "mention renders a note-compose link (tester05
 ok "rendered @mention links to the profile pop-up"
 
 # --- anonboard: mentions must neither notify nor linkify there
-anbid2=$(db "SELECT board_id FROM bw_xboard_board WHERE is_anonboard=1 AND a_read=0 LIMIT 1") || exit 1
+anbid2=$(db "SELECT board_id FROM bw_xboard_board WHERE is_anonboard=1 AND a_read=0 ORDER BY board_id LIMIT 1") || exit 1
 [ -n "$anbid2" ] && [ "$anbid2" != "NULL" ] || fail "no seeded anonboard for the mention check"
 fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "bid=$anbid2" \
@@ -553,6 +569,7 @@ got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg LIKE '%aid=$anaid'") || exit 1
 [ "$got" = "0" ] || fail "anonboard mention produced a note (got '$got')"
 fetch "$J2" "$BASE/board/read.cgi?bid=$anbid2&aid=$anaid"
 [ "$CODE" = "200" ] || fail "anonboard read: HTTP $CODE"
+has "anon ping" || fail "anonboard article body not rendered (linkify negatives would be vacuous)"
 has "profile.cgi?id=tester05" && fail "anonboard rendered a profile link for a mention"
 has "to_default=tester05" && fail "anonboard rendered a note-compose link for a mention"
 ok "anonboard mentions neither notify nor linkify"

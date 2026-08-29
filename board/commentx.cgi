@@ -7,5 +7,9 @@
 # comment.cgi is the comment endpoint. Kept as a placeholder because the
 # URL is web-mapped (cf. the non-mapped search/search.cgi precedent).
 use strict;
-print "Content-type: text/plain\r\n\r\nClosed.\n";
+use CGI ();
+# CGI.pm routes the header through the mod_perl request record; a raw
+# printed header is NOT parsed here (no PerlOptions +ParseHeaders on the
+# board/ vhost) and would arrive as body text.
+print CGI->new->header(-type => 'text/plain', -charset => 'utf-8'), "Closed.\n";
 1;

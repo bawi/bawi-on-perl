@@ -150,13 +150,20 @@ sub retract_mention_notes {
 
     # A comment hard-deleted inside its 1-minute grace window takes the
     # mention target with it: retract the pings the recipient has not
-    # SAVED yet. read_time is set only by the explicit Save action --
-    # merely reading the inbox never sets it (the schema has no read
-    # receipt), and read_time IS NULL is also exactly the sent-box
-    # manual-unsend rule. Saved notes stay: retraction is best-effort,
-    # not history rewriting; a non-matching msg fails open to keeping
-    # the note. The middle literal in the pattern below must byte-match
-    # the msg template in notify_mentions above.
+    # SAVED yet. No reader path sets read_time -- the only
+    # unsaved->saved transition is the explicit Save action (the one
+    # exception: register.cgi's welcome note is born saved); merely
+    # reading the inbox never sets it, and read_time IS NULL is also
+    # exactly the sent-box manual-unsend rule. Saved notes stay:
+    # retraction is best-effort, not history rewriting; a non-matching
+    # msg fails open to keeping the note. The middle literal in the
+    # pattern below must byte-match the msg template in notify_mentions
+    # above. Text matching cannot prove provenance -- a sender CAN
+    # hand-compose a matching note and see it retracted by their own
+    # grace-delete. Accepted: retraction only ever touches notes its
+    # sender could already unsend from the sent box (same from_id,
+    # unsaved only), so it grants no capability. Upgrade path if that
+    # changes: a provenance column on bw_note.
     my $tail = mention_note_tail($bid, $aid, $comment_no);
     my $stmt = "DELETE FROM $DBTABLE WHERE from_id = ? AND read_time IS NULL AND msg LIKE ?";
     my $sth = $self->{'-dbh'}->prepare($stmt);
