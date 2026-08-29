@@ -152,7 +152,8 @@ sub retract_mention_notes {
     # mention target with it: retract the pings the recipient has not
     # SAVED yet. No reader path sets read_time -- the only
     # unsaved->saved transition is the explicit Save action (the one
-    # exception: register.cgi's welcome note is born saved); merely
+    # exception: the recommendation-request note register.cgi sends
+    # the recommender is born saved); merely
     # reading the inbox never sets it, and read_time IS NULL is also
     # exactly the sent-box manual-unsend rule. Saved notes stay:
     # retraction is best-effort, not history rewriting; a non-matching

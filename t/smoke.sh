@@ -25,9 +25,8 @@
 #      leak channel from body-rendering ones).
 #
 #   4  mention notes: @id -> bw_note lifecycle (both producers, self-
-#      silence, sent
-#      box until Save, grace-window retraction sparing saved + sibling +
-#      unrelated notes, manual unsend) + profile-link
+#      silence, sent box until Save, grace-window retraction sparing
+#      saved + sibling + unrelated notes, manual unsend) + profile-link
 #      rendering and the anonboard negative
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
@@ -301,7 +300,7 @@ fetch - "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid"
 [ "$CODE" = "200" ] || fail "retired commentx.cgi: HTTP $CODE"
 has 'Closed\.' || fail "commentx.cgi placeholder body missing"
 has "Content-type:" && fail "raw CGI header leaked into the placeholder body (ParseHeaders is off on this vhost)"
-ct=$(curl -s -o /dev/null -w '%{content_type}' "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid")
+ct=$(curl -sS -o /dev/null -w '%{content_type}' "$BASE/board/commentx.cgi?bid=$cbid&aid=$caid") || fail "curl (content-type probe) commentx.cgi"
 case "$ct" in text/plain*) ;; *) fail "retired commentx.cgi content-type: '$ct' (expected text/plain)";; esac
 has "비공개 테스트판" && fail "LEAK: closed board NAME from retired commentx.cgi"
 ok "commentx.cgi retired: serves only the Closed placeholder"
@@ -309,7 +308,7 @@ ok "commentx.cgi retired: serves only the Closed placeholder"
 # members-only anonboard: is_anonboard masks author identity, it must NOT
 # admit guests (the PR #34 review regression: an earlier guard draft
 # exempted it).
-anbid=$(db "SELECT board_id FROM bw_xboard_board WHERE is_anonboard=1 AND a_read=0 LIMIT 1") || exit 1
+anbid=$(db "SELECT board_id FROM bw_xboard_board WHERE is_anonboard=1 AND a_read=0 ORDER BY board_id LIMIT 1") || exit 1
 [ -n "$anbid" ] && [ "$anbid" != "NULL" ] || fail "no seeded members-only anonboard"
 fetch - "$BASE/board/read.cgi?bid=$anbid"
 [ "$CODE" = "302" ] || fail "logged-out members-only anonboard read: expected 302, got $CODE"
@@ -430,7 +429,7 @@ ok "canary note not served logged-out"
 # (e.g. the tier-3 canary) can never satisfy or pollute a check.
 # Both producers are exercised: comment.cgi (#c tail) and write.cgi (the
 # anchor-less article variant, via the host article's own @mention).
-# Variables are named by role (saved/self/pin/keep/retract), not order.
+# Variables are named by role (saved/self/pin/keep/retract/unsend).
 login tester02; J2=$JAR
 login tester05; J5=$JAR   # recipient jar up front, outside any grace window
 
@@ -518,6 +517,7 @@ fetch "$J2" "$BASE/board/comment.cgi" \
       --data-urlencode "aid=$mnaid" \
       --data-urlencode "body=keeper @tester05 mention-smoke-$$"
 cid_keep=$(db "SELECT MAX(comment_id) FROM bw_xboard_comment WHERE article_id=$mnaid") || exit 1
+[ -n "$cid_keep" ] && [ "$cid_keep" != "NULL" ] && [ "$cid_keep" -gt "$cid_self" ] || fail "keeper comment not created"
 cn_keep=$(db "SELECT comment_no FROM bw_xboard_comment WHERE comment_id=$cid_keep") || exit 1
 fetch "$J2" "$BASE/board/comment.cgi" \
       --data-urlencode "action=add" \
@@ -563,6 +563,7 @@ fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "bid=$anbid2" \
       --data-urlencode "title=anon mention host" \
       --data-urlencode "body=anon ping @tester05 mention-smoke-$$"
+[ "$CODE" = "302" ] || fail "anonboard write: HTTP $CODE"
 anaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=$anbid2") || exit 1
 [ -n "$anaid" ] && [ "$anaid" != "NULL" ] || fail "anonboard article not created (check would be vacuous)"
 got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg LIKE '%aid=$anaid'") || exit 1
@@ -570,6 +571,7 @@ got=$(db "SELECT COUNT(*) FROM bw_note WHERE msg LIKE '%aid=$anaid'") || exit 1
 fetch "$J2" "$BASE/board/read.cgi?bid=$anbid2&aid=$anaid"
 [ "$CODE" = "200" ] || fail "anonboard read: HTTP $CODE"
 has "anon ping" || fail "anonboard article body not rendered (linkify negatives would be vacuous)"
+has "mention-smoke-$$" || fail "anonboard read shows a stale run's article, not this one (reseed?)"
 has "profile.cgi?id=tester05" && fail "anonboard rendered a profile link for a mention"
 has "to_default=tester05" && fail "anonboard rendered a note-compose link for a mention"
 ok "anonboard mentions neither notify nor linkify"

@@ -1467,6 +1467,8 @@ sub get_new_comments {
 sub del_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
+    # NB: -article_id/-board_id are accepted for API shape only; every
+    # side effect below keys off the comment row, never the request
 
     # Check whether the comment is created within 1 minute; the row also
     # carries the author id + board/article/comment numbers for the
