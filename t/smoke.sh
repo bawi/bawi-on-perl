@@ -32,8 +32,9 @@
 #      ghost-row detach (file missing must not keep the row), and the
 #      ghost-image counter balance
 #   6  polls: write-in (uopt) polls save with 1 or 0 seed options, the
-#      vote creates the option once (dedup) recording every answer, and
-#      the 0-seed poll renders without a phantom option row
+#      vote creates the option once (dedup) recording every answer, the
+#      0-seed poll renders without a phantom option row, and a fixed
+#      poll keeps a literal "0" seed option
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -47,7 +48,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=48
+EXPECTED=49
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -706,17 +707,31 @@ fetch "$J2" "$BASE/board/write.cgi" \
       --data-urlencode "poll=1" \
       --data-urlencode "poll1=zeroseed poll $$" \
       --data-urlencode "poll1_uopt=1" \
+      --data-urlencode "poll2=zero option poll $$" \
+      --data-urlencode "poll2_1=0" \
+      --data-urlencode "poll2_2=1" \
+      --data-urlencode "poll2_3=2" \
       --data-urlencode "duration=7"
 [ "$CODE" = "302" ] || fail "zeroseed poll: write: HTTP $CODE"
 zaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
-zpid=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$zaid") || exit 1
+# poll1 (the 0-seed write-in) gets the LOWER poll_id; poll2 (fixed) the higher
+zpid=$(db "SELECT MIN(poll_id) FROM bw_xboard_poll WHERE article_id=$zaid") || exit 1
 [ -n "$zpid" ] && [ "$zpid" != "NULL" ] || fail "0-seed write-in poll was dropped on save"
 got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$zpid") || exit 1
 [ "$got" = "0" ] || fail "0-seed poll has options (got '$got')"
+# the sibling FIXED poll on the same article seeds a literal "0" option,
+# which truthiness filtering used to drop silently
+fpid=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$zaid") || exit 1
+[ "$fpid" != "$zpid" ] || fail "fixed sibling poll was not created"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$fpid") || exit 1
+[ "$got" = "3" ] || fail "fixed poll expected 3 seed options incl '0' (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$fpid AND opt='0'") || exit 1
+[ "$got" = "1" ] || fail "the literal '0' seed option was dropped (got '$got')"
+ok "a fixed poll keeps a literal 0 seed option"
 fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$zaid"
 [ "$CODE" = "200" ] || fail "zeroseed read: HTTP $CODE"
-has "zeroseed poll" || fail "0-seed poll not rendered (phantom check would be vacuous)"
-has "width: %;" && fail "phantom autovivified option row rendered for the 0-seed poll"
+has "zeroseed poll $$" || fail "0-seed poll question not rendered (phantom check would be vacuous)"
+has 'name="oid" value=""' && fail "phantom empty radio rendered for the 0-seed poll (autovivification is back)"
 fetch "$J5" "$BASE/board/poll.cgi" \
       --data-urlencode "bid=2" \
       --data-urlencode "aid=$zaid" \
