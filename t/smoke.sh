@@ -628,9 +628,10 @@ got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$gatid") || exit
 [ "$got" = "0" ] || fail "ghost row survived detach (old silent no-op is back; got '$got')"
 ok "detach clears a ghost row whose file is already missing"
 
-# ghost IMAGE: the board image counter tracks ROWS (dec_image_count joins
-# the attach row on is_img='y'), so a ghost-image detach must decrement
-# it -- keyed on unlink success it drifted upward forever
+# ghost IMAGE: the board image counter tracks ROWS (del_attach
+# decrements per actually-deleted row, keyed on the fetched row's
+# is_img), so a ghost-image detach must decrement it -- keyed on unlink
+# success it drifted upward forever
 img0=$(db "SELECT images FROM bw_xboard_board WHERE board_id=2") || exit 1
 $DC exec -T web perl -MImage::Magick -e 'my $i=Image::Magick->new(size=>"4x4"); $i->ReadImage("xc:red"); binmode STDOUT; $i->Write("png:-")' > "$TMP/att.png" || fail "ghost image: could not generate test PNG"
 [ -s "$TMP/att.png" ] || fail "ghost image: generated PNG is empty"

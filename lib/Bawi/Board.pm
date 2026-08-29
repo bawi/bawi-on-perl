@@ -2008,7 +2008,7 @@ sub add_attach {
     # configured AttachDir itself -- probe it up front instead of
     # discovering it after the row INSERT.
     my $adir = $self->cfg->AttachDir || '';
-    unless ($adir =~ m/^[\w.\-\/]+$/) {
+    unless ($adir =~ m/^[\w.\-\/]+\z/) {
         warn("add_attach: AttachDir '$adir' has characters outside"
              . " [\\w.\\-/] -- upload rejected");
         return;
@@ -2043,6 +2043,14 @@ sub add_attach {
                                    $arg{-is_img}
                                    );
     &inc_has_attach($aid) if ($rv);
+    unless ($rv) {
+        # bail here, or get_max_attach_id would hand the rollback guards
+        # below a PRE-EXISTING attach id (e.g. a non-numeric bid fails
+        # the strict INSERT yet coerces in the SELECT) -- they may only
+        # ever target the row this call inserted
+        warn("add_attach: attach row INSERT failed for article $aid -- upload not saved");
+        return;
+    }
     my $atid = &get_max_attach_id($bid, $aid);
     my @path = $self->attach_file_path($bid, $atid); 
     for (my $i = 1; $i < $#path; $i++) {
