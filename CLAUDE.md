@@ -91,6 +91,8 @@ The application follows a traditional CGI architecture with:
 
 Each major section (board, user, admin) has its own set of CGI scripts and corresponding template files in `skin/default/` subdirectories.
 
+**User-link convention** (`_name_id.tmpl`): a user's *name* opens their profile pop-up, the *(id)* beside it opens note-compose. The exact `user-profile`/`bw_profile` + `user-message`/`bw_message` markup is the board/ and main/ skin idiom; admin/ and user/ skins vary in markup but keep the same destinations. One deliberate deviation: body `@mentions` rendered by `Board.pm make_hyperlink` take the *name*-link destination (profile pop-up) even though they are id tokens — a reader clicking a mention is asking "who is this", and note-compose stays one click away inside the profile header. Do not "fix" mentions back to note-compose for consistency; the smoke suite asserts the profile target.
+
 ## Git Branch Information
 
 The canonical branch is **`main`** (promoted from the former `resp2` line, which was the

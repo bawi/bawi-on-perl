@@ -1467,9 +1467,13 @@ sub get_new_comments {
 sub del_comment {
     my ($self, %arg) = @_;
     return undef unless (exists $arg{-comment_id} && exists $arg{-article_id});
+    # NB: -article_id/-board_id are accepted for API shape only; every
+    # side effect below keys off the comment row, never the request
 
-    # Check whether the comment is created within 1 minute
-    my $query_sql = qq(SELECT comment_id FROM $TBL{comment}
+    # Check whether the comment is created within 1 minute; the row also
+    # carries the author id + board/article/comment numbers for the
+    # mention-note retraction below
+    my $query_sql = qq(SELECT comment_id, comment_no, id, board_id, article_id FROM $TBL{comment}
                  WHERE comment_id=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
 
     my $query_rv = $DBH->selectrow_hashref($query_sql, undef, $arg{-comment_id}, 
@@ -1480,9 +1484,12 @@ sub del_comment {
         my $rv = $DBH->do($sql, undef, $arg{-comment_id});
 
         if ($rv) {
-            &dec_comment_count($arg{-article_id});
-            &update_max_comment_no( $arg{-board_id} );
-            &update_bookmark( $arg{-board_id} );
+            # keyed off the row, like the retraction below -- a crafted
+            # delete with mismatched bid/aid must not decrement another
+            # article's counter or recompute another board's high-water
+            &dec_comment_count($query_rv->{article_id});
+            &update_max_comment_no( $query_rv->{board_id} );
+            &update_bookmark( $query_rv->{board_id} );
 
             # remove also for the commentref
             $sql = qq(DELETE FROM $TBL{commentref} WHERE comment_id = ?);
@@ -1490,6 +1497,20 @@ sub del_comment {
     
             $sql = qq(DELETE FROM $TBL{commentref} WHERE ref_id = ?);
             $rv2 = $DBH->do($sql, undef, $arg{-comment_id});
+
+            # the mention notes sent when this comment was posted now
+            # point at a hard-deleted target: retract the ones the
+            # recipient has not saved (saved notes stay -- see Note.pm).
+            # Every key comes from the deleted row itself, never the
+            # request: a mismatched bid/aid in the delete request must
+            # not skip or mis-aim the retraction.
+            require Bawi::Main::Note;
+            # row `id` = the author's login id (the note's from_id),
+            # NOT the comment's id -- that is comment_id
+            my $author_id = $query_rv->{id};
+            Bawi::Main::Note->new(-dbh=>$DBH)->retract_mention_notes(
+                $author_id, $query_rv->{board_id},
+                $query_rv->{article_id}, $query_rv->{comment_no});
         }
         return $rv;
     }
@@ -1508,6 +1529,8 @@ sub del_commentset {
 
     # this is deprecated because deletes only user id generated comments
     # so be careful in using this!
+    # NB: unlike del_comment's grace branch, this does NOT retract
+    # mention notes -- add that if this sub is ever revived
 
     my $sql = qq(DELETE FROM $TBL{comment} WHERE board_id=? && article_id=?);
     my $rv = $DBH->do($sql, undef, $arg{-board_id}, $arg{-article_id});
@@ -3113,14 +3136,17 @@ sub make_hyperlink {
        (?=\s|[,;\.\)\]]|\D|$)
     } !<a href="#c$3" class="auto comment_no">$2</a>!iogx;
 
-    # @id -> note-compose link, same grammar as _name_id.tmpl (id opens a
-    # note, name opens a profile). Kept last so URLs rewritten above are
-    # not corrupted; skipped on anonymous boards.
+    # @id -> profile pop-up: the same link _name_id.tmpl puts on the NAME.
+    # A reader clicking a mention is asking "who is this"; the profile
+    # header itself renders name (id) via _name_id.tmpl, so note-compose
+    # stays one click away. Token grammar matches Note.pm notify_mentions.
+    # Kept last so URLs rewritten above are not corrupted; skipped on
+    # anonymous boards.
     unless ($self->is_anonboard) {
-      my $note_url = $self->cfg->NoteURL || '../main/note.cgi';
+      my $user_url = $self->cfg->UserURL || '../user';
       s{ ( ^ | [\s\(\[\>] )
          \@ ([A-Za-z0-9_]{2,10}) \b
-      } !$1<a class="user-message" target="bw_message" href="$note_url?to_default=$2">\@$2</a>!ogx;
+      } !$1<a class="user-profile" target="bw_profile" href="$user_url/profile.cgi?id=$2">\@$2</a>!ogx;
     }
 
   }

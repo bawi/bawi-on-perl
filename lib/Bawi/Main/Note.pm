@@ -25,11 +25,6 @@ sub new {
     },$class;
 }
 
-sub DESTROY {
-    my $self = shift;
-    $self->{'-dbh'}->disconnect;
-}
-
 sub note_per_page {
     my $self = shift;
     if (@_) { $self->{note_per_page} = shift }
@@ -128,6 +123,53 @@ sub notify_mentions {
         ++$sent if $self->send_msg($id, $user->{name}, $from_id, $from_name, $msg);
     }
     return $sent;
+}
+
+# Single owner of the mention-link tail: comment.cgi / write.cgi
+# prepend the request-derived scheme://host/dir to this when
+# composing the note URL, and retract_mention_notes rebuilds it for the
+# retraction match -- one constructor, so the two sides cannot drift.
+# Plain function, not a method.
+sub mention_note_tail {
+    my ($bid, $aid, $comment_no) = @_;
+    my $tail = "read.cgi?bid=$bid;aid=$aid";
+    $tail .= "#c$comment_no" if (defined $comment_no && $comment_no ne "");
+    return $tail;
+}
+
+sub retract_mention_notes {
+    my $self = shift;
+    my $from_id = shift || "";
+    my $bid = shift || "";
+    my $aid = shift || "";
+    my $comment_no = shift || "";
+
+    # digits-only also guarantees the LIKE tail below carries no wildcards
+    return 0 unless ($from_id ne "" && $bid =~ /^\d+$/ && $aid =~ /^\d+$/
+                     && $comment_no =~ /^\d+$/);
+
+    # A comment hard-deleted inside its 1-minute grace window takes the
+    # mention target with it: retract the pings the recipient has not
+    # SAVED yet. No reader path sets read_time -- the only
+    # unsaved->saved transition is the explicit Save action (the one
+    # exception: the recommendation-request note register.cgi sends
+    # the recommender is born saved); merely
+    # reading the inbox never sets it, and read_time IS NULL is also
+    # exactly the sent-box manual-unsend rule. Saved notes stay:
+    # retraction is best-effort, not history rewriting; a non-matching
+    # msg fails open to keeping the note. The middle literal in the
+    # pattern below must byte-match the msg template in notify_mentions
+    # above. Text matching cannot prove provenance -- a sender CAN
+    # hand-compose a matching note and see it retracted by their own
+    # grace-delete. Accepted: retraction only ever touches notes its
+    # sender could already unsend from the sent box (same from_id,
+    # unsaved only), so it grants no capability. Upgrade path if that
+    # changes: a provenance column on bw_note.
+    my $tail = mention_note_tail($bid, $aid, $comment_no);
+    my $stmt = "DELETE FROM $DBTABLE WHERE from_id = ? AND read_time IS NULL AND msg LIKE ?";
+    my $sth = $self->{'-dbh'}->prepare($stmt);
+    my $rv = $sth->execute($from_id, "[언급] %님이 회원님을 언급했습니다: %$tail");
+    return $rv;
 }
 
 sub delete_msg {
