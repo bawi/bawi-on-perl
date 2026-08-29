@@ -28,6 +28,10 @@
 #      silence, sent box until Save, grace-window retraction sparing
 #      saved + sibling + unrelated notes, manual unsend) + profile-link
 #      rendering and the anonboard negative
+#   5  attachments: upload -> detach round-trip (row/file/link) + the
+#      ghost-row detach (file missing must not keep the row)
+#   6  polls: 1-seed write-in poll saves (uopt lifts the >=2 gate) and a
+#      write-in vote creates the voter option
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -41,7 +45,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=42
+EXPECTED=46
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -575,6 +579,82 @@ has "mention-smoke-$$" || fail "anonboard read shows a stale run's article, not 
 has "profile.cgi?id=tester05" && fail "anonboard rendered a profile link for a mention"
 has "to_default=tester05" && fail "anonboard rendered a note-compose link for a mention"
 ok "anonboard mentions neither notify nor linkify"
+
+# ======================================================== tier 5: attachments
+# Upload -> detach round-trip (row, file, rendered link), plus the
+# ghost-row case: a row whose file is already missing must still detach
+# (the old del_attach silently kept it -- links rendered forever).
+# File paths mirror docker/conf/*.conf AttachDir (/home/bawi/bawi-data/attach)
+# and Board.pm attach_file_path (bid%100/bid/atid%100/atid).
+login tester02; J2=$JAR
+printf 'smoke attach payload %s\n' "$$" > "$TMP/att.txt"
+
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=attach smoke" \
+      -F "body=attach smoke host $$" -F "attach_no=1" -F "attach1=@$TMP/att.txt"
+[ "$CODE" = "302" ] || fail "attach: write with upload: HTTP $CODE"
+ataid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+atid=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$ataid") || exit 1
+[ -n "$atid" ] && [ "$atid" != "NULL" ] || fail "attach row not created"
+am=$((atid % 100))
+af=$($DC exec -T web sh -c "ls /home/bawi/bawi-data/attach/2/2/$am/$atid 2>/dev/null")
+[ -n "$af" ] || fail "attach file not written under AttachDir"
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$ataid"
+has "attach.cgi?atid=$atid" || fail "attachment link not rendered on the article"
+fetch "$J2" "$BASE/board/detach.cgi?atid=$atid&bid=2"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$atid") || exit 1
+[ "$got" = "0" ] || fail "detach left the attach row (got '$got')"
+af=$($DC exec -T web sh -c "ls /home/bawi/bawi-data/attach/2/2/$am/$atid 2>/dev/null")
+[ -z "$af" ] || fail "detach left the file on disk"
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$ataid"
+has "attach.cgi?atid=$atid" && fail "detached attachment still linked on the article"
+ok "attachment upload and detach round-trip (row, file, link all clear)"
+
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=ghost attach smoke" \
+      -F "body=ghost attach host $$" -F "attach_no=1" -F "attach1=@$TMP/att.txt"
+[ "$CODE" = "302" ] || fail "ghost attach: write with upload: HTTP $CODE"
+gaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+gatid=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$gaid") || exit 1
+[ -n "$gatid" ] && [ "$gatid" != "NULL" ] || fail "ghost: attach row not created"
+gm=$((gatid % 100))
+$DC exec -T web sh -c "rm -f /home/bawi/bawi-data/attach/2/2/$gm/$gatid" || fail "ghost: could not remove file out-of-band"
+fetch "$J2" "$BASE/board/detach.cgi?atid=$gatid&bid=2"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$gatid") || exit 1
+[ "$got" = "0" ] || fail "ghost row survived detach (old silent no-op is back; got '$got')"
+ok "detach clears a ghost row whose file is already missing"
+
+# ============================================================= tier 6: polls
+# Write-in polls: a poll with "voters may add an option" (uopt) needs NO
+# preset-option minimum (fixed polls keep the >=2 gate). Pins the gate
+# relaxation AND the write-in vote path (option created + vote counted).
+login tester02; J2=$JAR
+fetch "$J2" "$BASE/board/write.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "title=writein poll smoke" \
+      --data-urlencode "body=writein poll host $$" \
+      --data-urlencode "poll=1" \
+      --data-urlencode "poll1=writein poll $$" \
+      --data-urlencode "poll1_1=seed option" \
+      --data-urlencode "poll1_uopt=1" \
+      --data-urlencode "duration=7"
+[ "$CODE" = "302" ] || fail "writein poll: write: HTTP $CODE"
+plaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+plid=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$plaid") || exit 1
+[ -n "$plid" ] && [ "$plid" != "NULL" ] || fail "1-option write-in poll was dropped on save (gate regression)"
+got=$(db "SELECT allow_user_opt FROM bw_xboard_poll WHERE poll_id=$plid") || exit 1
+[ "$got" = "1" ] || fail "allow_user_opt not stored (got '$got')"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$plid") || exit 1
+[ "$got" = "1" ] || fail "expected exactly the seed option (got '$got')"
+ok "write-in poll saves with a single seed option (uopt lifts the >=2 gate)"
+
+login tester05; J5=$JAR
+fetch "$J5" "$BASE/board/poll.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "aid=$plaid" \
+      --data-urlencode "pid=$plid" \
+      --data-urlencode "opt_text=voter supplied $$"
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$plid") || exit 1
+[ "$got" = "2" ] || fail "write-in vote did not create the voter option (got '$got')"
+ok "write-in vote creates the voter option"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"

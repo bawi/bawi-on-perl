@@ -2036,12 +2036,12 @@ sub add_attach {
     my @path = $self->attach_file_path($bid, $atid); 
     for (my $i = 1; $i < $#path; $i++) {
         my $dir = File::Spec->catdir(@path[0..$i]);
-        $dir =~ m/^([\w.-\\\/]+)$/;
+        $dir =~ m/^([\w.\-\/]+)$/;
         $dir = $1;
         mkdir($dir) unless (-e $dir);
     }
     my $file = File::Spec->catfile(@path);
-    $file =~ m/^([\w.-\\\/]+)$/;
+    $file =~ m/^([\w.\-\/]+)$/;
     $file = $1;
 
     if (defined $cleaned_image) {
@@ -2087,10 +2087,22 @@ sub del_attach {
     my $aid = $$attach{article_id} || 0;
     my @path = $self->attach_file_path($bid, $atid);
     my $file = File::Spec->catfile(@path); 
-    $file =~ m/^([\w.-\\\/]+)$/;
+    $file =~ m/^([\w.\-\/]+)$/;
     $file = $1;
-    if (unlink $file) {
+    # Best-effort file cleanup FIRST, row delete ALWAYS. The old shape put
+    # the row delete inside if(unlink): any unlink failure (file already
+    # missing, permissions, untaint miss) silently kept the row, which
+    # kept rendering links forever and made detach a no-op the author
+    # could never escape (observed on prod). An orphaned file is inert
+    # litter; a ghost row is a live bug -- prefer the litter, and warn.
+    if (defined $file && unlink $file) {
         &dec_image_count($bid, $atid);
+    } else {
+        warn("del_attach: could not unlink "
+             . (defined $file ? $file : "(untaint failed)")
+             . " for atid $atid ($!); deleting row anyway");
+    }
+    if (defined $file) {
         my $thumb = $file . 't';
         unlink $thumb;
         &unmark_clean($file);
@@ -2098,11 +2110,11 @@ sub del_attach {
         # also reap heal tmps ("<path>.heal<pid>", written by heal_attach)
         # that a killed worker may have stranded
         unlink glob("$file.heal*"), glob("$thumb.heal*");
-        my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
-        my $rv = $DBH->do($sql, undef, $atid);
-        &dec_has_attach($aid) if ($rv);
-        return $rv;
     }
+    my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
+    my $rv = $DBH->do($sql, undef, $atid);
+    &dec_has_attach($aid) if ($rv);
+    return $rv;
 }
 
 sub del_attachset {
@@ -2347,8 +2359,12 @@ sub add_pollset {
                 map { [$_, /(\d+)/] }
                 grep { /$i/ && $q->param($_) }
                 @opt;
-        if ($poll && @o && $#o > 0) {
-            my $uopt = $q->param($i.'_uopt') ? 1 : 0;
+        my $uopt = $q->param($i.'_uopt') ? 1 : 0;
+        # Write-in polls need no preset-option minimum -- voters supply
+        # options themselves, so 0 or 1 seed options are fine. Fixed
+        # polls keep the >=2 rule; note a poll failing this gate is
+        # dropped SILENTLY on save (pre-existing behavior).
+        if ($poll && ($#o > 0 || $uopt)) {
             my $pid = $self->add_poll(-board_id=>$bid,
                                       -article_id=>$aid,
                                       -duration=>$dur,
