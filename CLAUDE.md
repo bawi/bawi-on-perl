@@ -98,9 +98,11 @@ Each major section (board, user, admin) has its own set of CGI scripts and corre
 The canonical branch is **`main`**. The production deploy tree at
 `/home/bawi/bawi-spring` (host `orange`) is a direct checkout of `main` tracking
 `origin/main` (cutover from the former `resp2` line completed; verified live
-2026-08-28). Deploying merged work is: `git pull` + `apache2ctl graceful`
-(mod_perl caches `lib/*.pm` per worker), plus any new `db/` migrations applied
-in filename order BEFORE the pull when a PR adds them. Always confirm with
+2026-08-28). Deploying merged work is: `git pull`, then restart Apache as
+root — `sudo` is refused on this host, so `su -` into root and run
+`apache2ctl graceful` (mod_perl caches `lib/*.pm` per worker) — plus any new
+`db/` migrations applied in filename order BEFORE the pull when a PR adds
+them. Always confirm with
 `git -C /home/bawi/bawi-spring branch --show-current` and `git status` rather
 than trusting this note — stale branch-state notes have already misled one
 deploy plan (a session assumed `resp2` from the 2026-07-06 snapshot message).
