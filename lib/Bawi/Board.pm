@@ -2003,6 +2003,17 @@ sub add_attach {
     my $bid = $arg{-board_id} || 0;
     my $aid = $arg{-article_id} || 0;
 
+    # Fail BEFORE any DB write: bid/atid path components are pure digits,
+    # so the only thing that can break the path untaint below is the
+    # configured AttachDir itself -- probe it up front instead of
+    # discovering it after the row INSERT.
+    my $adir = $self->cfg->AttachDir || '';
+    unless ($adir =~ m/^[\w.\-\/]+\z/) {
+        warn("add_attach: AttachDir '$adir' has characters outside"
+             . " [\\w.\\-/] -- upload rejected");
+        return;
+    }
+
     # For raster uploads, strip metadata FIRST and reject undecodable input
     # before any DB row or file exists -- storing bytes the serve path can
     # never serve (while retaining their EXIF on disk) helps nobody.
@@ -2032,17 +2043,39 @@ sub add_attach {
                                    $arg{-is_img}
                                    );
     &inc_has_attach($aid) if ($rv);
+    unless ($rv) {
+        # bail here, or get_max_attach_id would hand the rollback guards
+        # below a PRE-EXISTING attach id (e.g. a non-numeric bid fails
+        # the strict INSERT yet coerces in the SELECT) -- they may only
+        # ever target the row this call inserted
+        warn("add_attach: attach row INSERT failed for article $aid -- upload not saved");
+        return;
+    }
     my $atid = &get_max_attach_id($bid, $aid);
     my @path = $self->attach_file_path($bid, $atid); 
     for (my $i = 1; $i < $#path; $i++) {
         my $dir = File::Spec->catdir(@path[0..$i]);
-        $dir =~ m/^([\w.-\\\/]+)$/;
-        $dir = $1;
+        # bind untaint to the match -- a failed match must yield undef,
+        # never a stale $1 from an earlier capture
+        $dir = ($dir =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
+        unless (defined $dir) {
+            warn("add_attach: untaint failed for attach dir under '"
+                 . $self->cfg->AttachDir . "' -- rolling back attach row $atid");
+            $DBH->do(qq(DELETE FROM $TBL{attach} WHERE attach_id=?), undef, $atid);
+            &dec_has_attach($aid);
+            return;
+        }
         mkdir($dir) unless (-e $dir);
     }
     my $file = File::Spec->catfile(@path);
-    $file =~ m/^([\w.-\\\/]+)$/;
-    $file = $1;
+    $file = ($file =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
+    unless (defined $file) {
+        warn("add_attach: untaint failed for attach path under '"
+             . $self->cfg->AttachDir . "' -- rolling back attach row $atid");
+        $DBH->do(qq(DELETE FROM $TBL{attach} WHERE attach_id=?), undef, $atid);
+        &dec_has_attach($aid);
+        return;
+    }
 
     if (defined $cleaned_image) {
         # Save the stripped bytes; mark clean only if the write fully landed
@@ -2085,12 +2118,28 @@ sub del_attach {
     my $bid = $arg{-board_id};
     my $attach = $self->get_attach(-attach_id=>$atid);
     my $aid = $$attach{article_id} || 0;
-    my @path = $self->attach_file_path($bid, $atid);
-    my $file = File::Spec->catfile(@path); 
-    $file =~ m/^([\w.-\\\/]+)$/;
-    $file = $1;
-    if (unlink $file) {
-        &dec_image_count($bid, $atid);
+    # path from the ROW's board (the caller's bid only as a fallback
+    # once the row is already gone, when nothing live is at stake): a
+    # stale or crafted bid must not aim the unlink at the wrong path
+    # while the row delete proceeds
+    my $row_bid = $$attach{board_id} || $bid;
+    my @path = $self->attach_file_path($row_bid, $atid);
+    my $file = File::Spec->catfile(@path);
+    # bind untaint to the match -- a failed match must yield undef,
+    # never a stale $1 from an earlier capture
+    $file = ($file =~ m/^([\w.\-\/]+)$/) ? $1 : undef;
+    # Best-effort file cleanup FIRST, row delete ALWAYS. The old shape put
+    # the row delete inside if(unlink): any unlink failure (file already
+    # missing, permissions, untaint miss) silently kept the row, which
+    # kept rendering links forever and made detach a no-op the author
+    # could never escape (observed on prod). An orphaned file is inert
+    # litter; a ghost row is a live bug -- prefer the litter, and warn.
+    unless (defined $file && unlink $file) {
+        warn("del_attach: could not unlink "
+             . (defined $file ? "$file ($!)" : "(untaint failed)")
+             . " for atid $atid; deleting row anyway");
+    }
+    if (defined $file) {
         my $thumb = $file . 't';
         unlink $thumb;
         &unmark_clean($file);
@@ -2098,11 +2147,23 @@ sub del_attach {
         # also reap heal tmps ("<path>.heal<pid>", written by heal_attach)
         # that a killed worker may have stranded
         unlink glob("$file.heal*"), glob("$thumb.heal*");
-        my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
-        my $rv = $DBH->do($sql, undef, $atid);
-        &dec_has_attach($aid) if ($rv);
-        return $rv;
     }
+    my $sql = qq(DELETE FROM $TBL{attach} WHERE attach_id=?);
+    my $rv = $DBH->do($sql, undef, $atid);
+    # "0E0" (0-row delete, e.g. a lost double-detach race) is truthy but
+    # must not decrement -- only the request that actually removed the
+    # row adjusts the counters. The images counter tracks rows, and the
+    # fetched row's own is_img replaces the old join (which could never
+    # run after the delete, and whose pre-delete placement let a
+    # double-detach race decrement twice).
+    if ($rv && $rv > 0) {
+        &dec_has_attach($aid);
+        if (($$attach{is_img} || '') =~ /^[yY]$/) {
+            $DBH->do(qq(UPDATE $TBL{board} SET images=images-1 WHERE board_id=?),
+                     undef, $row_bid);
+        }
+    }
+    return $rv;
 }
 
 sub del_attachset {
@@ -2337,18 +2398,26 @@ sub add_pollset {
         my $poll = $q->param($i) || '';
         $poll =~ s/^\s+//g;
         $poll =~ s/\s+$//g;
-        my @o = grep { $_ } 
-                map { my $t = $q->param($_) || ''; 
-                      $t =~ s/^\s+//g; 
+        my @o = grep { defined && length } 
+                map { my $t = $q->param($_);
+                      $t = '' unless defined $t;
+                      $t =~ s/^\s+//g;
                       $t =~ s/\s+$//g;
+                      # collapse inner runs like poll.cgi does for
+                      # write-ins, so the dedup eq compares like bytes
+                      $t =~ s/\s+/ /g;
                       $t; } 
                 map { $_->[0] }
                 sort { $a->[1] <=> $b->[1] } 
                 map { [$_, /(\d+)/] }
-                grep { /$i/ && $q->param($_) }
+                grep { /^\Q${i}\E_\d+$/ && defined $q->param($_) }
                 @opt;
-        if ($poll && @o && $#o > 0) {
-            my $uopt = $q->param($i.'_uopt') ? 1 : 0;
+        my $uopt = $q->param($i.'_uopt') ? 1 : 0;
+        # Write-in polls need no preset-option minimum -- voters supply
+        # options themselves, so 0 or 1 seed options are fine. Fixed
+        # polls keep the >=2 rule; note a poll failing this gate is
+        # dropped SILENTLY on save (pre-existing behavior).
+        if ($poll && ($#o > 0 || $uopt)) {
             my $pid = $self->add_poll(-board_id=>$bid,
                                       -article_id=>$aid,
                                       -duration=>$dur,
@@ -2356,7 +2425,12 @@ sub add_pollset {
                                       -allow_user_opt=>$uopt);
             if ($pid) {
                 foreach my $j (@o) {
-                    my $rv = $self->add_opt(-poll_id=>$pid, -opt=>$j);
+                    # stored HTML-escaped, matching poll.cgi's write-in
+                    # inserts: one encoding keeps the write-in dup check
+                    # (string eq) sound, and _pollset.tmpl prints opt
+                    # unescaped
+                    my $rv = $self->add_opt(-poll_id=>$pid,
+                                            -opt=>$q->escapeHTML($j));
                 }
             }
         }
@@ -2482,7 +2556,8 @@ sub get_pollset {
                    my $allow_vote = $is_ans || $$rv{$_}->{is_closed} ? 0 : 1;
                    $$rv{$_}->{allow_vote} = $allow_vote;
                    $$rv{$_}->{optset} = &get_optset($_, $uid, $allow_vote);
-                   $$rv{$_}->{tot} = $$rv{$_}->{optset}->[0]->{tot} || 0;
+                   $$rv{$_}->{tot} = @{$$rv{$_}->{optset} || []}
+                                     ? ($$rv{$_}->{optset}->[0]->{tot} || 0) : 0;
                    $$rv{$_}; }
              keys %$rv;
     return \@rv;
@@ -2895,15 +2970,6 @@ sub add_image_count {
     return $rv;
 }
 
-sub dec_image_count {
-    my ($bid, $attach_id) = @_;
-
-    my $sql = qq(UPDATE $TBL{board} as a, $TBL{attach} as b 
-                 SET a.images=a.images-1 
-                 WHERE a.board_id=? && b.attach_id=? && b.is_img='y');
-    my $rv = $DBH->do($sql, undef, $bid, $attach_id);
-    return $rv;
-}
 
 sub get_max_article_no {
     my %arg = @_;

@@ -25,8 +25,9 @@
 <link rel="stylesheet" type="text/css" href="<tmpl_var main_url>/skin/default/IE70Fixes.css" /><![endif]-->
 <!--[if lte IE 8]><style type="text/css"> #globalWrapper{font-family:"맑은 고딕",sans-serif;} </style><![endif]-->
 
-<script type="text/javascript" src="<tmpl_var main_url>/skin/default/script.js"></script>
-<script type="text/javascript" src="<tmpl_var board_url>/skin/default/script.js"></script>
+<!-- bump the ?v= token whenever script.js changes (board/ and main/ headers carry the same rule) -->
+<script type="text/javascript" src="<tmpl_var main_url>/skin/default/script.js?v=20260830"></script>
+<script type="text/javascript" src="<tmpl_var board_url>/skin/default/script.js?v=20260830"></script>
 
 <link rel="stylesheet" type="text/css" href="<tmpl_var board_url>/skin/default/litebox/lightbox.css" media="screen" />
 <script type="text/javascript" src="<tmpl_var board_url>/skin/default/litebox/moo.fx.js"></script>

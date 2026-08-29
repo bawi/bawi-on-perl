@@ -220,8 +220,8 @@ foreach my $i (sort { $board{$a} <=> $board{$b} } keys %board) {
                     my @path = ($ui->cfg->AttachDir, $bid % 100, $bid, $atid % 100);
                     for (my $p = 1; $p <= $#path; $p++) {
                         my $dir = File::Spec->catdir(@path[0..$p]);
-                        $dir =~ m/^([\w.-\\\/]+)$/;
-                        $dir = $1;
+                        $dir = ($dir =~ m/^([\w.\-\/]+)$/) ? $1
+                             : die("z2x: attach dir untaint failed: $dir");
                         mkdir($dir) unless (-e $dir);
                     }
                     my $file = join("/", @path, $atid);

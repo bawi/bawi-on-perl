@@ -230,8 +230,15 @@ function submit_poll(e) {
     var url = 'poll.cgi';
     var div_id = 'article-'+ this.aid.value +'-poll';
     var oid;
-    for (var i = 0; i < this.oid.length; i++) {
-        if (this.oid[i].checked) { oid = this.oid[i].value; break; }
+    /* a write-in poll may render 0 radios (this.oid undefined) or exactly
+       1 (a bare element with no .length) -- normalize before iterating */
+    var r = this.oid;
+    if (r) {
+        if (typeof r.length === 'number') {
+            for (var i = 0; i < r.length; i++) {
+                if (r[i].checked) { oid = r[i].value; break; }
+            }
+        } else if (r.checked) { oid = r.value; }
     }
     var opt_text = this.opt_text ? this.opt_text.value.strip() : '';
     if (! oid && ! opt_text) { alert("You should choose one!"); return false; }
