@@ -815,7 +815,10 @@ ok "poll x ki adaptively merges 1-voter cohorts into one band"
 # a dense cohort must keep 1-ki resolution while sparse neighbors merge:
 # fabricate a 3-voter ki-40 cohort by direct insert. The synthetic uids
 # answer poll 1 only, so the poll x poll cross-tab (a self-join over
-# BOTH polls) never sees them.
+# BOTH polls) never sees them. DELETE first: bw_user_ki's uid PK would
+# otherwise kill an unseeded rerun with a raw duplicate-entry error
+# (stale poll_ans rows are harmless -- they belong to dead poll_ids).
+db "DELETE FROM bw_user_ki WHERE uid IN (9001,9002,9003)" || exit 1
 for u in 9001 9002 9003; do
     db "INSERT INTO bw_user_ki (uid, ki) VALUES ($u, 40)" || exit 1
     db "INSERT INTO bw_xboard_poll_ans (poll_id, uid, opt_id) VALUES ($xp1, $u, $xoA)" || exit 1
@@ -832,6 +835,10 @@ fetch "$J6" "$BASE/board/poll.cgi" \
 fetch "$J6" "$BASE/board/poll.cgi" \
       --data-urlencode "bid=2" --data-urlencode "aid=$xaid" \
       --data-urlencode "pid=$xp2" --data-urlencode "oid=$xoD"
+# pin that both stray votes landed (8 prior + 3 synthetic + these 2) --
+# otherwise a silently dropped vote misreads as an app suppression bug
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id IN ($xp1,$xp2)") || exit 1
+[ "$got" = "13" ] || fail "xtab: tester06 votes did not land (got '$got')"
 login tester02; J2=$JAR
 fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=$xp2"
 has "표시하지 않습니다" || fail "a 1-voter cell did not suppress the poll x poll table"
