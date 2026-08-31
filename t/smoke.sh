@@ -57,7 +57,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=60
+EXPECTED=61
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -847,6 +847,13 @@ fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$xaid"
 [ "$CODE" = "200" ] || fail "xtab: read: HTTP $CODE"
 has "poll.cgi?bid=2;aid=$xaid" || fail "read page carries no cross-tab link"
 ok "article page links to the cross-tab entry page"
+
+# poll-notice anchor: a poll article says so up top and links down; a
+# poll-less article (tier 5's token article, still fetchable) must not
+has "href=\"#article-$xaid-poll\"" || fail "poll article carries no top anchor to its poll block"
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tpaid"
+has "poll-notice" && fail "poll-less article renders a poll notice"
+ok "poll articles carry the top anchor chip; poll-less articles do not"
 
 login tester07; J7=$JAR
 fetch "$J7" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=$xp2"

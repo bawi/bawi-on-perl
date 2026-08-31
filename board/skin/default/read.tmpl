@@ -41,6 +41,13 @@
 </tmpl_if>
 </tmpl_if>
 
+<tmpl_if pollset>
+<!-- same poll.gif the article list marks titles with, same anchor-jump
+     idiom as the comment-form ▼ above: long articles bury the poll at
+     the bottom, so say it up front and link down -->
+<li class="body poll-notice"><a href="#article-<tmpl_var article_id>-poll"><img src="skin/default/images/poll.gif" alt="poll" class="icon poll" /> 설문이 있습니다 ▼</a></li>
+</tmpl_if>
+
 <li class="body text"><table class="safety wrapper"><tr><td><tmpl_if expired><img src="../user/photo.cgi?id=root" border="1" width="105" height="140" alt="photo"/>게시판 설정 읽기 유효기간이 지났습니다.</div><tmpl_else><tmpl_var body></tmpl_if></td></tr></table></li>
 
 <tmpl_if pollset>
