@@ -21,6 +21,7 @@ $TBL{attach}    = 'bw_xboard_attach';
 $TBL{notice}    = 'bw_xboard_notice';
 $TBL{passwd}    = 'bw_xauth_passwd';
 $TBL{sig}       = 'bw_user_sig';
+$TBL{ki}        = 'bw_user_ki';
 $TBL{group}     = 'bw_group';
 $TBL{poll}      = 'bw_xboard_poll';
 $TBL{opt}       = 'bw_xboard_poll_opt';
@@ -2644,9 +2645,12 @@ sub get_poll_xtab {
                    $$poll1{article_id} == $aid &&
                    $$poll2{article_id} == $aid);
     # _pollset hides an open poll's results until the viewer answered;
-    # the cross-tab must not show joint counts any earlier.
-    return unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
-                   ($$poll2{is_closed} || &is_answered($p2, $uid)));
+    # the cross-tab must not show joint counts any earlier. A flagged
+    # return (not bare undef) lets the page say WHY nothing is shown --
+    # the silent blank confused even the feature's own field testing.
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, gated=>1 }
+        unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
+                ($$poll2{is_closed} || &is_answered($p2, $uid)));
 
     my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
                   FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
@@ -2679,6 +2683,91 @@ sub get_poll_xtab {
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, suppressed=>1 }
         if ($small);
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
+             cols=>\@col, rows=>\@row, n=>$n,
+             colspan=>scalar(@col) + 1 };
+}
+
+sub get_poll_ki_xtab {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-poll_id} &&
+                   exists $arg{-board_id} && exists $arg{-article_id});
+
+    my $pid = $arg{-poll_id} || 0;
+    my $bid = $arg{-board_id} || 0;
+    my $aid = $arg{-article_id} || 0;
+    my $uid = $arg{-uid} || 0;
+    return if (&is_tally_hidden($pid));
+
+    my $sql = qq(SELECT poll_id, board_id, article_id, poll,
+                        closed < now() as is_closed
+                 FROM $TBL{poll}
+                 WHERE poll_id=?);
+    my $poll = $DBH->selectrow_hashref($sql, undef, $pid);
+    # bind the poll to the board/article the caller was authorized for,
+    # exactly as get_poll_xtab does.
+    return unless ($poll &&
+                   $$poll{board_id}   == $bid &&
+                   $$poll{article_id} == $aid);
+    return { poll1=>$$poll{poll}, poll2=>'기수', gated=>1 }
+        unless ($$poll{is_closed} || &is_answered($pid, $uid));
+
+    # ki 0 means "no cohort registered" -- those answers stay out of the
+    # table (and out of n; the footer says so) rather than forming a
+    # fake cohort column.
+    my $sql2 = qq(SELECT a.opt_id, k.ki, count(*)
+                  FROM $TBL{ans} as a JOIN $TBL{ki} as k USING (uid)
+                  WHERE a.poll_id=? && k.ki > 0
+                  GROUP BY 1, 2);
+    my $rv = $DBH->selectall_arrayref($sql2, undef, $pid);
+    my %cnt;
+    my $n = 0;
+    foreach my $i (@$rv) {
+        $cnt{$$i[1]}{$$i[0]} = $$i[2];
+        $n += $$i[2];
+    }
+
+    my $opt = &get_optset($pid, 0, 0);
+    # Adaptive banding instead of get_poll_xtab's all-or-nothing rule:
+    # seed one band per ki, then while any populated cell holds 1-2
+    # voters (few enough to name individuals), merge that band into a
+    # neighbor. Coarsening beats refusing here because the worst case --
+    # a single band -- just reproduces the public per-option tally, so
+    # every reachable state leaks nothing new; and unlike masking single
+    # cells, merged bands can't be solved back from the public marginals.
+    my @band = map  { { lo=>$_, hi=>$_, cnt=>$cnt{$_} } }
+               sort { $a <=> $b } keys %cnt;
+    my $again = 1;
+    while ($again && @band > 1) {
+        $again = 0;
+        foreach my $b (0 .. $#band) {
+            my $small = 0;
+            foreach my $o (@$opt) {
+                my $c = $band[$b]{cnt}{$$o{opt_id}} || 0;
+                ++$small if ($c && $c < 3);
+            }
+            next unless ($small);
+            my $into = $b ? $b - 1 : 1;
+            foreach my $k (keys %{$band[$b]{cnt}}) {
+                $band[$into]{cnt}{$k} += $band[$b]{cnt}{$k};
+            }
+            $band[$into]{lo} = $band[$b]{lo} if ($band[$b]{lo} < $band[$into]{lo});
+            $band[$into]{hi} = $band[$b]{hi} if ($band[$b]{hi} > $band[$into]{hi});
+            splice(@band, $b, 1);
+            # band indexes shifted; rescan from the start
+            $again = 1;
+            last;
+        }
+    }
+
+    my @col = map { { opt=>$$_{lo} == $$_{hi} ? qq($$_{lo}기)
+                                              : qq($$_{lo}~$$_{hi}기) } }
+              @band;
+    my @row;
+    foreach my $i (@$opt) {
+        my @cell = map { { cnt=>$$_{cnt}{$$i{opt_id}} || 0 } } @band;
+        push @row, { opt=>$$i{opt}, cell=>\@cell };
+    }
+    return { poll1=>$$poll{poll}, poll2=>'기수',
              cols=>\@col, rows=>\@row, n=>$n,
              colspan=>scalar(@col) + 1 };
 }
