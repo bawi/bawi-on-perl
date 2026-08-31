@@ -1203,6 +1203,7 @@ sub format_article {
         $body = &escape_tags($self, $body);
         # keep in sync with t/markdown_smoke.pl (drift-checked there)
         $body =~ s/\shref\s*=\s*(["'])\s*(?:javascript|data|vbscript)\s*:[^"']*\1/ href="#"/gi;
+        $body = $self->embed_attach_tokens($body, $article);
         return $body;
     }
     my @body = split(/\r?\n/, $body);
@@ -1225,8 +1226,54 @@ sub format_article {
 
     #$body = join("\n", @body);
     $body = join("<br />\n", @body);
-    
+
+    $body = $self->embed_attach_tokens($body, $article);
     return $body;
+}
+
+sub embed_attach_tokens {
+    my ($self, $html, $article) = @_;
+    # [[첨부N]] / [[attachN]]: the article's N-th attachment (upload
+    # order), placed inline where the token sits. The body carries a
+    # POSITION, not an id -- at compose time the attach_id does not
+    # exist yet, which is exactly why authors could never inline their
+    # figures in one save. Resolution runs AFTER the mode renderers and
+    # AFTER the markdown cache, so bw_xboard_body_html keeps the
+    # literal token and attach/detach can never serve stale ids. The
+    # emitted markup carries only atid+filename (no author identity),
+    # so the anonboard concern on make_hyperlink does not apply here.
+    return $html unless (defined $html && $article && $$article{article_id});
+    return $html unless ($html =~ /\[\[(?:첨부|attach)\d+\]\]/);
+
+    my $attach = $self->get_attachset(-article_id=>$$article{article_id}) || [];
+    # never substitute inside code samples -- an article DEMONSTRATING
+    # the token would otherwise render an image in its own example.
+    # The strict no-spaces token doubles as the escape hatch elsewhere.
+    my @chunk = split(/(<pre\b.*?<\/pre>|<code\b.*?<\/code>)/s, $html);
+    foreach my $c (@chunk) {
+        next if ($c =~ /^<(?:pre|code)\b/);
+        $c =~ s/\[\[(?:첨부|attach)(\d+)\]\]/&attach_token_html($attach, $1)/ge;
+    }
+    return join('', @chunk);
+}
+
+sub attach_token_html {
+    my ($attach, $n) = @_;
+    my $a = $n > 0 ? $$attach[$n - 1] : undef;
+    # a detached or mistyped position must show loudly, not vanish
+    return qq(<span class="attach-missing">[첨부$n 없음]</span>)
+        unless ($a);
+    my $f = $$a{filename};
+    $f =~ s/&/&amp;/g;
+    $f =~ s/</&lt;/g;
+    $f =~ s/>/&gt;/g;
+    $f =~ s/"/&quot;/g;
+    # same URL shape and img class as _attach.tmpl's gallery, so the
+    # existing article-body fit-to-width CSS applies unchanged
+    my $src = qq(attach.cgi?atid=$$a{attach_id};name=/$f);
+    return $$a{image}
+        ? qq(<img class="internal" src="$src" alt="$f" />)
+        : qq(<a href="$src">$f</a>);
 }
 
 sub format_anon_list { 

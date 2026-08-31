@@ -1,6 +1,7 @@
 <ol class="attach">
 <tmpl_loop attach>
   <li id="attach-<tmpl_var attach_id>">
+    <!-- the <ol> position is the N of the body token [[첨부N]] -->
     <a href="attach.cgi?atid=<tmpl_var attach_id>;name=/<tmpl_var filename>"><tmpl_var filename> (<tmpl_var filesize>)</a>
     <a href="detach.cgi?atid=<tmpl_var attach_id>;bid=<tmpl_var board_id>">x</a>
     <div>

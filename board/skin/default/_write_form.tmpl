@@ -60,7 +60,9 @@
 </tr>
 <tr>
   <td class="label"></td>
-  <td><a class="button" id="attach-more">Attach a file</a></td>
+  <td><a class="button" id="attach-more">Attach a file</a>
+    <small>본문에 <code>[[첨부1]]</code>을 쓰면 첫 번째 첨부 파일이 그 자리에 표시됩니다</small>
+  </td>
 </tr>
 </tmpl_if>
 
@@ -73,6 +75,8 @@
   <tmpl_if image>
     <a href="attach.cgi?atid=<tmpl_var attach_id>" target="_blank"><img src="attach.cgi?atid=<tmpl_var attach_id>" alt="<tmpl_var filename>"></a>
     </tmpl_if>
+    <!-- the number is the N of the body token [[첨부N]] -->
+    <tmpl_var __counter__>.
     <a href="attach.cgi?atid=<tmpl_var attach_id>" target="_blank"><tmpl_var filename> (<tmpl_var filesize>)</a>
     <a href="detach.cgi?atid=<tmpl_var attach_id>&bid=<tmpl_var board_id>">x</a>
   </td>
