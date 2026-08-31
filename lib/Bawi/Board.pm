@@ -1246,15 +1246,30 @@ sub embed_attach_tokens {
     return $html unless ($html =~ /\[\[(?:첨부|attach)\d+\]\]/);
 
     my $attach = $self->get_attachset(-article_id=>$$article{article_id}) || [];
-    # never substitute inside code samples -- an article DEMONSTRATING
-    # the token would otherwise render an image in its own example.
-    # The strict no-spaces token doubles as the escape hatch elsewhere.
-    my @chunk = split(/(<pre\b.*?<\/pre>|<code\b.*?<\/code>)/s, $html);
-    foreach my $c (@chunk) {
-        next if ($c =~ /^<(?:pre|code)\b/);
-        $c =~ s/\[\[(?:첨부|attach)(\d+)\]\]/&attach_token_html($attach, $1)/ge;
+    # One linear pass over the rendered HTML. Substitute a token ONLY in
+    # text content: never inside an HTML tag (a token that landed in an
+    # attribute -- e.g. a markdown link's href="[[attach1]]" -- would be
+    # corrupted into a nested element) and never inside <pre>/<code>, so an
+    # article DEMONSTRATING the token still shows it literally. A single
+    # scan (not a paired-tag split) also avoids quadratic backtracking on a
+    # raw-HTML body, where unclosed <pre>/<code> openers are legal TEXT.
+    my $out = '';
+    my $skip = 0;   # >0 while inside one or more open pre/code regions
+    while ($html =~ /\G(.*?)(<[^>]*>|\[\[(?:첨부|attach)(\d+)\]\])/sgc) {
+        my ($text, $hit, $n) = ($1, $2, $3);
+        $out .= $text;
+        if (!defined $n) {
+            # an HTML tag -- emit verbatim, track pre/code nesting (any case)
+            if ($hit =~ /^<\s*(?:pre|code)\b/i)         { ++$skip }
+            elsif ($hit =~ /^<\s*\/\s*(?:pre|code)\b/i) { --$skip if ($skip) }
+            $out .= $hit;
+        }
+        else {
+            $out .= $skip ? $hit : &attach_token_html($attach, $n);
+        }
     }
-    return join('', @chunk);
+    $out .= substr($html, pos($html) // 0);
+    return $out;
 }
 
 sub attach_token_html {

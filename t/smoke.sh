@@ -57,7 +57,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=59
+EXPECTED=60
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -703,6 +703,24 @@ fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tpaid"
 has "<img class=\"internal\" src=\"attach.cgi?atid=$tp1" || fail "token plain: [[첨부1]] did not render inline"
 grep -qF "[첨부7 없음]" "$TMP/body" || fail "token plain: out-of-range token did not render the marker"
 ok "attachment tokens resolve in plain mode too"
+
+# token context safety: a token must stay LITERAL inside an HTML tag
+# (an attribute is not a substitution site -- it would corrupt the tag)
+# and inside an uppercase <PRE> block (the pre/code escape is case-
+# insensitive), while a bare token in text still resolves. Plain mode so
+# the raw HTML passes through verbatim (no markdown parsing to reason
+# about); board 2's escaped_tags denylist omits pre/b, so both survive.
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=token ctx smoke" \
+      -F "body=upper <PRE>[[첨부1]]</PRE> attr <b title=\"[[attach1]]\">x</b> text [[첨부1]] end $$" \
+      -F "attach_no=1" -F "attach1=@$TMP/att.png;type=image/png"
+[ "$CODE" = "302" ] || fail "token ctx: write: HTTP $CODE"
+tcaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+tc1=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$tcaid") || exit 1
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tcaid"
+grep -qF "[[첨부1]]</PRE>" "$TMP/body" || fail "token ctx: token inside uppercase <PRE> was substituted"
+grep -qF 'title="[[attach1]]"' "$TMP/body" || fail "token ctx: token inside an HTML attribute was substituted"
+has "<img class=\"internal\" src=\"attach.cgi?atid=$tc1" || fail "token ctx: the bare text token did not resolve (positive control)"
+ok "attachment tokens stay literal inside tags and <PRE>, resolve in text"
 
 # ============================================================= tier 6: polls
 # Write-in polls: a poll with "voters may add an option" (uopt) needs NO
