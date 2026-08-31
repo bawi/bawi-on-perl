@@ -7,49 +7,42 @@
 <tmpl_include _pollset.tmpl>
 
 <tmpl_unless ajax>
-<tmpl_if xtab_form>
+<tmpl_if xtab_links>
 <br />
-<form id="poll-xtab" class="xtab" action="poll.cgi" method="get">
-<input type="hidden" name="bid" value="<tmpl_var board_id>" />
-<input type="hidden" name="aid" value="<tmpl_var article_id>" />
-<input type="hidden" name="mode" value="xtab" />
 <table class="poll">
 <tr class="head">
-  <td class="head" colspan="2">교차분석</td>
+  <td class="head">교차분석</td>
 </tr>
 <tr class="option">
   <td class="option">
-    <select name="p1">
-  <tmpl_loop pollset>
-      <option value="<tmpl_var poll_id>">Poll <tmpl_var __counter__>. <tmpl_var name=poll escape=html></option>
+  <tmpl_loop xtab_links>
+    <a href="<tmpl_var name=href escape=html>"><tmpl_var label></a>&nbsp;
   </tmpl_loop>
-    </select>
-    &times;
-    <select name="p2">
-  <tmpl_loop pollset>
-      <option value="<tmpl_var poll_id>">Poll <tmpl_var __counter__>. <tmpl_var name=poll escape=html></option>
-  </tmpl_loop>
-    </select>
   </td>
-  <td class="button"><input type="submit" value="교차분석" /></td>
 </tr>
 </table>
-</form>
 </tmpl_if>
 
 <tmpl_if xtab>
 <br />
 <table class="poll">
-<tmpl_if xtab_suppressed>
+<tmpl_if xtab_gated>
 <tr class="head">
-  <td class="head"><tmpl_var xtab_poll1> &times; <tmpl_var xtab_poll2></td>
+  <td class="head"><tmpl_var name=xtab_poll1 escape=html> &times; <tmpl_var name=xtab_poll2 escape=html></td>
+</tr>
+<tr class="bottom">
+  <td>아직 투표하지 않은 설문이 있어 교차분석을 볼 수 없습니다. 투표 후 이용해 주세요.</td>
+</tr>
+<tmpl_else><tmpl_if xtab_suppressed>
+<tr class="head">
+  <td class="head"><tmpl_var name=xtab_poll1 escape=html> &times; <tmpl_var name=xtab_poll2 escape=html></td>
 </tr>
 <tr class="bottom">
   <td>응답 수 3명 미만인 조합이 있어 교차분석을 표시하지 않습니다.</td>
 </tr>
 <tmpl_else>
 <tr class="head">
-  <td class="head"><tmpl_var xtab_poll1> &times; <tmpl_var xtab_poll2></td>
+  <td class="head"><tmpl_var name=xtab_poll1 escape=html> &times; <tmpl_var name=xtab_poll2 escape=html></td>
   <tmpl_loop xtab_cols>
   <td class="head"><tmpl_var opt></td>
   </tmpl_loop>
@@ -64,11 +57,16 @@
   </tmpl_loop>
 <tr class="bottom">
   <td colspan="<tmpl_var xtab_colspan>">
+<tmpl_if xtab_ki>
+    기수 등록 응답자: <tmpl_var xtab_n>명
+    (기수 정보가 없는 회원의 응답은 제외되어 총 응답수와 다를 수 있습니다)
+<tmpl_else>
     두 질문 모두 응답: <tmpl_var xtab_n>명
     (두 질문에 모두 응답한 사람 수라서 각 질문의 총 응답수와는 다를 수 있습니다)
+</tmpl_if>
   </td>
 </tr>
-</tmpl_if>
+</tmpl_if></tmpl_if>
 </table>
 </tmpl_if>
 </tmpl_unless>

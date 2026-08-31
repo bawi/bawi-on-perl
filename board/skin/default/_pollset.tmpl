@@ -46,9 +46,13 @@
 </table>
 
 </form>
-  <tmpl_unless __last__>
+  <tmpl_if __last__>
+    <tmpl_unless edit_page>
+<div class="xtab-link"><a href="poll.cgi?bid=<tmpl_var board_id>;aid=<tmpl_var article_id>">교차분석</a></div>
+    </tmpl_unless>
+  <tmpl_else>
 <br />
-  </tmpl_unless>
+  </tmpl_if>
   </tmpl_loop>
 <tmpl_else>
 No more poll.

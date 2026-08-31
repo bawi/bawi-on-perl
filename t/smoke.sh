@@ -35,6 +35,13 @@
 #      vote creates the option once (dedup) recording every answer, the
 #      0-seed poll renders without a phantom option row, and a fixed
 #      poll keeps a literal "0" seed option
+#   7  poll cross-tabs: the read page links to poll.cgi, an unvoted
+#      viewer gets the gated message (not silence), the poll x poll
+#      matrix renders, the <3 whole-table suppression still fires, and
+#      the poll x ki axis adaptively merges sparse cohorts into bands --
+#      dense cohorts standing alone (multi-band render), a sparse
+#      single band suppressing instead of publishing, and a 1-2 voter
+#      ki-less remainder suppressing (the subtraction guard)
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -48,7 +55,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=49
+EXPECTED=57
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -743,6 +750,138 @@ got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_opt WHERE poll_id=$zpid") || exit 
 got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id=$zpid") || exit 1
 [ "$got" = "1" ] || fail "0-seed write-in vote not recorded (got '$got')"
 ok "0-seed write-in poll saves clean and takes its first write-in vote"
+
+# ======================================================= tier 7: cross-tabs
+# Fresh 2-poll article so no earlier tier's votes can pollute the cells.
+# Seeded ki is deterministic (uid N -> ki 10+N%25; root/uid 1 is ki 1):
+# tester02..05 carry ki 12..15, tester06 carries 16 -- the band-label
+# assertions depend on it. Every seeded cohort has at most 2 members, so
+# dense (>=3 voter) cohorts are fabricated by direct insert where needed.
+fetch "$J2" "$BASE/board/write.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "title=xtab smoke" \
+      --data-urlencode "body=xtab host $$" \
+      --data-urlencode "poll=1" \
+      --data-urlencode "poll1=xtab q1 $$" \
+      --data-urlencode "poll1_1=xtA" \
+      --data-urlencode "poll1_2=xtB" \
+      --data-urlencode "poll2=xtab q2 $$" \
+      --data-urlencode "poll2_1=xtC" \
+      --data-urlencode "poll2_2=xtD" \
+      --data-urlencode "duration=7"
+[ "$CODE" = "302" ] || fail "xtab: write: HTTP $CODE"
+# id recovery: MIN = first seeded (poll1 / options xtA,xtC), MAX = the
+# second (poll2 / xtB,xtD) -- same insertion-order rule tier 6 documents
+xaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+xp1=$(db "SELECT MIN(poll_id) FROM bw_xboard_poll WHERE article_id=$xaid") || exit 1
+xp2=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$xaid") || exit 1
+xoA=$(db "SELECT MIN(opt_id) FROM bw_xboard_poll_opt WHERE poll_id=$xp1") || exit 1
+xoB=$(db "SELECT MAX(opt_id) FROM bw_xboard_poll_opt WHERE poll_id=$xp1") || exit 1
+xoC=$(db "SELECT MIN(opt_id) FROM bw_xboard_poll_opt WHERE poll_id=$xp2") || exit 1
+xoD=$(db "SELECT MAX(opt_id) FROM bw_xboard_poll_opt WHERE poll_id=$xp2") || exit 1
+
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$xaid"
+[ "$CODE" = "200" ] || fail "xtab: read: HTTP $CODE"
+has "poll.cgi?bid=2;aid=$xaid" || fail "read page carries no cross-tab link"
+ok "article page links to the cross-tab entry page"
+
+login tester07; J7=$JAR
+fetch "$J7" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=$xp2"
+[ "$CODE" = "200" ] || fail "xtab gated: HTTP $CODE"
+has "투표 후 이용해 주세요" || fail "unvoted viewer got silence, not the gated message"
+ok "cross-tab before voting explains the gate instead of rendering nothing"
+
+for u in tester02 tester03 tester04 tester05; do
+    login "$u"
+    fetch "$JAR" "$BASE/board/poll.cgi" \
+          --data-urlencode "bid=2" --data-urlencode "aid=$xaid" \
+          --data-urlencode "pid=$xp1" --data-urlencode "oid=$xoA"
+    fetch "$JAR" "$BASE/board/poll.cgi" \
+          --data-urlencode "bid=2" --data-urlencode "aid=$xaid" \
+          --data-urlencode "pid=$xp2" --data-urlencode "oid=$xoC"
+done
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id IN ($xp1,$xp2)") || exit 1
+[ "$got" = "8" ] || fail "xtab: expected 8 aligned answers (got '$got')"
+login tester02; J2=$JAR
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=$xp2"
+has "두 질문 모두 응답: 4명" || fail "poll x poll matrix did not render with n=4"
+ok "poll x poll cross-tab renders once every populated cell clears 3"
+
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=ki"
+has "12~15기" || fail "ki axis did not merge the sparse cohorts into 12~15기"
+has "기수 등록 응답자: 4명" || fail "ki footer missing or wrong n"
+ok "poll x ki adaptively merges 1-voter cohorts into one band"
+
+# a dense cohort must keep 1-ki resolution while sparse neighbors merge:
+# fabricate a 3-voter ki-40 cohort by direct insert. The synthetic uids
+# answer poll 1 only, so the poll x poll cross-tab (a self-join over
+# BOTH polls) never sees them. DELETE first: bw_user_ki's uid PK would
+# otherwise kill an unseeded rerun with a raw duplicate-entry error
+# (stale poll_ans rows are harmless -- they belong to dead poll_ids).
+db "DELETE FROM bw_user_ki WHERE uid IN (9001,9002,9003)" || exit 1
+for u in 9001 9002 9003; do
+    db "INSERT INTO bw_user_ki (uid, ki) VALUES ($u, 40)" || exit 1
+    db "INSERT INTO bw_xboard_poll_ans (poll_id, uid, opt_id) VALUES ($xp1, $u, $xoA)" || exit 1
+done
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=ki"
+has "12~15기" || fail "sparse cohorts no longer merge once a dense band exists"
+has "40기" || fail "a 3-voter cohort did not stand as its own band"
+ok "dense cohorts stand alone while sparse neighbors merge (multi-band render)"
+
+login tester06; J6=$JAR
+fetch "$J6" "$BASE/board/poll.cgi" \
+      --data-urlencode "bid=2" --data-urlencode "aid=$xaid" \
+      --data-urlencode "pid=$xp1" --data-urlencode "oid=$xoB"
+fetch "$J6" "$BASE/board/poll.cgi" \
+      --data-urlencode "bid=2" --data-urlencode "aid=$xaid" \
+      --data-urlencode "pid=$xp2" --data-urlencode "oid=$xoD"
+# pin that both stray votes landed (8 prior + 3 synthetic + these 2) --
+# otherwise a silently dropped vote misreads as an app suppression bug
+got=$(db "SELECT COUNT(*) FROM bw_xboard_poll_ans WHERE poll_id IN ($xp1,$xp2)") || exit 1
+[ "$got" = "13" ] || fail "xtab: tester06 votes did not land (got '$got')"
+login tester02; J2=$JAR
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=$xp2"
+has "표시하지 않습니다" || fail "a 1-voter cell did not suppress the poll x poll table"
+ok "poll x poll whole-table <3 suppression still fires"
+
+# the same stray vote poisons the ki axis: 16기's lone B answer drags
+# every band into one that still holds a 1-voter cell -- the terminal
+# check must suppress it, never publish (the single-band state is NOT
+# the public tally: it is cohort-labeled and excludes ki-less voters)
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$xaid&mode=xtab&p1=$xp1&p2=ki"
+has "표시하지 않습니다" || fail "a sparse single-band ki table was published (terminal suppression missing)"
+ok "a ki table that cannot merge itself safe is suppressed"
+
+# ki-less remainder: when public answers exceed the ki table's n by 1-2,
+# subtracting column sums from the public tally pins those voters. Three
+# registered voters render fine; one ki-less answer must flip the table
+# to suppressed.
+fetch "$J2" "$BASE/board/write.cgi" \
+      --data-urlencode "bid=2" \
+      --data-urlencode "title=kiless smoke" \
+      --data-urlencode "body=kiless host $$" \
+      --data-urlencode "poll=1" \
+      --data-urlencode "poll1=kiless q $$" \
+      --data-urlencode "poll1_1=klA" \
+      --data-urlencode "poll1_2=klB" \
+      --data-urlencode "duration=7"
+[ "$CODE" = "302" ] || fail "kiless: write: HTTP $CODE"
+kaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+kpid=$(db "SELECT MAX(poll_id) FROM bw_xboard_poll WHERE article_id=$kaid") || exit 1
+koA=$(db "SELECT MIN(opt_id) FROM bw_xboard_poll_opt WHERE poll_id=$kpid") || exit 1
+for u in tester02 tester03 tester04; do
+    login "$u"
+    fetch "$JAR" "$BASE/board/poll.cgi" \
+          --data-urlencode "bid=2" --data-urlencode "aid=$kaid" \
+          --data-urlencode "pid=$kpid" --data-urlencode "oid=$koA"
+done
+login tester02; J2=$JAR
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$kaid&mode=xtab&p1=$kpid&p2=ki"
+has "기수 등록 응답자: 3명" || fail "kiless precondition: 3-voter table did not render"
+db "INSERT INTO bw_xboard_poll_ans (poll_id, uid, opt_id) VALUES ($kpid, 9010, $koA)" || exit 1
+fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$kaid&mode=xtab&p1=$kpid&p2=ki"
+has "표시하지 않습니다" || fail "a 1-voter ki-less remainder did not suppress the ki table"
+ok "a 1-2 voter ki-less remainder suppresses the ki table (subtraction guard)"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"

@@ -16,6 +16,11 @@ unless ($auth->auth) {
 }
 my ($bid, $aid, $pid, $oid, $del, $mode)
     = map { $ui->cparam($_) || '' } qw(bid aid pid oid del mode);
+# force numeric ids up front (read.cgi's pattern): both are reflected
+# into the xtab link hrefs, so a non-numeric value must die here, not
+# ride a MariaDB leading-digit coercion into the rendered page.
+$bid = 0 unless ($bid =~ /^\d+$/);
+$aid = 0 unless ($aid =~ /^\d+$/);
 
 if ($bid && $aid) {
     my $uid = $auth->uid;
@@ -81,20 +86,52 @@ if ($bid && $aid) {
     $ui->tparam(pollset=>$pollset);
     $ui->tparam(article_id=>$aid);
     $ui->tparam(board_id=>$bid);
-    $ui->tparam(xtab_form=>1) if ($pollset && @$pollset > 1);
+    # cross-tab entry links: every poll pair plus each poll x 기수 (the
+    # ki axis is what gives a single-poll article a cross-tab at all).
+    # Plain GET links, no script -- the 교차분석 link _pollset.tmpl
+    # renders inside read.cgi's article page navigates here. Tally-
+    # hidden election polls are skipped: their cross-tabs are refused
+    # server-side, and a link into a silent refusal is the blank the
+    # gated flag was invented to kill.
+    if ($pollset && @$pollset) {
+        my @xlink;
+        foreach my $i (0 .. $#$pollset) {
+            next if (Bawi::Board::is_tally_hidden($$pollset[$i]{poll_id}));
+            foreach my $j ($i + 1 .. $#$pollset) {
+                next if (Bawi::Board::is_tally_hidden($$pollset[$j]{poll_id}));
+                push @xlink,
+                     { label=>sprintf('%d × %d', $i + 1, $j + 1),
+                       href=>qq(poll.cgi?bid=$bid;aid=$aid;mode=xtab)
+                            .qq(;p1=$$pollset[$i]{poll_id};p2=$$pollset[$j]{poll_id}) };
+            }
+            push @xlink,
+                 { label=>sprintf('%d × 기수', $i + 1),
+                   href=>qq(poll.cgi?bid=$bid;aid=$aid;mode=xtab)
+                        .qq(;p1=$$pollset[$i]{poll_id};p2=ki) };
+        }
+        $ui->tparam(xtab_links=>\@xlink);
+    }
     if ($mode eq 'xtab') {
         my ($p1, $p2) = map { $ui->cparam($_) || '' } qw(p1 p2);
         my $xtab;
-        $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2,
-                                   -board_id=>$bid, -article_id=>$aid,
-                                   -uid=>$uid)
-            if ($p1 =~ /^\d+$/ && $p2 =~ /^\d+$/ &&
-                $bid =~ /^\d+$/ && $aid =~ /^\d+$/);
+        if ($p1 =~ /^\d+$/ && $bid =~ /^\d+$/ && $aid =~ /^\d+$/) {
+            if ($p2 eq 'ki') {
+                $xtab = $xb->get_poll_ki_xtab(-poll_id=>$p1, -board_id=>$bid,
+                                              -article_id=>$aid, -uid=>$uid);
+                $ui->tparam(xtab_ki=>1) if ($xtab);
+            } elsif ($p2 =~ /^\d+$/) {
+                $xtab = $xb->get_poll_xtab(-poll_id1=>$p1, -poll_id2=>$p2,
+                                           -board_id=>$bid, -article_id=>$aid,
+                                           -uid=>$uid);
+            }
+        }
         if ($xtab) {
             $ui->tparam(xtab=>1);
             $ui->tparam(xtab_poll1=>$$xtab{poll1});
             $ui->tparam(xtab_poll2=>$$xtab{poll2});
-            if ($$xtab{suppressed}) {
+            if ($$xtab{gated}) {
+                $ui->tparam(xtab_gated=>1);
+            } elsif ($$xtab{suppressed}) {
                 $ui->tparam(xtab_suppressed=>1);
             } else {
                 # loop params must never be set to a scalar/undef --

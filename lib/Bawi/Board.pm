@@ -21,6 +21,7 @@ $TBL{attach}    = 'bw_xboard_attach';
 $TBL{notice}    = 'bw_xboard_notice';
 $TBL{passwd}    = 'bw_xauth_passwd';
 $TBL{sig}       = 'bw_user_sig';
+$TBL{ki}        = 'bw_user_ki';
 $TBL{group}     = 'bw_group';
 $TBL{poll}      = 'bw_xboard_poll';
 $TBL{opt}       = 'bw_xboard_poll_opt';
@@ -2582,15 +2583,13 @@ sub get_optset {
                 $_->{allow_vote} = $allow_vote;
 
                 #####TEMP CODE#####
-                #if ($pid == 1427) {
-                #if ($pid == 9696 || $pid == 9698) {
-                # if ($pid == 9857) {  ## 13대 동창회장 선거
-                # if ($pid == 9884 || $pid == 9886) { ## 14대 동창회장 선거
-                if ( $pid == 1427 ||
-                     $pid == 9696 || $pid == 9698 || ## 11대 동창회장 선거
-                     $pid == 9804 || ## 12대 동창회장 선거
-                     $pid == 9857 || ## 13대 동창회장 선거
-                     $pid == 9884 || $pid == 9886 )  ## 14대 동창회장 선거
+                # the hidden-election pid list lives ONLY in
+                # is_tally_hidden below -- add a new election's pids
+                # THERE. This used to be a second literal copy of the
+                # list; the xtab paths (which refuse from the same
+                # list) turned any drift between the copies into a
+                # one-click tally reconstruction, so it was deduped.
+                if (&is_tally_hidden($pid))
                 {
                     $_->{pct} = '';
                     $_->{width} = '';
@@ -2602,9 +2601,10 @@ sub get_optset {
 }
 
 sub is_tally_hidden {
-    # election polls whose tallies are policy-hidden: get_optset blanks
-    # their counts (TEMP CODE above), and get_poll_xtab refuses them
-    # outright -- a raw cross-tab would reconstruct the hidden numbers.
+    # THE single source of the hidden-election pid list: get_optset
+    # blanks their counts from it, both xtab paths refuse them, and
+    # poll.cgi skips their entry links. Add each new election's pids
+    # here and nowhere else.
     my $pid = shift || 0;
     return scalar grep { $pid == $_ }
         (1427,
@@ -2644,9 +2644,12 @@ sub get_poll_xtab {
                    $$poll1{article_id} == $aid &&
                    $$poll2{article_id} == $aid);
     # _pollset hides an open poll's results until the viewer answered;
-    # the cross-tab must not show joint counts any earlier.
-    return unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
-                   ($$poll2{is_closed} || &is_answered($p2, $uid)));
+    # the cross-tab must not show joint counts any earlier. A flagged
+    # return (not bare undef) lets the page say WHY nothing is shown --
+    # the silent blank confused even the feature's own field testing.
+    return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, gated=>1 }
+        unless (($$poll1{is_closed} || &is_answered($p1, $uid)) &&
+                ($$poll2{is_closed} || &is_answered($p2, $uid)));
 
     my $sql2 = qq(SELECT a1.opt_id, a2.opt_id, count(*)
                   FROM $TBL{ans} as a1 JOIN $TBL{ans} as a2 USING (uid)
@@ -2679,6 +2682,122 @@ sub get_poll_xtab {
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll}, suppressed=>1 }
         if ($small);
     return { poll1=>$$poll1{poll}, poll2=>$$poll2{poll},
+             cols=>\@col, rows=>\@row, n=>$n,
+             colspan=>scalar(@col) + 1 };
+}
+
+sub get_poll_ki_xtab {
+    my ($self, %arg) = @_;
+    return unless (exists $arg{-poll_id} &&
+                   exists $arg{-board_id} && exists $arg{-article_id});
+
+    my $pid = $arg{-poll_id} || 0;
+    my $bid = $arg{-board_id} || 0;
+    my $aid = $arg{-article_id} || 0;
+    my $uid = $arg{-uid} || 0;
+    return if (&is_tally_hidden($pid));
+
+    my $sql = qq(SELECT poll_id, board_id, article_id, poll,
+                        closed < now() as is_closed
+                 FROM $TBL{poll}
+                 WHERE poll_id=?);
+    my $poll = $DBH->selectrow_hashref($sql, undef, $pid);
+    # bind the poll to the board/article the caller was authorized for,
+    # exactly as get_poll_xtab does.
+    return unless ($poll &&
+                   $$poll{board_id}   == $bid &&
+                   $$poll{article_id} == $aid);
+    return { poll1=>$$poll{poll}, poll2=>'기수', gated=>1 }
+        unless ($$poll{is_closed} || &is_answered($pid, $uid));
+
+    # ki 0 means "no cohort registered" -- those answers stay out of the
+    # table (and out of n; the footer says so) rather than forming a
+    # fake cohort column.
+    my $sql2 = qq(SELECT a.opt_id, k.ki, count(*)
+                  FROM $TBL{ans} as a JOIN $TBL{ki} as k USING (uid)
+                  WHERE a.poll_id=? && k.ki > 0
+                  GROUP BY 1, 2);
+    my $rv = $DBH->selectall_arrayref($sql2, undef, $pid);
+    my %cnt;
+    my $n = 0;
+    foreach my $i (@$rv) {
+        # keyed ki-first (the inverse of get_poll_xtab's row-first %cnt)
+        # because banding consumes whole per-ki slices below
+        $cnt{$$i[1]}{$$i[0]} = $$i[2];
+        $n += $$i[2];
+    }
+
+    my $opt = &get_optset($pid, 0, 0);
+    # Adaptive banding instead of get_poll_xtab's all-or-nothing rule:
+    # seed one band per ki, then while any populated cell holds 1-2
+    # voters (few enough to name individuals), merge that band into a
+    # neighbor. Unlike masking single cells, merged bands can't be
+    # solved back from the public marginals; whatever merging can't fix
+    # (a lone sparse band, a 1-2 voter ki-less remainder) the terminal
+    # check below suppresses outright. Accepted residual: boundaries
+    # are data-derived, so a merged label certifies its sub-cohorts
+    # were sparse -- a <=2-sized constraint, proportionate here.
+    my @band = map  { { lo=>$_, hi=>$_, cnt=>$cnt{$_} } }
+               sort { $a <=> $b } keys %cnt;
+    my $again = 1;
+    while ($again && @band > 1) {
+        $again = 0;
+        foreach my $b (0 .. $#band) {
+            my $small = 0;
+            foreach my $o (@$opt) {
+                my $c = $band[$b]{cnt}{$$o{opt_id}} || 0;
+                ++$small if ($c && $c < 3);
+            }
+            next unless ($small);
+            # merge into the left (adjacent-cohort) neighbor; band 0
+            # has no left neighbor, so it merges right
+            my $into = $b > 0 ? $b - 1 : 1;
+            foreach my $k (keys %{$band[$b]{cnt}}) {
+                $band[$into]{cnt}{$k} += $band[$b]{cnt}{$k};
+            }
+            $band[$into]{lo} = $band[$b]{lo} if ($band[$b]{lo} < $band[$into]{lo});
+            $band[$into]{hi} = $band[$b]{hi} if ($band[$b]{hi} > $band[$into]{hi});
+            splice(@band, $b, 1);
+            # band indexes shifted; rescan from the start
+            $again = 1;
+            last;
+        }
+    }
+
+    # Terminal safety net. The merge loop's invariant (every populated
+    # cell >= 3) holds only for multi-band exits; a single-band exit can
+    # still carry a 1-2 voter cell -- and that is NOT the public tally:
+    # the label names the observed cohort range and the counts exclude
+    # ki-less voters, so a 1-voter cell pins one member's vote to their
+    # cohort. Suppress instead, the sibling's rule at band granularity.
+    return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+        unless ($n);
+    foreach my $b (@band) {
+        foreach my $o (@$opt) {
+            my $c = $$b{cnt}{$$o{opt_id}} || 0;
+            return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+                if ($c && $c < 3);
+        }
+    }
+    # A 1-2 voter ki-less remainder is just as identifying: subtracting
+    # the table's column sums from the public per-option tally recovers
+    # those voters' options. Counted from the answers table (the public
+    # opt counters can drift historically and are not the anonymity set).
+    my $sql3 = qq(SELECT COUNT(*) FROM $TBL{ans} WHERE poll_id=?);
+    my ($tot) = $DBH->selectrow_array($sql3, undef, $pid);
+    my $rest = ($tot || 0) - $n;
+    return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+        if ($rest > 0 && $rest < 3);
+
+    my @col = map { { opt=>$$_{lo} == $$_{hi} ? qq($$_{lo}기)
+                                              : qq($$_{lo}~$$_{hi}기) } }
+              @band;
+    my @row;
+    foreach my $i (@$opt) {
+        my @cell = map { { cnt=>$$_{cnt}{$$i{opt_id}} || 0 } } @band;
+        push @row, { opt=>$$i{opt}, cell=>\@cell };
+    }
+    return { poll1=>$$poll{poll}, poll2=>'기수',
              cols=>\@col, rows=>\@row, n=>$n,
              colspan=>scalar(@col) + 1 };
 }

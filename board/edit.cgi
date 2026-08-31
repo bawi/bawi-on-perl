@@ -48,6 +48,9 @@ $ui->tparam(board_title=>$xb->title);
 $ui->tparam(owner=>[{name=>$xb->name, id=>$xb->id}] );
 $ui->tparam(img=>$img);
 $ui->tparam(member=>1);
+# _pollset.tmpl hides its cross-tab link here -- navigating away
+# mid-edit would lose the unsaved title/body
+$ui->tparam(edit_page=>1);
 
 my $allow_attach = $xb->allow_attach || 0;
 my $AllowAttach = $ui->cfg->AllowAttach || 0;
