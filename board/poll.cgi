@@ -16,6 +16,11 @@ unless ($auth->auth) {
 }
 my ($bid, $aid, $pid, $oid, $del, $mode)
     = map { $ui->cparam($_) || '' } qw(bid aid pid oid del mode);
+# force numeric ids up front (read.cgi's pattern): both are reflected
+# into the xtab link hrefs, so a non-numeric value must die here, not
+# ride a MariaDB leading-digit coercion into the rendered page.
+$bid = 0 unless ($bid =~ /^\d+$/);
+$aid = 0 unless ($aid =~ /^\d+$/);
 
 if ($bid && $aid) {
     my $uid = $auth->uid;
@@ -83,11 +88,17 @@ if ($bid && $aid) {
     $ui->tparam(board_id=>$bid);
     # cross-tab entry links: every poll pair plus each poll x 기수 (the
     # ki axis is what gives a single-poll article a cross-tab at all).
-    # Plain GET links, no script -- read.cgi's inline block lands here.
+    # Plain GET links, no script -- the 교차분석 link _pollset.tmpl
+    # renders inside read.cgi's article page navigates here. Tally-
+    # hidden election polls are skipped: their cross-tabs are refused
+    # server-side, and a link into a silent refusal is the blank the
+    # gated flag was invented to kill.
     if ($pollset && @$pollset) {
         my @xlink;
         foreach my $i (0 .. $#$pollset) {
+            next if (Bawi::Board::is_tally_hidden($$pollset[$i]{poll_id}));
             foreach my $j ($i + 1 .. $#$pollset) {
+                next if (Bawi::Board::is_tally_hidden($$pollset[$j]{poll_id}));
                 push @xlink,
                      { label=>sprintf('%d × %d', $i + 1, $j + 1),
                        href=>qq(poll.cgi?bid=$bid;aid=$aid;mode=xtab)

@@ -2583,15 +2583,13 @@ sub get_optset {
                 $_->{allow_vote} = $allow_vote;
 
                 #####TEMP CODE#####
-                #if ($pid == 1427) {
-                #if ($pid == 9696 || $pid == 9698) {
-                # if ($pid == 9857) {  ## 13대 동창회장 선거
-                # if ($pid == 9884 || $pid == 9886) { ## 14대 동창회장 선거
-                if ( $pid == 1427 ||
-                     $pid == 9696 || $pid == 9698 || ## 11대 동창회장 선거
-                     $pid == 9804 || ## 12대 동창회장 선거
-                     $pid == 9857 || ## 13대 동창회장 선거
-                     $pid == 9884 || $pid == 9886 )  ## 14대 동창회장 선거
+                # the hidden-election pid list lives ONLY in
+                # is_tally_hidden below -- add a new election's pids
+                # THERE. This used to be a second literal copy of the
+                # list; the xtab paths (which refuse from the same
+                # list) turned any drift between the copies into a
+                # one-click tally reconstruction, so it was deduped.
+                if (&is_tally_hidden($pid))
                 {
                     $_->{pct} = '';
                     $_->{width} = '';
@@ -2603,9 +2601,10 @@ sub get_optset {
 }
 
 sub is_tally_hidden {
-    # election polls whose tallies are policy-hidden: get_optset blanks
-    # their counts (TEMP CODE above), and get_poll_xtab refuses them
-    # outright -- a raw cross-tab would reconstruct the hidden numbers.
+    # THE single source of the hidden-election pid list: get_optset
+    # blanks their counts from it, both xtab paths refuse them, and
+    # poll.cgi skips their entry links. Add each new election's pids
+    # here and nowhere else.
     my $pid = shift || 0;
     return scalar grep { $pid == $_ }
         (1427,
@@ -2722,6 +2721,8 @@ sub get_poll_ki_xtab {
     my %cnt;
     my $n = 0;
     foreach my $i (@$rv) {
+        # keyed ki-first (the inverse of get_poll_xtab's row-first %cnt)
+        # because banding consumes whole per-ki slices below
         $cnt{$$i[1]}{$$i[0]} = $$i[2];
         $n += $$i[2];
     }
@@ -2730,10 +2731,12 @@ sub get_poll_ki_xtab {
     # Adaptive banding instead of get_poll_xtab's all-or-nothing rule:
     # seed one band per ki, then while any populated cell holds 1-2
     # voters (few enough to name individuals), merge that band into a
-    # neighbor. Coarsening beats refusing here because the worst case --
-    # a single band -- just reproduces the public per-option tally, so
-    # every reachable state leaks nothing new; and unlike masking single
-    # cells, merged bands can't be solved back from the public marginals.
+    # neighbor. Unlike masking single cells, merged bands can't be
+    # solved back from the public marginals; whatever merging can't fix
+    # (a lone sparse band, a 1-2 voter ki-less remainder) the terminal
+    # check below suppresses outright. Accepted residual: boundaries
+    # are data-derived, so a merged label certifies its sub-cohorts
+    # were sparse -- a <=2-sized constraint, proportionate here.
     my @band = map  { { lo=>$_, hi=>$_, cnt=>$cnt{$_} } }
                sort { $a <=> $b } keys %cnt;
     my $again = 1;
@@ -2746,7 +2749,9 @@ sub get_poll_ki_xtab {
                 ++$small if ($c && $c < 3);
             }
             next unless ($small);
-            my $into = $b ? $b - 1 : 1;
+            # merge into the left (adjacent-cohort) neighbor; band 0
+            # has no left neighbor, so it merges right
+            my $into = $b > 0 ? $b - 1 : 1;
             foreach my $k (keys %{$band[$b]{cnt}}) {
                 $band[$into]{cnt}{$k} += $band[$b]{cnt}{$k};
             }
@@ -2758,6 +2763,31 @@ sub get_poll_ki_xtab {
             last;
         }
     }
+
+    # Terminal safety net. The merge loop's invariant (every populated
+    # cell >= 3) holds only for multi-band exits; a single-band exit can
+    # still carry a 1-2 voter cell -- and that is NOT the public tally:
+    # the label names the observed cohort range and the counts exclude
+    # ki-less voters, so a 1-voter cell pins one member's vote to their
+    # cohort. Suppress instead, the sibling's rule at band granularity.
+    return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+        unless ($n);
+    foreach my $b (@band) {
+        foreach my $o (@$opt) {
+            my $c = $$b{cnt}{$$o{opt_id}} || 0;
+            return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+                if ($c && $c < 3);
+        }
+    }
+    # A 1-2 voter ki-less remainder is just as identifying: subtracting
+    # the table's column sums from the public per-option tally recovers
+    # those voters' options. Counted from the answers table (the public
+    # opt counters can drift historically and are not the anonymity set).
+    my $sql3 = qq(SELECT COUNT(*) FROM $TBL{ans} WHERE poll_id=?);
+    my ($tot) = $DBH->selectrow_array($sql3, undef, $pid);
+    my $rest = ($tot || 0) - $n;
+    return { poll1=>$$poll{poll}, poll2=>'기수', suppressed=>1 }
+        if ($rest > 0 && $rest < 3);
 
     my @col = map { { opt=>$$_{lo} == $$_{hi} ? qq($$_{lo}기)
                                               : qq($$_{lo}~$$_{hi}기) } }
