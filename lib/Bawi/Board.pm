@@ -1242,6 +1242,13 @@ sub embed_attach_tokens {
     # literal token and attach/detach can never serve stale ids. The
     # emitted markup carries only atid+filename (no author identity),
     # so the anonboard concern on make_hyperlink does not apply here.
+    #
+    # Accepted limitation (positional, not identity-bound): detaching a
+    # MIDDLE attachment silently reaims the later tokens down one slot
+    # (only a now-out-of-range tail token shows the visible marker). The
+    # compose-once flow this feature exists for never hits it; binding a
+    # token to a stable id would need a write-path rewrite that freezes
+    # later-added attachments -- deliberately not done.
     return $html unless (defined $html && $article && $$article{article_id});
     return $html unless ($html =~ /\[\[(?:첨부|attach)\d+\]\]/);
 
@@ -1253,6 +1260,11 @@ sub embed_attach_tokens {
     # article DEMONSTRATING the token still shows it literally. A single
     # scan (not a paired-tag split) also avoids quadratic backtracking on a
     # raw-HTML body, where unclosed <pre>/<code> openers are legal TEXT.
+    # <[^>]*> stays linear on purpose: a literal '>' inside a quoted
+    # attribute ends the tag early (a token right after it would be
+    # substituted), but that is malformed body HTML on an already-non-
+    # sanitizing surface -- not worth the char scanner a quote-aware match
+    # would need to stay linear.
     my $out = '';
     my $skip = 0;   # >0 while inside one or more open pre/code regions
     while ($html =~ /\G(.*?)(<[^>]*>|\[\[(?:첨부|attach)(\d+)\]\])/sgc) {
