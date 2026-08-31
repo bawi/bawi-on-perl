@@ -29,8 +29,10 @@
 #      saved + sibling + unrelated notes, manual unsend) + profile-link
 #      rendering and the anonboard negative
 #   5  attachments: upload -> detach round-trip (row/file/link), the
-#      ghost-row detach (file missing must not keep the row), and the
-#      ghost-image counter balance
+#      ghost-row detach (file missing must not keep the row), the
+#      ghost-image counter balance, and inline [[첨부N]]/[[attachN]]
+#      body tokens (render-time resolution in both body modes: img,
+#      link, visible out-of-range marker, code-block escape)
 #   6  polls: write-in (uopt) polls save with 1 or 0 seed options, the
 #      vote creates the option once (dedup) recording every answer, the
 #      0-seed poll renders without a phantom option row, and a fixed
@@ -55,7 +57,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=57
+EXPECTED=60
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -658,6 +660,67 @@ got=$(db "SELECT COUNT(*) FROM bw_xboard_attach WHERE attach_id=$giatid") || exi
 img1=$(db "SELECT images FROM bw_xboard_board WHERE board_id=2") || exit 1
 [ "$img1" = "$img0" ] || fail "board image counter drifted on ghost-image detach ($img0 -> $img1)"
 ok "ghost-image detach keeps the board image counter balanced"
+
+# inline attachment tokens: [[첨부N]] / [[attachN]] resolve at render
+# time from the article's attachment list (position, not id -- the id
+# does not exist while composing). Markdown article: image token ->
+# inline img, non-image -> link, out-of-range -> visible marker, and a
+# token inside a fenced code block stays LITERAL (an article can
+# demonstrate its own syntax).
+printf 'token attach payload %s\n' "$$" > "$TMP/tok.txt"
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=token md smoke" \
+      -F "markup=1" \
+      -F "body=fig one: [[첨부1]]
+
+file two: [[attach2]]
+
+missing: [[첨부9]]
+
+\`\`\`
+[[첨부1]] shown literally
+\`\`\`" \
+      -F "attach_no=2" -F "attach1=@$TMP/att.png;type=image/png" -F "attach2=@$TMP/tok.txt"
+[ "$CODE" = "302" ] || fail "token md: write: HTTP $CODE"
+tkaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+tk1=$(db "SELECT MIN(attach_id) FROM bw_xboard_attach WHERE article_id=$tkaid") || exit 1
+tk2=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$tkaid") || exit 1
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tkaid"
+has "<img class=\"internal\" src=\"attach.cgi?atid=$tk1" || fail "token md: [[첨부1]] did not render the first attachment inline"
+has "<a href=\"attach.cgi?atid=$tk2" || fail "token md: [[attach2]] did not render the non-image as a link"
+# grep -F: '[' opens a BRE bracket expression, so has() can't match these
+grep -qF "[첨부9 없음]" "$TMP/body" || fail "token md: out-of-range token did not render the visible marker"
+grep -qF "[[첨부1]] shown literally" "$TMP/body" || fail "token md: token inside a code block was substituted"
+ok "attachment tokens resolve in markdown mode (img, link, marker, code-block escape)"
+
+# plain (non-markdown) article: same tokens, same resolution
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=token plain smoke" \
+      -F "body=plain fig: [[첨부1]] and missing [[attach7]] host $$" \
+      -F "attach_no=1" -F "attach1=@$TMP/att.png;type=image/png"
+[ "$CODE" = "302" ] || fail "token plain: write: HTTP $CODE"
+tpaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+tp1=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$tpaid") || exit 1
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tpaid"
+has "<img class=\"internal\" src=\"attach.cgi?atid=$tp1" || fail "token plain: [[첨부1]] did not render inline"
+grep -qF "[첨부7 없음]" "$TMP/body" || fail "token plain: out-of-range token did not render the marker"
+ok "attachment tokens resolve in plain mode too"
+
+# token context safety: a token must stay LITERAL inside an HTML tag
+# (an attribute is not a substitution site -- it would corrupt the tag)
+# and inside an uppercase <PRE> block (the pre/code escape is case-
+# insensitive), while a bare token in text still resolves. Plain mode so
+# the raw HTML passes through verbatim (no markdown parsing to reason
+# about); board 2's escaped_tags denylist omits pre/b, so both survive.
+fetch "$J2" "$BASE/board/write.cgi" -F "bid=2" -F "title=token ctx smoke" \
+      -F "body=upper <PRE>[[첨부1]]</PRE> attr <b title=\"[[attach1]]\">x</b> text [[첨부1]] end $$" \
+      -F "attach_no=1" -F "attach1=@$TMP/att.png;type=image/png"
+[ "$CODE" = "302" ] || fail "token ctx: write: HTTP $CODE"
+tcaid=$(db "SELECT MAX(article_id) FROM bw_xboard_header WHERE board_id=2") || exit 1
+tc1=$(db "SELECT MAX(attach_id) FROM bw_xboard_attach WHERE article_id=$tcaid") || exit 1
+fetch "$J2" "$BASE/board/read.cgi?bid=2&aid=$tcaid"
+grep -qF "[[첨부1]]</PRE>" "$TMP/body" || fail "token ctx: token inside uppercase <PRE> was substituted"
+grep -qF 'title="[[attach1]]"' "$TMP/body" || fail "token ctx: token inside an HTML attribute was substituted"
+has "<img class=\"internal\" src=\"attach.cgi?atid=$tc1" || fail "token ctx: the bare text token did not resolve (positive control)"
+ok "attachment tokens stay literal inside tags and <PRE>, resolve in text"
 
 # ============================================================= tier 6: polls
 # Write-in polls: a poll with "voters may add an option" (uopt) needs NO
