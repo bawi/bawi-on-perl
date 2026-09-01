@@ -1,0 +1,42 @@
+<tmpl_include _html_header.tmpl>
+<body class="<tmpl_if skin><tmpl_var skin></tmpl_if> <tmpl_if a_read>anonymous</tmpl_if>">
+<tmpl_include _header.tmpl>
+
+<div class="top-head">
+<h1><a href="mysessions.cgi">현재 접속 중인 기기 보기</a></h1>
+<span class="owner">: <tmpl_include _name_id.tmpl></span>
+<span class="breadcrumb"><tmpl_include _breadcrumb.tmpl></span>
+<tmpl_var ua>
+</div>
+
+<!-- LIST -->
+<div class="visualClear" style="height: 20px;"></div>
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi" accesskey="b">즐겨찾기</a></li>
+<li class="button separator" id="article-<tmpl_var article_id>"><a>&nbsp;</a></li>
+</ul>
+
+<div class="article-list wrapper">
+<ul class="article-list head">
+  <li class="article">location</li>
+  <li class="comment">device</li>
+  <li class="date">date</li>
+</ul>
+<tmpl_loop sessions>
+<ul class="article-list">
+  <li><tmpl_var ip_address></li>
+  <li><tmpl_var user_agent></li>
+  <li class="date"><span title=""><tmpl_var created></span></li>
+  <li class=""><a href="remove_session.cgi?session_key=<tmpl_var session_key>">x</a></li>
+</ul>
+</tmpl_loop>
+
+</div><!-- article-list wrapper -->
+
+<ul class="article head">
+<li class="button"><a href="bookmark.cgi">즐겨찾기</a></li>
+<li class="button separator" id="article-<tmpl_var article_id>"><a>&nbsp;</a></li>
+</ul>
+
+<tmpl_include _footer.tmpl>
