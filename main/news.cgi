@@ -192,7 +192,7 @@ foreach my $i (sort { ($$hot_stat{$b}->{score} - $$hot_stat{$b}->{expiry})  <=> 
     $body =~ s/<[A-Za-z\/!?][^>]*\z//s;
     $body =~ s/([-=])+//g;
     $body =~ s/(\.\.)+//g;
-    $body =~ s/[http|mms]\S+//g;
+    $body =~ s{\b(?:https?|mms)://\S+}{}gi;
     my @body = split(/\s+/, $body);
     my $last = $#body < 15 ? $#body : 15;
     $$hot_stat{$i}->{body} = join(" ", @body[0..$last]) . "... [more]";
