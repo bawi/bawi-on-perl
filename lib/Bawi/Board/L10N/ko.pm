@@ -30,6 +30,7 @@ use vars qw( %Lexicon );
     'T_SCRAPPED' => '스크랩',
     'T_SCRAPBOOK' => '스크랩북',
     'T_RESET' => '모두 읽음 표시',
+    'T_UNREADHERE' => '여기부터 안 읽음',
     'T_NEWARTICLES' => '새 글',
     'T_TITLE' => '제목',
     'T_BODY' => '본문',

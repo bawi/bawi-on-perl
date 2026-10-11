@@ -48,7 +48,9 @@
 #      rewinds the bookmark nor skips unread comments, a fresh link
 #      still reads 15 at a time, rollback still moves back (and keeps
 #      a comment position its link omits), reset still marks all read,
-#      and thread view offers no rollback link (it used to be a reset)
+#      and thread view offers no rollback link (it used to be a reset);
+#      per-article / per-comment "unread from here" move one position
+#      back (never forward), including article 1 and comment 1 (= 0)
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -62,7 +64,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=71
+EXPECTED=76
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -1046,6 +1048,7 @@ fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;tno=5"
 [ "$CODE" = "200" ] || fail "thread view: HTTP $CODE"
 has "bm body 5" || fail "thread view did not render the thread"
 has "\[rollback\]" && fail "thread view shows a rollback link"
+has "l[ac]=[0-9]*;a=rb" && fail "thread view shows an unread-from-here button"
 ok "thread view shows no rollback link"
 
 # a=na (no numbers in the link) offers rollback to the stored position
@@ -1053,6 +1056,34 @@ setbm 2 1
 fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;a=na"
 has "la=2;lc=1;a=rb" || fail "a=na rollback link does not carry the stored position"
 ok "a=na rollback link carries the stored position"
+
+# per-article "unread from here": article 5's button sets article 4 and
+# keeps the comment position
+setbm 2 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=1"
+has "bid=$BMB;la=4;a=rb" || fail "no unread-from-here button for article 5"
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=4;a=rb"
+bmis "4/2" "per-article unread-from-here rolls back to before that article"
+
+setbm 17 2
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=0;a=rb"
+bmis "0/2" "unread-from-here on article 1 (la=0) is a rollback, not a reset"
+
+setbm 4 2
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=10;a=rb"
+bmis "4/2" "unread-from-here never moves the bookmark forward"
+
+# per-comment: comment 2 (on article 17, outside the 19..20 window) is
+# listed as a new comment; its button sets comment 1, articles untouched
+setbm 18 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=18;lc=1"
+has "bid=$BMB;lc=1;a=rb" || fail "no unread-from-here button for new comment 2"
+setbm 20 3
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;lc=1;a=rb"
+bmis "20/1" "per-comment unread-from-here rolls back to before that comment"
+
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;lc=0;a=rb"
+bmis "20/0" "unread-from-here on comment 1 (lc=0) is a rollback, not a reset"
 
 # reset (no numbers) still marks the board read
 setbm 2 0
