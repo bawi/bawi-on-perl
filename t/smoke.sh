@@ -44,6 +44,10 @@
 #      dense cohorts standing alone (multi-band render), a sparse
 #      single band suppressing instead of publishing, and a 1-2 voter
 #      ki-less remainder suppressing (the subtraction guard)
+#   8  read bookmarks: a replayed (stale) new-articles link neither
+#      rewinds the bookmark nor skips unread comments, a fresh link
+#      still reads 15 at a time, rollback still moves back (and keeps
+#      a comment position its link omits), reset still marks all read
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -57,7 +61,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=61
+EXPECTED=69
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -952,6 +956,93 @@ db "INSERT INTO bw_xboard_poll_ans (poll_id, uid, opt_id) VALUES ($kpid, 9010, $
 fetch "$J2" "$BASE/board/poll.cgi?bid=2&aid=$kaid&mode=xtab&p1=$kpid&p2=ki"
 has "표시하지 않습니다" || fail "a 1-voter ki-less remainder did not suppress the ki table"
 ok "a 1-2 voter ki-less remainder suppresses the ki table (subtraction guard)"
+
+# ==================================================== tier 8: read bookmarks
+# Own board (copy of board 2's settings), 20 articles, 3 comments:
+#   comment 1 on article 1, comment 2 on article 17, comment 3 on article 19.
+# Each check sets tester02's stored bookmark, requests read.cgi like a
+# bookmark/RSS link would, and asserts the stored row afterwards.
+BMB=90
+db "DELETE FROM bw_xboard_board WHERE board_id=$BMB;
+    DELETE FROM bw_xboard_header WHERE board_id=$BMB;
+    DELETE FROM bw_xboard_body WHERE board_id=$BMB;
+    DELETE FROM bw_xboard_comment WHERE board_id=$BMB;
+    DELETE FROM bw_xboard_commentref WHERE board_id=$BMB;
+    DELETE FROM bw_xboard_bookmark WHERE board_id=$BMB;
+    CREATE TEMPORARY TABLE bmb SELECT * FROM bw_xboard_board WHERE board_id=2;
+    UPDATE bmb SET board_id=$BMB, keyword='bmtest', articles=20,
+                   max_article_no=20, max_comment_no=3;
+    INSERT INTO bw_xboard_board SELECT * FROM bmb;
+    INSERT INTO bw_xboard_header (article_no, parent_no, thread_no, board_id,
+                                  title, uid, id, name, created)
+      SELECT seq, seq, seq, $BMB, CONCAT('bm article ', seq), 2, 'tester02',
+             'tester02', NOW() - INTERVAL (21 - seq) MINUTE FROM seq_1_to_20;
+    INSERT INTO bw_xboard_body (article_id, board_id, body)
+      SELECT article_id, $BMB, CONCAT('bm body ', article_no)
+      FROM bw_xboard_header WHERE board_id=$BMB;
+    INSERT INTO bw_xboard_comment (comment_no, board_id, article_id, body,
+                                   uid, id, name, created)
+      SELECT c.n, $BMB, h.article_id, CONCAT('BMCOMMENT-', c.n, '-$$'), 2,
+             'tester02', 'tester02', NOW()
+      FROM (SELECT 1 n, 1 a UNION SELECT 2, 17 UNION SELECT 3, 19) c
+      JOIN bw_xboard_header h ON h.board_id=$BMB AND h.article_no=c.a;
+    UPDATE bw_xboard_header h SET comments=(SELECT COUNT(*)
+      FROM bw_xboard_comment c WHERE c.article_id=h.article_id)
+      WHERE h.board_id=$BMB;
+    INSERT INTO bw_xboard_commentref (board_id, article_id, comment_id,
+                                      comment_no, ref_id, ref_no)
+      SELECT board_id, article_id, comment_id, comment_no, comment_id,
+             comment_no FROM bw_xboard_comment WHERE board_id=$BMB;" >/dev/null || exit 1
+BMU=$(db "SELECT uid FROM bw_xauth_passwd WHERE id='tester02'") || exit 1
+db "INSERT INTO bw_xboard_bookmark (uid, board_id, article_no, comment_no, seq)
+    VALUES ($BMU, $BMB, 0, 0, 99)" >/dev/null || exit 1
+login tester02; J2=$JAR
+
+# setbm <article_no> <comment_no>; bmis <expected "a/c"> <check name>
+setbm() { db "UPDATE bw_xboard_bookmark SET article_no=$1, comment_no=$2
+              WHERE uid=$BMU AND board_id=$BMB" >/dev/null || exit 1; }
+bmis() {
+    _got=$(db "SELECT CONCAT(article_no,'/',comment_no) FROM bw_xboard_bookmark
+               WHERE uid=$BMU AND board_id=$BMB") || exit 1
+    [ "$_got" = "$1" ] || fail "$2: bookmark is $_got, expected $1"
+    ok "$2"
+}
+
+# fresh link = stored values; reads 15 articles (3..17) in article_no order
+setbm 2 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=1"
+[ "$CODE" = "200" ] || fail "bookmark fresh link: HTTP $CODE"
+bmis "17/2" "fresh new-articles link reads the next 15 articles"
+
+# stale link (back/reload/old tab) after the user had read up to 18/3
+setbm 18 3
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=1"
+bmis "20/3" "a stale new-articles link does not rewind the bookmark"
+has "la=18;lc=3;a=rb" || fail "rollback link does not carry the stored pre-read position"
+ok "rollback link carries the stored position, not the stale link's"
+
+# stale link whose 15-article window has no comments must not skip the
+# unread comments 2 (on article 17) and 3 (on article 19)
+setbm 18 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=1;lc=1"
+has "BMCOMMENT-2-$$" || fail "unread comment 2 not shown to a stale link"
+bmis "20/3" "a stale link shows unread comments instead of skipping them"
+
+# rollback moves back, with and without a comment number in the link
+setbm 20 3
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=1;a=rb"
+bmis "2/1" "rollback still moves the bookmark back"
+setbm 20 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;a=rb"
+bmis "2/1" "rollback without lc keeps the comment position"
+setbm 20 3
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=0;a=rb"
+bmis "2/0" "rollback with lc=0 restores comment position 0"
+
+# reset (no numbers) still marks the board read
+setbm 2 0
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;a=rb"
+bmis "20/3" "reset still marks the board read"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"

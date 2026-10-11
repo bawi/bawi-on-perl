@@ -192,13 +192,24 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
     if ($bm and ( $la or $lc ) and $a and $a eq 'rb') { # rollback bookmark (if la or lc are given, set this)
-		# note that la, lc are sanitized as numerics.
-		# in principle, if comment_no or article_no are zero, it should set in the library.
-		# (it wasn't so updated as well) 2014. 01. 03. -WWolf
-        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid, -article_no=>$la, -comment_no=>$lc);
+        # A number missing from the link (or non-numeric) keeps the stored
+        # value: old rollback links dropped lc when it was 0, and must not
+        # mark every comment read. An explicit 0 restores 0.
+        my %rb_given = map { my $v = $q->param($_);
+                             ($_ => (defined $v && $v =~ /^\d+$/)) } qw(la lc);
+        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid,
+                          -article_no=>($rb_given{la} ? $la : $bm->{article_no}),
+                          -comment_no=>($rb_given{lc} ? $lc : $bm->{comment_no}));
 		
 		# do not load anything as new articles.
     } elsif ($bm and ( $la or $lc )) { # new articles
+        # Read from the STORED bookmark, not the link: la/lc in the URL are
+        # a snapshot from when the link was rendered, so a replayed link
+        # (back/reload, old tab, restored session, RSS item) would rewind
+        # the bookmark or skip comments. For a fresh link the two agree.
+        # The rollback link gets the same "before this read" values.
+        ($la, $lc) = ($bm->{article_no}, $bm->{comment_no});
+        $t->param(la=>$la, lc=>$lc);
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$la,
                                        -max_article_count=> $max_article_count);
