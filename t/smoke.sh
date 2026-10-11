@@ -47,7 +47,8 @@
 #   8  read bookmarks: a replayed (stale) new-articles link neither
 #      rewinds the bookmark nor skips unread comments, a fresh link
 #      still reads 15 at a time, rollback still moves back (and keeps
-#      a comment position its link omits), reset still marks all read
+#      a comment position its link omits), reset still marks all read,
+#      and thread view offers no rollback link (it used to be a reset)
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -61,7 +62,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=69
+EXPECTED=71
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -1038,6 +1039,20 @@ bmis "2/1" "rollback without lc keeps the comment position"
 setbm 20 3
 fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=2;lc=0;a=rb"
 bmis "2/0" "rollback with lc=0 restores comment position 0"
+
+# thread view: no pre-read position, so no rollback link (it rendered as
+# a=rb without numbers -- a board-wide reset labeled "rollback")
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;tno=5"
+[ "$CODE" = "200" ] || fail "thread view: HTTP $CODE"
+has "bm body 5" || fail "thread view did not render the thread"
+has "\[rollback\]" && fail "thread view shows a rollback link"
+ok "thread view shows no rollback link"
+
+# a=na (no numbers in the link) offers rollback to the stored position
+setbm 2 1
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;a=na"
+has "la=2;lc=1;a=rb" || fail "a=na rollback link does not carry the stored position"
+ok "a=na rollback link carries the stored position"
 
 # reset (no numbers) still marks the board read
 setbm 2 0

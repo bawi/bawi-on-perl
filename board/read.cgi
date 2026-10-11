@@ -209,7 +209,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         # the bookmark or skip comments. For a fresh link the two agree.
         # The rollback link gets the same "before this read" values.
         ($la, $lc) = ($bm->{article_no}, $bm->{comment_no});
-        $t->param(la=>$la, lc=>$lc);
+        $t->param(la=>$la, lc=>$lc, new_read=>1);
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$la,
                                        -max_article_count=> $max_article_count);
@@ -299,6 +299,8 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
 } elsif ($allow_read && $a && $uid ) { 
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
     if ($bm && $a eq 'na') { # new articles
+        # the rollback link restores the stored pre-read position
+        $t->param(la=>$bm->{article_no}, lc=>$bm->{comment_no}, new_read=>1);
         # n 개씩 끊어읽기. added by JikhanJung 20031128
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$bm->{article_no},
