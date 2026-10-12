@@ -187,13 +187,15 @@ if ($thread) {
 my $bm = $xb->get_bookmark(-board_id=>$bid, -uid=>$uid)
     if ($uid && $bid);
 
-# Rollback is decided by which numbers the link CARRIES, not by their
-# value: "unread from article 1" is la=0. a=rb with no numbers is reset.
+# Decided by which numbers the link CARRIES, not by their value: a
+# bookmark at 0/0 links la=0;lc=0, "unread from article 1" is la=0.
+# a=rb with no numbers is reset.
 my %rb_given = map { my $v = $q->param($_);
                      ($_ => (defined $v && $v =~ /^\d+$/)) } qw(la lc);
-my $is_rollback = ($a && $a eq 'rb' && ($rb_given{la} || $rb_given{lc}));
+my $has_pos = ($rb_given{la} || $rb_given{lc});
+my $is_rollback = ($a && $a eq 'rb' && $has_pos);
 
-if ($allow_read and ( $la or $lc or $is_rollback ) and $uid ) { 
+if ($allow_read and $has_pos and $uid ) { 
     # la - last article no
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
@@ -209,7 +211,7 @@ if ($allow_read and ( $la or $lc or $is_rollback ) and $uid ) {
                           -article_no=>$a_no, -comment_no=>$c_no);
 		
 		# do not load anything as new articles.
-    } elsif ($bm and ( $la or $lc )) { # new articles
+    } elsif ($bm and $has_pos) { # new articles
         # Read from the STORED bookmark, not the link: la/lc in the URL are
         # a snapshot from when the link was rendered, so a replayed link
         # (back/reload, old tab, restored session, RSS item) would rewind

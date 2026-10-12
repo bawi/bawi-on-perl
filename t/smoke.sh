@@ -64,7 +64,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=76
+EXPECTED=77
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -1084,6 +1084,12 @@ bmis "20/1" "per-comment unread-from-here rolls back to before that comment"
 
 fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;lc=0;a=rb"
 bmis "20/0" "unread-from-here on comment 1 (lc=0) is a rollback, not a reset"
+
+# a bookmark at 0/0 links la=0;lc=0: it must still open the new articles
+setbm 0 0
+fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;la=0;lc=0"
+has "bm body 1" || fail "la=0;lc=0 link did not load the new articles"
+bmis "15/1" "a 0/0 bookmark link still reads the new articles"
 
 # reset (no numbers) still marks the board read
 setbm 2 0
