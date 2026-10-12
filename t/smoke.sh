@@ -961,7 +961,8 @@ has "표시하지 않습니다" || fail "a 1-voter ki-less remainder did not sup
 ok "a 1-2 voter ki-less remainder suppresses the ki table (subtraction guard)"
 
 # ==================================================== tier 8: read bookmarks
-# Own board (copy of board 2's settings), 20 articles, 3 comments:
+# Own board (copy of board 2's settings), 20 articles, 3 comments, dated
+# 2001 so they never enter the front page's newest lists (tier 3):
 #   comment 1 on article 1, comment 2 on article 17, comment 3 on article 19.
 # Each check sets tester02's stored bookmark, requests read.cgi like a
 # bookmark/RSS link would, and asserts the stored row afterwards.
@@ -979,14 +980,14 @@ db "DELETE FROM bw_xboard_board WHERE board_id=$BMB;
     INSERT INTO bw_xboard_header (article_no, parent_no, thread_no, board_id,
                                   title, uid, id, name, created)
       SELECT seq, seq, seq, $BMB, CONCAT('bm article ', seq), 2, 'tester02',
-             'tester02', NOW() - INTERVAL (21 - seq) MINUTE FROM seq_1_to_20;
+             'tester02', '2001-01-01' + INTERVAL seq MINUTE FROM seq_1_to_20;
     INSERT INTO bw_xboard_body (article_id, board_id, body)
       SELECT article_id, $BMB, CONCAT('bm body ', article_no)
       FROM bw_xboard_header WHERE board_id=$BMB;
     INSERT INTO bw_xboard_comment (comment_no, board_id, article_id, body,
                                    uid, id, name, created)
       SELECT c.n, $BMB, h.article_id, CONCAT('BMCOMMENT-', c.n, '-$$'), 2,
-             'tester02', 'tester02', NOW()
+             'tester02', 'tester02', '2001-01-02'
       FROM (SELECT 1 n, 1 a UNION SELECT 2, 17 UNION SELECT 3, 19) c
       JOIN bw_xboard_header h ON h.board_id=$BMB AND h.article_no=c.a;
     UPDATE bw_xboard_header h SET comments=(SELECT COUNT(*)

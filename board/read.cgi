@@ -190,12 +190,12 @@ my $bm = $xb->get_bookmark(-board_id=>$bid, -uid=>$uid)
 # Decided by which numbers the link CARRIES, not by their value: a
 # bookmark at 0/0 links la=0;lc=0, "unread from article 1" is la=0.
 # a=rb with no numbers is reset.
-my %rb_given = map { my $v = $q->param($_);
+my %pos_given = map { my $v = $q->param($_);
                      ($_ => (defined $v && $v =~ /^\d+$/)) } qw(la lc);
-my $has_pos = ($rb_given{la} || $rb_given{lc});
+my $has_pos = ($pos_given{la} || $pos_given{lc});
 my $is_rollback = ($a && $a eq 'rb' && $has_pos);
 
-if ($allow_read and $has_pos and $uid ) { 
+if ($allow_read and $has_pos and $uid ) {
     # la - last article no
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
@@ -205,8 +205,8 @@ if ($allow_read and $has_pos and $uid ) {
         # per-comment buttons send one number). Rollback only moves back,
         # so a button on an article not yet reached cannot skip ahead.
         my ($a_no, $c_no) = ($bm->{article_no}, $bm->{comment_no});
-        $a_no = $la if ($rb_given{la} and $la < $a_no);
-        $c_no = $lc if ($rb_given{lc} and $lc < $c_no);
+        $a_no = $la if ($pos_given{la} and $la < $a_no);
+        $c_no = $lc if ($pos_given{lc} and $lc < $c_no);
         $xb->set_bookmark(-board_id=>$bid, -uid=>$uid,
                           -article_no=>$a_no, -comment_no=>$c_no);
 		
