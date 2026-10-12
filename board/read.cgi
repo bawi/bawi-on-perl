@@ -62,7 +62,7 @@ unless ($auth->auth || ($xb->a_read || 0) == 1) {
 
 my $skin = $xb->skin || 'default';
 $ui->init(-template=>'read.tmpl', -skin=>$skin);
-$ui->term(qw(T_BOOKMARK T_PREV T_NEXT T_NEWARTICLES T_IMGLIST T_ARTICLELIST T_WRITE T_THREAD T_REPLY T_EDIT T_DELETE T_TITLE T_NAME T_ID T_ADDBOOKMARK T_DELBOOKMARK T_SCRAP T_SCRAPPED T_READ T_RECOMMEND T_RECOMMENDED T_RETRACT T_RETRACTED T_BOARDCFG T_ADDNOTICE T_DELETENOTICE T_NEWCOMMENTS T_COMMENT T_SAVE T_RESET));
+$ui->term(qw(T_BOOKMARK T_PREV T_NEXT T_NEWARTICLES T_IMGLIST T_ARTICLELIST T_WRITE T_THREAD T_REPLY T_EDIT T_DELETE T_TITLE T_NAME T_ID T_ADDBOOKMARK T_DELBOOKMARK T_SCRAP T_SCRAPPED T_READ T_RECOMMEND T_RECOMMENDED T_RETRACT T_RETRACTED T_BOARDCFG T_ADDNOTICE T_DELETENOTICE T_NEWCOMMENTS T_COMMENT T_SAVE T_RESET T_UNREADHERE));
 my $t = $ui->template;
 $t->param(HTMLTitle=>$xb->title." (".$xb->id.")");
 $t->param(id=>$auth->id);
@@ -187,18 +187,38 @@ if ($thread) {
 my $bm = $xb->get_bookmark(-board_id=>$bid, -uid=>$uid)
     if ($uid && $bid);
 
-if ($allow_read and ( $la or $lc ) and $uid ) { 
+# Decided by which numbers the link CARRIES, not by their value: a
+# bookmark at 0/0 links la=0;lc=0, "unread from article 1" is la=0.
+# a=rb with no numbers is reset.
+my %pos_given = map { my $v = $q->param($_);
+                     ($_ => (defined $v && $v =~ /^\d+$/)) } qw(la lc);
+my $has_pos = ($pos_given{la} || $pos_given{lc});
+my $is_rollback = ($a && $a eq 'rb' && $has_pos);
+
+if ($allow_read and $has_pos and $uid ) {
     # la - last article no
     # lc - last comment no
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
-    if ($bm and ( $la or $lc ) and $a and $a eq 'rb') { # rollback bookmark (if la or lc are given, set this)
-		# note that la, lc are sanitized as numerics.
-		# in principle, if comment_no or article_no are zero, it should set in the library.
-		# (it wasn't so updated as well) 2014. 01. 03. -WWolf
-        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid, -article_no=>$la, -comment_no=>$lc);
+    if ($bm and $is_rollback) { # rollback bookmark (if la or lc are given, set this)
+        # A number missing from the link keeps the stored value (old
+        # rollback links dropped lc when it was 0; the per-article and
+        # per-comment buttons send one number). Rollback only moves back,
+        # so a button on an article not yet reached cannot skip ahead.
+        my ($a_no, $c_no) = ($bm->{article_no}, $bm->{comment_no});
+        $a_no = $la if ($pos_given{la} and $la < $a_no);
+        $c_no = $lc if ($pos_given{lc} and $lc < $c_no);
+        $xb->set_bookmark(-board_id=>$bid, -uid=>$uid,
+                          -article_no=>$a_no, -comment_no=>$c_no);
 		
 		# do not load anything as new articles.
-    } elsif ($bm and ( $la or $lc )) { # new articles
+    } elsif ($bm and $has_pos) { # new articles
+        # Read from the STORED bookmark, not the link: la/lc in the URL are
+        # a snapshot from when the link was rendered, so a replayed link
+        # (back/reload, old tab, restored session, RSS item) would rewind
+        # the bookmark or skip comments. For a fresh link the two agree.
+        # The rollback link gets the same "before this read" values.
+        ($la, $lc) = ($bm->{article_no}, $bm->{comment_no});
+        $t->param(la=>$la, lc=>$lc, new_read=>1);
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$la,
                                        -max_article_count=> $max_article_count);
@@ -211,6 +231,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         my $max_comment_no = -1;
         if ($#{$na} > -1) {
             foreach my $i (@$na) {
+                $$i{rb_la} = $$i{article_no} - 1; # "unread from here"
                 $$i{title} = $q->escapeHTML($$i{title}); 
                 $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
                 $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
@@ -244,6 +265,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         my %read_article;
         my $commentref_flag;
         foreach my $c (@$new_comments) {
+            $$c{rb_lc} = $$c{comment_no} - 1 if $$c{comment_no};
             $max_comment_no = $$c{comment_no} 
                 if( $max_comment_no < ($$c{comment_no} || -1));
             $commentref_flag = 1 if ($$c{comment_no} <= $lc);
@@ -288,6 +310,8 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
 } elsif ($allow_read && $a && $uid ) { 
     $xb->add_new_bookmark(-board_id=>$bid, -uid=>$uid) unless ($bm);
     if ($bm && $a eq 'na') { # new articles
+        # the rollback link restores the stored pre-read position
+        $t->param(la=>$bm->{article_no}, lc=>$bm->{comment_no}, new_read=>1);
         # n 개씩 끊어읽기. added by JikhanJung 20031128
         my $max_article_count = 15;
         my $na = $xb->get_new_articles(-article_no=>$bm->{article_no},
@@ -301,6 +325,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         my $max_comment_no = -1;
         if ($#{$na} > -1) {
             foreach my $i (@$na) {
+                $$i{rb_la} = $$i{article_no} - 1; # "unread from here"
                 $$i{title} = $q->escapeHTML($$i{title}); 
                 $$i{body} = $xb->format_article(-body=>$$i{body}, -article=>$i);
                 $$i{is_owner} = $$i{uid} == $uid ? 1 : 0;
@@ -333,6 +358,7 @@ if ($allow_read and ( $la or $lc ) and $uid ) {
         my @new_comments;
         my %read_article;
         foreach my $c (@$new_comments) {
+            $$c{rb_lc} = $$c{comment_no} - 1 if $$c{comment_no};
             $max_comment_no = $$c{comment_no} 
                 if( $max_comment_no < ($$c{comment_no} || -1));
 

@@ -829,7 +829,10 @@ sub get_new_articles {
               FROM $TBL{head} as a, $TBL{body} as b 
               WHERE a.board_id=? && a.article_no > ? && 
                     a.article_id=b.article_id );
-    $sql2 .= "limit $arg{-max_article_count}" if $arg{-max_article_count};
+    # ORDER BY: without it LIMIT may return any 15, and the bookmark then
+    # jumps past the unread articles that were not returned
+    $sql2 .= " ORDER BY a.article_no";
+    $sql2 .= " limit $arg{-max_article_count}" if $arg{-max_article_count};
 
     my $rv = $DBH->selectall_hashref($sql2, 'article_no', undef, $bid, $ano);
     my @rv = map { ${$rv}{$_} } sort { $a <=> $b } keys %$rv;
@@ -1853,8 +1856,10 @@ sub set_bookmark {
     my ($self, %arg) = @_;
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
-    my $a_no = $arg{-article_no} || $self->{max_article_no}; 
-    my $c_no = $arg{-comment_no} || $self->{max_comment_no}; 
+    # an explicit 0 is a real position (rollback to "nothing read");
+    # only an omitted value means "mark all read"
+    my $a_no = defined $arg{-article_no} ? $arg{-article_no} : $self->{max_article_no};
+    my $c_no = defined $arg{-comment_no} ? $arg{-comment_no} : $self->{max_comment_no};
     my $sql = qq(UPDATE $TBL{bookmark} SET article_no=?, comment_no=? 
                  WHERE board_id=? && uid=?);
     my $rv = $DBH->do($sql, undef, $a_no, $c_no, $arg{-board_id}, $arg{-uid});
@@ -1877,9 +1882,11 @@ sub set_comment_bookmark {
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
     my $comment_no = $arg{-last_comment_no} || $self->{max_comment_no}; 
+    # forward only: reading never moves the bookmark back (rollback and
+    # reset go through set_bookmark)
     my $sql = qq(UPDATE $TBL{bookmark} SET comment_no=? 
-                 WHERE board_id=? && uid=?);
-    my $rv = $DBH->do($sql, undef, $comment_no, $arg{-board_id}, $arg{-uid});
+                 WHERE board_id=? && uid=? && comment_no < ?);
+    my $rv = $DBH->do($sql, undef, $comment_no, $arg{-board_id}, $arg{-uid}, $comment_no);
     return $rv;
 }
 
@@ -1888,9 +1895,10 @@ sub set_article_bookmark {
     return unless (exists $arg{-board_id} && exists $arg{-uid});
 
     my $article_no = $arg{-article_no} || $self->{max_article_no}; 
+    # forward only, as set_comment_bookmark
     my $sql = qq(UPDATE $TBL{bookmark} SET article_no=? 
-                 WHERE board_id=? && uid=?);
-    my $rv = $DBH->do($sql, undef, $article_no, $arg{-board_id}, $arg{-uid});
+                 WHERE board_id=? && uid=? && article_no < ?);
+    my $rv = $DBH->do($sql, undef, $article_no, $arg{-board_id}, $arg{-uid}, $article_no);
     return $rv;
 }
 

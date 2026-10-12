@@ -32,6 +32,7 @@ use vars qw( %Lexicon );
     'T_SCRAPPED' => 'Scrapped',
     'T_SCRAPBOOK' => 'Scrapbook',
     'T_RESET' => 'Reset',
+    'T_UNREADHERE' => 'Unread from here',
     'T_NEWARTICLES' => 'New Articles',
     'T_TITLE' => 'Title',
     'T_BODY' => 'Body',
