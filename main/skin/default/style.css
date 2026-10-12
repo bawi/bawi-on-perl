@@ -466,6 +466,7 @@ ul.comment li.author  { font-size: 0.9em; }
 ul.comment li.author  { width: 100px; text-align: left  ; white-space: nowrap; }
 ul.comment li.body    { width: 450px; white-space: normal; text-align: justify; }
 ul.comment li.created { width: 50px; font-size: 0.8em; text-align: right ; line-height: 100%; }
+ul.comment li.created a.unread-here { font-size: 1.3em; text-decoration: none; }
 ul.comment li.delete  { font-size: 0.8em; text-align: center; white-space: nowrap; }
 ul.comment li.delete  { line-height: 100%; color: #aaa; width: 6px; }
 
