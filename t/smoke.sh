@@ -51,6 +51,11 @@
 #      and thread view offers no rollback link (it used to be a reset);
 #      per-article / per-comment "unread from here" move one position
 #      back (never forward), including article 1 and comment 1 (= 0)
+#   9  write race + search injection: concurrent posts to one board all
+#      land, each body under its OWN header, counters advance exactly
+#      (article_no was allocated from a pre-lock read); a search keyword
+#      holding \' or LIKE metacharacters is bound literally, and a
+#      non-whitelisted f= is neither queried nor reflected
 #
 # Conventions: POSIX sh + curl + docker compose only. fetch/login mutate
 # current-shell state ($CODE, $JAR) and abort via fail() -- call them bare,
@@ -64,7 +69,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=77
+EXPECTED=82
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -1096,6 +1101,78 @@ bmis "15/1" "a 0/0 bookmark link still reads the new articles"
 setbm 2 0
 fetch "$J2" "$BASE/board/read.cgi?bid=$BMB;a=rb"
 bmis "20/3" "reset still marks the board read"
+
+# ================================================ tier 9: write race + search
+login tester02; J2=$JAR
+RB=2
+before=$(db "SELECT CONCAT(articles,'/',max_article_no) FROM bw_xboard_board WHERE board_id=$RB") || exit 1
+# 10 clients x 5 posts at once. Raw curl (not fetch: fetch is stateful and
+# not background-safe); read-only cookie (-b) so the jar is never rewritten.
+race="race-$$"
+c=1
+while [ "$c" -le 10 ]; do
+    (
+        k=1
+        while [ "$k" -le 5 ]; do
+            curl -sS -b "$J2" -o /dev/null -w '%{http_code}\n' "$BASE/board/write.cgi" \
+                 --data-urlencode "bid=$RB" \
+                 --data-urlencode "title=$race-$c-$k" \
+                 --data-urlencode "body=race body $race-$c-$k" >> "$TMP/race.$c"
+            k=$((k+1))
+        done
+    ) &
+    c=$((c+1))
+done
+wait
+codes=$(cat "$TMP"/race.* | sort | uniq -c | tr -s ' ' | sed 's/^ //')
+[ "$codes" = "50 302" ] || fail "concurrent posts: expected 50 x 302, got: $codes"
+got=$(db "SELECT CONCAT(COUNT(*),'/',COUNT(DISTINCT article_no)) FROM bw_xboard_header WHERE board_id=$RB AND title LIKE '$race-%'") || exit 1
+[ "$got" = "50/50" ] || fail "concurrent posts: expected 50 headers with distinct article_no, got $got"
+ok "50 concurrent posts all land with distinct article numbers"
+
+got=$(db "SELECT COUNT(*) FROM bw_xboard_header h JOIN bw_xboard_body b ON b.article_id=h.article_id AND b.board_id=h.board_id WHERE h.board_id=$RB AND h.title LIKE '$race-%' AND b.body=CONCAT('race body ', h.title)") || exit 1
+[ "$got" = "50" ] || fail "concurrent posts: only $got of 50 bodies sit under their own header"
+after=$(db "SELECT CONCAT(articles,'/',max_article_no) FROM bw_xboard_board WHERE board_id=$RB") || exit 1
+mx=$(db "SELECT MAX(article_no) FROM bw_xboard_header WHERE board_id=$RB") || exit 1
+ba=${before%/*}; bm=${before#*/}; aa=${after%/*}; am=${after#*/}
+[ $((aa - ba)) -eq 50 ] && [ $((am - bm)) -eq 50 ] && [ "$am" = "$mx" ] \
+    || fail "board counters drifted: before $before, after $after, MAX(article_no) $mx"
+ok "each body under its own header; articles/max_article_no advance by exactly 50"
+
+# search: keyword with \' (the old escape left the backslash, which then
+# escaped the escape and closed the string literal) -- bound literally now
+fetch "$J2" "$BASE/board/write.cgi" --data-urlencode "bid=$RB" \
+      --data-urlencode "title=srch-$$ back\\'slash" --data-urlencode "body=search smoke"
+[ "$CODE" = "302" ] || fail "search seed post: HTTP $CODE"
+qaid=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$RB AND title='srch-$$ back\\\\''slash'") || exit 1
+[ -n "$qaid" ] || fail "search seed article (backslash-quote title) not stored"
+fetch "$J2" "$BASE/board/read.cgi" -G --data-urlencode "bid=$RB" \
+      --data-urlencode "k=back\\'slash" --data-urlencode "f=title"
+[ "$CODE" = "200" ] && has "aid=$qaid;" || fail "keyword back\\'slash did not find its article (aid $qaid)"
+ok "search keyword holding \\' is bound literally and finds its article"
+
+for t in "srch-$$ 50%_off" "srch-$$ 50xyoff"; do
+    fetch "$J2" "$BASE/board/write.cgi" --data-urlencode "bid=$RB" \
+          --data-urlencode "title=$t" --data-urlencode "body=search smoke"
+    [ "$CODE" = "302" ] || fail "search seed post '$t': HTTP $CODE"
+done
+pa=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$RB AND title='srch-$$ 50%_off'") || exit 1
+pb=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$RB AND title='srch-$$ 50xyoff'") || exit 1
+fetch "$J2" "$BASE/board/read.cgi" -G --data-urlencode "bid=$RB" \
+      --data-urlencode "k=50%_off" --data-urlencode "f=title"
+has "aid=$pa;" || fail "k=50%_off did not find the literal title (aid $pa)"
+has "aid=$pb;" && fail "k=50%_off matched 50xyoff: % and _ not escaped"
+fetch "$J2" "$BASE/board/read.cgi" -G --data-urlencode "bid=$RB" \
+      --data-urlencode "k=srch-$$" --data-urlencode "f=title"
+has "aid=$pa;" && has "aid=$pb;" && has "aid=$qaid;" || fail "plain title search lost results"
+ok "LIKE metacharacters match literally; a plain search still finds all"
+
+fetch "$J2" "$BASE/board/read.cgi" -G --data-urlencode "bid=$RB" \
+      --data-urlencode "k=srch-$$" --data-urlencode "f=title<i>x"
+[ "$CODE" = "200" ] || fail "non-whitelisted field: HTTP $CODE"
+has 'f=title<i>x' && fail "non-whitelisted f= reflected into the page"
+has "aid=$pa;" || fail "non-whitelisted f= did not fall back to the plain list"
+ok "search field must be exactly title|id|name (no query, no reflection)"
 
 [ "$N" -eq "$EXPECTED" ] || fail "ran $N of $EXPECTED checks -- a check was skipped or removed without updating EXPECTED"
 echo "all $N checks passed"
