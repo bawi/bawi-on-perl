@@ -53,7 +53,10 @@
 #      back (never forward), including article 1 and comment 1 (= 0)
 #   9  write race + search injection: concurrent posts to one board all
 #      land, each body under its OWN header, counters advance exactly
-#      (article_no was allocated from a pre-lock read); a search keyword
+#      (article_no was allocated from a pre-lock read); concurrent comments
+#      likewise (comment_no, commentref self-row, comments/max_comment_no),
+#      and a burst of identical double-submits stores one comment and
+#      sends one mention note; a search keyword
 #      holding \' or LIKE metacharacters is bound literally, and a
 #      non-whitelisted f= is neither queried nor reflected
 #
@@ -69,7 +72,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-EXPECTED=82
+EXPECTED=84
 PASS='test1234'
 CANARY_ARTICLE='CANARY-ARTICLE-b7a2f9'
 CANARY_TITLE='CANARY-TITLE-c7d4e2'
@@ -1138,6 +1141,56 @@ ba=${before%/*}; bm=${before#*/}; aa=${after%/*}; am=${after#*/}
 [ $((aa - ba)) -eq 50 ] && [ $((am - bm)) -eq 50 ] && [ "$am" = "$mx" ] \
     || fail "board counters drifted: before $before, after $after, MAX(article_no) $mx"
 ok "each body under its own header; articles/max_article_no advance by exactly 50"
+
+# comments: 10 clients x 5 comments on one article, same pattern
+caid=$(db "SELECT article_id FROM bw_xboard_header WHERE board_id=$RB AND title='$race-1-1'") || exit 1
+cbefore=$(db "SELECT CONCAT(h.comments,'/',b.max_comment_no) FROM bw_xboard_header h JOIN bw_xboard_board b ON b.board_id=h.board_id WHERE h.article_id=$caid") || exit 1
+c=1
+while [ "$c" -le 10 ]; do
+    (
+        k=1
+        while [ "$k" -le 5 ]; do
+            curl -sS -b "$J2" -o /dev/null -w '%{http_code}\n' "$BASE/board/comment.cgi" \
+                 --data-urlencode "action=add" --data-urlencode "bid=$RB" \
+                 --data-urlencode "aid=$caid" \
+                 --data-urlencode "body=crace $race-$c-$k" >> "$TMP/crace.$c"
+            k=$((k+1))
+        done
+    ) &
+    c=$((c+1))
+done
+wait
+codes=$(cat "$TMP"/crace.* | sort | uniq -c | tr -s ' ' | sed 's/^ //')
+[ "$codes" = "50 302" ] || fail "concurrent comments: expected 50 x 302, got: $codes"
+got=$(db "SELECT CONCAT(COUNT(*),'/',COUNT(DISTINCT c.comment_no),'/',COUNT(r.commentref_id)) FROM bw_xboard_comment c LEFT JOIN bw_xboard_commentref r ON r.comment_id=c.comment_id AND r.ref_id=c.comment_id AND r.comment_no=c.comment_no WHERE c.article_id=$caid AND c.body LIKE 'crace $race-%'") || exit 1
+[ "$got" = "50/50/50" ] || fail "concurrent comments: expected 50 rows/distinct comment_no/self-refs, got $got"
+cafter=$(db "SELECT CONCAT(h.comments,'/',b.max_comment_no) FROM bw_xboard_header h JOIN bw_xboard_board b ON b.board_id=h.board_id WHERE h.article_id=$caid") || exit 1
+cmx=$(db "SELECT MAX(comment_no) FROM bw_xboard_comment WHERE board_id=$RB") || exit 1
+hb=${cbefore%/*}; ha=${cafter%/*}; cm=${cafter#*/}
+[ $((ha - hb)) -eq 50 ] && [ "$cm" = "$cmx" ] \
+    || fail "comment counters drifted: before $cbefore, after $cafter, MAX(comment_no) $cmx"
+ok "50 concurrent comments land with distinct numbers, self-refs and exact counters"
+
+# double submit: 8 identical comments at once (same user, @mention) must
+# store one comment and send one note -- the duplicate check and the
+# insert are now one critical section, and a duplicate does not notify
+d=1
+while [ "$d" -le 8 ]; do
+    curl -sS -b "$J2" -o /dev/null "$BASE/board/comment.cgi" \
+         --data-urlencode "action=add" --data-urlencode "bid=$RB" \
+         --data-urlencode "aid=$caid" \
+         --data-urlencode "body=dup @tester05 $race" &
+    d=$((d+1))
+done
+wait
+got=$(db "SELECT COUNT(*) FROM bw_xboard_comment WHERE article_id=$caid AND body='dup @tester05 $race'") || exit 1
+[ "$got" = "1" ] || fail "double submit stored $got comments (expected 1)"
+dno=$(db "SELECT comment_no FROM bw_xboard_comment WHERE article_id=$caid AND body='dup @tester05 $race'") || exit 1
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND msg LIKE '%aid=$caid#c%'") || exit 1
+[ "$got" = "1" ] || fail "double submit sent $got mention notes (expected 1)"
+got=$(db "SELECT COUNT(*) FROM bw_note WHERE to_id='tester05' AND from_id='tester02' AND msg LIKE '%aid=$caid#c$dno'") || exit 1
+[ "$got" = "1" ] || fail "mention note does not point at the stored comment #c$dno"
+ok "8 simultaneous double-submits store one comment and send one mention note"
 
 # search: keyword with \' (the old escape left the backslash, which then
 # escaped the escape and closed the string literal) -- bound literally now
