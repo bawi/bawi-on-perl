@@ -145,6 +145,12 @@ if ($allow_write && $bid) {
                                        -uid         =>$uid,
                                        -id          =>$id,
                                        -name        =>$name);
+        unless ($article_id) {
+            # the save failed (nothing was stored): keep the text, say so
+            $t->param(title=> $q->escapeHTML($ftitle));
+            $t->param(body=> $q->escapeHTML($fbody));
+            $ui->msg(qq(Failed to save the article. Please try again.));
+        }
     } elsif ($ftitle) {
         $t->param(title=> $q->escapeHTML($ftitle));
         $ui->msg(qq(Body is missing.));

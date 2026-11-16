@@ -39,6 +39,7 @@ $bid = 0 unless (defined $bid && $bid =~ /^\d+$/);
 $p = 0 unless ($p && $p =~ /^\d+$/);
 $la = 0 unless ($la && $la =~ /^\d+$/); # sanitation check for la, lc parameters
 $lc = 0 unless ($lc && $lc =~ /^\d+$/);
+$field = undef unless ($field && $field =~ /^(?:title|id|name)$/); # search column whitelist
 
 my $xb = new Bawi::Board(-board_id     => $bid, 
                           -img          => $img, 
