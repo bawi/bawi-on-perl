@@ -528,12 +528,20 @@ sub get_articlelist {
     my $field = $arg{-field} || '';
     my $search_select = '';
     my $search_where = '';
-    if ($keyword && $field && $field =~ /title|id|name/) {
-        $keyword = &sql_search_pattern_escape($keyword); 
-        $search_select = qq(, '$keyword' as keyword, '$field' as field);
-        $search_where = qq(&& $field like '\%$keyword\%');
+    my (@select_bind, @where_bind);
+    # $field is interpolated as a column name: exact whitelist only. The
+    # keyword is always bound, never interpolated.
+    if ($keyword && $field && $field =~ /^(?:title|id|name)$/) {
+        $keyword = &sql_like_escape($keyword); 
+        $search_select = qq(, ? as keyword, ? as field);
+        @select_bind = ($keyword, $field);
+        $search_where = qq(&& $field like ?);
+        @where_bind = ("%$keyword%");
     }
-    $search_where = '' if ($self->is_anonboard && $field ne 'title');
+    if ($self->is_anonboard && $field ne 'title') {
+        $search_where = '';
+        @where_bind = ();
+    }
 
     my $sql = qq(SELECT board_id, article_no, parent_no, article_id, thread_no, 
                         REPLACE(title, '<', '&lt;') as title, uid, id, name, 
@@ -552,7 +560,8 @@ sub get_articlelist {
                  FROM $TBL{head} 
                  WHERE board_id=$bid $search_where
                  ORDER BY article_no DESC limit $start, $article_per_page);
-    my $rv = $DBH->selectall_hashref($sql, 'article_no');
+    my $rv = $DBH->selectall_hashref($sql, 'article_no', undef,
+                                     @select_bind, @where_bind);
     my $formated = &format_article_list($rv);
 
     undef $rv;
@@ -933,7 +942,18 @@ sub add_article {
     my $sql = qq(LOCK TABLES $TBL{head} WRITE, $TBL{body} WRITE, 
                              $TBL{board} WRITE, $TBL{bookmark} WRITE);
     my $rv = $DBH->do($sql);
-    my $article_no = $self->{max_article_no} + 1; 
+    return unless $rv;
+    # Re-read the counter INSIDE the lock: $self->{max_article_no} was read
+    # when the board object was built, before any concurrent post committed,
+    # so using it here hands two writers the same article_no. Every write
+    # below is checked; on failure the rows inserted so far are removed and
+    # undef is returned, so no body/attachment lands under a stale id.
+    my $max_no = &get_max_article_no(board_id => $arg{-board_id});
+    unless (defined $max_no) {
+        $DBH->do(qq(UNLOCK TABLES));
+        return;
+    }
+    my $article_no = $max_no + 1; 
     my $parent_no = $arg{-parent_no} || $article_no;
     my $thread_no = $arg{-thread_no} || &get_next_thread_no($arg{-board_id});
     my $markup = $arg{-markup} || 0;
@@ -948,12 +968,31 @@ sub add_article {
                                 $arg{-uid},
                                 $arg{-id},
                                 $arg{-name});
+    unless (($rv || 0) == 1) {
+        $DBH->do(qq(UNLOCK TABLES));
+        return;
+    }
     $sql = qq(SELECT LAST_INSERT_ID());
     my $aid = $DBH->selectrow_array($sql);
+    unless ($aid) {
+        $DBH->do(qq(UNLOCK TABLES));
+        return;
+    }
     $sql = qq(INSERT INTO $TBL{body} (article_id, board_id, body) 
-              VALUES (LAST_INSERT_ID(), ?, ?));
-    $rv = $DBH->do($sql, undef, $arg{-board_id}, $arg{-body});
-    &add_article_count($arg{-board_id});
+              VALUES (?, ?, ?));
+    $rv = $DBH->do($sql, undef, $aid, $arg{-board_id}, $arg{-body});
+    unless (($rv || 0) == 1) {
+        $DBH->do(qq(DELETE FROM $TBL{head} WHERE article_id=?), undef, $aid);
+        $DBH->do(qq(UNLOCK TABLES));
+        return;
+    }
+    $rv = &add_article_count($arg{-board_id});
+    unless (($rv || 0) == 1) {
+        $DBH->do(qq(DELETE FROM $TBL{body} WHERE article_id=?), undef, $aid);
+        $DBH->do(qq(DELETE FROM $TBL{head} WHERE article_id=?), undef, $aid);
+        $DBH->do(qq(UNLOCK TABLES));
+        return;
+    }
     my $bm = $self->get_bookmark(-board_id=>$arg{-board_id}, 
                                  -uid=>$arg{-uid});
     if ($bm->{article_no} && $article_no == $bm->{article_no} + 1) {
@@ -1352,8 +1391,23 @@ sub add_comment {
                          exists $arg{-name}
                         );
 
+    # Numbering, the duplicate check and every write below run under one
+    # table lock: $self->{max_comment_no} was read when the board object was
+    # built, so concurrent comments used to get the same comment_no and the
+    # losing INSERT was ignored. The aliased locks are for the a/b self-join
+    # in the reference insert below (LOCK TABLES needs each alias locked).
+    # Returns the comment_no (undef on failure); in list context also
+    # whether it was a duplicate of the poster's comment from the last
+    # minute (nothing inserted), so callers can skip side effects.
+    my $sql = qq(LOCK TABLES $TBL{head} WRITE, $TBL{board} WRITE,
+                             $TBL{bookmark} WRITE, $TBL{comment} WRITE,
+                             $TBL{comment} AS a READ, $TBL{comment} AS b READ,
+                             $TBL{commentref} WRITE);
+    my $rv = $DBH->do($sql);
+    return undef unless $rv;
+
     # Check whether the comment body is the same for the last one
-    my $query_sql = qq(SELECT body FROM $TBL{comment}
+    my $query_sql = qq(SELECT comment_no FROM $TBL{comment}
                  WHERE board_id=? && article_id=? && id=? && body=? && created > NOW() - INTERVAL 1 MINUTE order by created desc limit 1);
 
     my $query_rv = $DBH->selectrow_hashref($query_sql, undef, $arg{-board_id}, 
@@ -1364,14 +1418,27 @@ sub add_comment {
     if ($query_rv) {
         # duplicate record exist for the particular board_id, article_id, id
         # do not insert duplicate
-        return $self->{max_comment_no};
+        $DBH->do(qq(UNLOCK TABLES));
+        return wantarray ? ($query_rv->{comment_no}, 1) : $query_rv->{comment_no};
     }
 
-    my $comment_no = $self->{max_comment_no} + 1;
-    my $sql = qq(INSERT INTO $TBL{comment} 
+    # counter, but never below a stored number: del_comment resets the
+    # counter to MAX(comment_no) without this lock and can leave it behind
+    my ($max_no) = $DBH->selectrow_array(
+        qq(SELECT GREATEST(max_comment_no,
+                           (SELECT IFNULL(MAX(comment_no), 0) FROM $TBL{comment}
+                            WHERE board_id=?))
+           FROM $TBL{board} WHERE board_id=?), undef,
+        $arg{-board_id}, $arg{-board_id});
+    unless (defined $max_no) {
+        $DBH->do(qq(UNLOCK TABLES));
+        return undef;
+    }
+    my $comment_no = $max_no + 1;
+    $sql = qq(INSERT INTO $TBL{comment} 
                  (comment_no, board_id, article_id, body, uid, id, name, created)
                  VALUES (?, ?, ?, ?, ?, ?, ?, now() ) );
-    my $rv = $DBH->do($sql, undef, $comment_no,
+    $rv = $DBH->do($sql, undef, $comment_no,
                                    $arg{-board_id},
                                    $arg{-article_id},
                                    $arg{-body},
@@ -1379,6 +1446,18 @@ sub add_comment {
                                    $arg{-id},
                                    $arg{-name},
                      );
+    unless (($rv || 0) == 1) {
+        $DBH->do(qq(UNLOCK TABLES));
+        return undef;
+    }
+    my $cid = $DBH->selectrow_array(qq(SELECT LAST_INSERT_ID()));
+    my $abort = sub {
+        $DBH->do(qq(DELETE FROM $TBL{commentref} WHERE comment_id=?), undef, $cid);
+        $DBH->do(qq(DELETE FROM $TBL{comment} WHERE comment_id=?), undef, $cid);
+        $DBH->do(qq(UNLOCK TABLES));
+        return undef;
+    };
+    return $abort->() unless $cid;
 
     # parse the body to find out potential comment_no to insert
     # this needs to be concurrent with the previous sql
@@ -1396,6 +1475,7 @@ sub add_comment {
               FROM $TBL{comment}
               WHERE board_id=? && comment_no=? );
     my $rv2 = $DBH->do($sql, undef, $arg{-board_id}, $comment_no);
+    return $abort->() unless (($rv2 || 0) == 1);
 
     # split all and iterate
     # my @reference_comment_no = $arg{-body} =~ m/#([0-9]+)/g;
@@ -1420,9 +1500,11 @@ sub add_comment {
                                  $comment_no,
                                  $cn
                         );
+         return $abort->() unless defined $rv2; # 0 rows (no such #N) is fine
     }
 
-    &add_comment_count($arg{-article_id}, $arg{-board_id}) if $rv;
+    return $abort->()
+        unless &add_comment_count($arg{-article_id}, $arg{-board_id}, $comment_no);
     my $bm = $self->get_bookmark(-board_id=>$arg{-board_id}, 
                                  -uid=>$arg{-uid});
     if ($bm->{comment_no} && $comment_no == $bm->{comment_no} + 1) {
@@ -1431,7 +1513,8 @@ sub add_comment {
                                     -uid=>$arg{-uid});
     }
 
-    return $comment_no;
+    $DBH->do(qq(UNLOCK TABLES));
+    return wantarray ? ($comment_no, 0) : $comment_no;
 }
 
 sub edit_comment {
@@ -3032,7 +3115,7 @@ sub init_board {
     my $rv = $DBH->selectrow_hashref($sql, undef, $bid);
     $$rv{img} = $img && $img eq '1' ? 1 : 0;
     my $articles;
-    if ($keyword && $field && $field =~ /title|name|id/) {
+    if ($keyword && $field && $field =~ /^(?:title|name|id)$/) {
         $articles = &searched_articles($bid, $keyword, $field);
     } elsif ($img && $img eq '1') {
         $articles = $$rv{images};
@@ -3061,11 +3144,12 @@ sub init_scrap_board {
 
 sub searched_articles {
     my ($bid, $keyword, $field) = @_;
-    $keyword = &sql_search_pattern_escape($keyword); 
+    return 0 unless ($field && $field =~ /^(?:title|name|id)$/);
+    $keyword = &sql_like_escape($keyword); 
     my $sql = qq(SELECT count(*) 
                  FROM $TBL{head}
-                 WHERE board_id=$bid && $field like '\%$keyword%');
-    my $rv = $DBH->selectrow_array($sql);
+                 WHERE board_id=? && $field like ?);
+    my $rv = $DBH->selectrow_array($sql, undef, $bid, "%$keyword%");
     if ($rv) { return $rv; } 
     else { return 0; }
 }
@@ -3074,6 +3158,15 @@ sub sql_search_pattern_escape {
     my $keyword = shift;
     my $esc = $DBH->get_info( 14 ); # SQL_SEARCH_PATTERN_ESCAPE
     $keyword =~ s/([_%'"\+\*\?])/$esc$1/g;
+    return $keyword;
+}
+
+# Escape LIKE metacharacters for a BOUND pattern (backslash is MariaDB's
+# default LIKE escape). Backslash itself must be escaped first; the old
+# sql_search_pattern_escape did not, so a trailing \ ate the closing quote.
+sub sql_like_escape {
+    my $keyword = shift;
+    $keyword =~ s/([\\%_])/\\$1/g;
     return $keyword;
 }
 
@@ -3094,15 +3187,19 @@ sub get_start {
     return $start;
 }
 
+# Called by add_comment under its table lock. Sets the board counter to
+# the number just used (it may have been behind, see add_comment); returns
+# true only if both rows were updated.
 sub add_comment_count {
-    my ($aid, $bid) = @_;
-    my $sql = qq(UPDATE $TBL{head} set comments=comments+1 WHERE article_id=?);
-    my $rv = $DBH->do($sql, undef, $aid);
-    $sql = qq(UPDATE $TBL{board} 
-              SET max_comment_no=max_comment_no+1 
+    my ($aid, $bid, $cno) = @_;
+    my $sql = qq(UPDATE $TBL{board} 
+              SET max_comment_no=? 
               WHERE board_id=?);
-    $rv = $DBH->do($sql, undef, $bid);
-    return $rv;
+    my $rv = $DBH->do($sql, undef, $cno, $bid);
+    return unless (($rv || 0) == 1);
+    $sql = qq(UPDATE $TBL{head} set comments=comments+1 WHERE article_id=?);
+    $rv = $DBH->do($sql, undef, $aid);
+    return (($rv || 0) == 1);
 }
 
 sub dec_comment_count {

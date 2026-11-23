@@ -100,11 +100,12 @@ if ($xb->board_id && $allow_comment) {
                 -id=>$id,
                 -name=>$name,
             );
-            my $rv = $xb->add_comment(%data);
+            my ($rv, $dup) = $xb->add_comment(%data);
             $redirect_position = "#c$rv" if $rv;
             # $auth->auth: guests set $name from the form -- never let a
-            # request-supplied identity author a note.
-            if ($rv && $auth->auth && !$xb->is_anonboard) {
+            # request-supplied identity author a note. A duplicate (double
+            # submit) inserted nothing, so it must not notify again.
+            if ($rv && !$dup && $auth->auth && !$xb->is_anonboard) {
                 require Bawi::Main::Note;
                 my $proto = $ENV{HTTPS} ? 'https' : 'http';
                 my $dir = $ENV{SCRIPT_NAME} || '';
